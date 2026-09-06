@@ -1,0 +1,2479 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage & Backup Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        storage: {
+                            blue: '#3b82f6',
+                            green: '#10b981',
+                            purple: '#8b5cf6',
+                            cyan: '#06b6d4',
+                            orange: '#f97316',
+                            red: '#ef4444',
+                            amber: '#f59e0b',
+                            dark: '#0f172a',
+                            panel: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        .slide {
+            display: none;
+            min-height: calc(100vh - 80px);
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .slide.active {
+            display: flex;
+            opacity: 1;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
+        }
+        .badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-purple { background: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .badge-cyan { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .badge-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 sticky top-0 z-50 px-4 md:px-8 flex items-center justify-between backdrop-blur">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-database text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-sm md:text-base font-bold text-slate-100 leading-tight">Storage & Backup Architecture</h1>
+                <p class="text-xs text-slate-400 hidden sm:block">Siri Tutorial Seni Bina Data & Infrastructure</p>
+            </div>
+        </div>
+
+        <!-- Jump to Slide Selector -->
+        <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-400 hidden lg:inline">Slide:</span>
+            <select id="slideSelect" onchange="goToSlide(parseInt(this.value))" class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500 max-w-[150px]">
+                <!-- Populated via JS -->
+            </select>
+            <button onclick="toggleFullscreen()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Mod Skrin Penuh">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+            <button onclick="toggleSlideListModal()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition lg:hidden" title="Menu Slide">
+                <i class="fa-solid fa-list-ol"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Top Progress Bar -->
+    <div class="w-full bg-slate-800 h-1">
+        <div id="progressBar" class="bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 h-1 transition-all duration-300 w-0"></div>
+    </div>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col justify-center">
+
+        <!-- SLIDE 1: Title -->
+        <div class="slide active flex-col justify-center items-center text-center space-y-8 py-12">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full badge-blue text-sm font-semibold mb-2">
+                <i class="fa-solid fa-layer-group"></i> Sambungan daripada CI/CD & Git
+            </div>
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400">
+                Storage & Backup Architecture
+            </h1>
+            <p class="text-xl md:text-2xl text-slate-300 font-medium max-w-3xl">
+                "Bagaimana Data Disimpan, Dilindungi dan Dipulihkan"
+            </p>
+
+            <!-- Flow Visual -->
+            <div class="w-full max-w-4xl glass-panel p-6 rounded-2xl my-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                    <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center">
+                        <i class="fa-solid fa-cubes text-3xl text-blue-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Application</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center">
+                        <i class="fa-solid fa-hard-drive text-3xl text-cyan-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Storage</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center">
+                        <i class="fa-solid fa-box-archive text-3xl text-emerald-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Backup</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col items-center">
+                        <i class="fa-solid fa-rotate-left text-3xl text-purple-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Recovery</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-l-4 border-amber-500 bg-amber-950/20 text-amber-200 rounded-r-xl max-w-2xl text-left">
+                <p class="text-lg font-semibold italic">"Server boleh diganti. Data tidak semestinya boleh."</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 2: Kenapa Storage Penting? -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 2</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kenapa Storage Penting?</h2>
+            </div>
+            <p class="text-slate-300">Aplikasi moden sentiasa menghasilkan dan memproses data. Tanpa storage yang betul, state aplikasi akan hilang apabila container/server terhenti.</p>
+            
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-cyan-400"><i class="fa-solid fa-file-invoice mb-2"></i> Data yang Disimpan oleh Aplikasi:</h3>
+                    <ul class="space-y-2 text-slate-300 text-sm">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Users & Profil Akaun</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Photos & Media Uploads</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Documents & Fail Pengguna</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Databases (SQL / NoSQL)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> System & Access Logs</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Configuration Files</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Automated Backups</li>
+                    </ul>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl flex flex-col justify-center items-center text-center space-y-4">
+                    <div class="w-full space-y-3">
+                        <div class="p-3 bg-blue-900/30 border border-blue-500/30 rounded-xl font-mono text-sm text-blue-300">Application (Stateless / Code)</div>
+                        <i class="fa-solid fa-arrow-down text-slate-500"></i>
+                        <div class="p-3 bg-cyan-900/30 border border-cyan-500/30 rounded-xl font-mono text-sm text-cyan-300">Data (Stateful Payload)</div>
+                        <i class="fa-solid fa-arrow-down text-slate-500"></i>
+                        <div class="p-3 bg-emerald-900/30 border border-emerald-500/30 rounded-xl font-mono text-sm text-emerald-300">Storage System (Physical / Volume)</div>
+                    </div>
+                    <div class="p-3 bg-red-950/40 border border-red-500/30 rounded-xl text-red-300 text-xs text-left w-full mt-2">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>Peringatan Kebolehan:</strong> Jika storage gagal, application mungkin masih hidup (code tetap berjalan), tetapi perniagaan terhenti kerana data hilang!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 3: Storage vs Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 3</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Perbezaan Asas: Storage vs Backup</h2>
+            </div>
+            <p class="text-slate-300">Dua istilah ini kerap dicampur adak, namun peranan dan cirinya bertentangan secara fundamental.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl border-t-4 border-blue-500 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-blue-400">STORAGE</h3>
+                        <i class="fa-solid fa-hard-drive text-2xl text-blue-400"></i>
+                    </div>
+                    <p class="text-sm text-slate-300 font-medium">"Tempat data sedang AKTIF digunakan oleh sistem."</p>
+                    <div class="bg-slate-900/60 p-4 rounded-xl text-xs space-y-2 text-slate-300">
+                        <p><strong>Fokus:</strong> Performance, Low Latency, High IOPS.</p>
+                        <p><strong>Operasi:</strong> Read & Write berterusan oleh aplikasi.</p>
+                        <p><strong>Contoh:</strong> Database yang dipasang pada SSD server (`/var/lib/postgresql/data`).</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border-t-4 border-emerald-500 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-emerald-400">BACKUP</h3>
+                        <i class="fa-solid fa-box-archive text-2xl text-emerald-400"></i>
+                    </div>
+                    <p class="text-sm text-slate-300 font-medium">"SALINAN data berasingan khusus untuk pemulihan (Recovery)."</p>
+                    <div class="bg-slate-900/60 p-4 rounded-xl text-xs space-y-2 text-slate-300">
+                        <p><strong>Fokus:</strong> Safety, Retention, Isolation, Encryption.</p>
+                        <p><strong>Operasi:</strong> Writable secara terjadual, read hanya semasa disaster/test.</p>
+                        <p><strong>Contoh:</strong> Fail `.tar.gz` atau Restic repository yang disalin ke NAS / Cloud Object Storage.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conceptual Card -->
+            <div class="glass-card p-4 rounded-xl flex items-center justify-between font-mono text-xs md:text-sm">
+                <div class="text-blue-300">Database <i class="fa-solid fa-arrow-right mx-1"></i> NVMe SSD = <span class="text-white font-bold">STORAGE</span></div>
+                <div class="text-slate-500">vs</div>
+                <div class="text-emerald-300">Database Dump <i class="fa-solid fa-arrow-right mx-1"></i> External/Offsite Drive = <span class="text-white font-bold">BACKUP</span></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 4: Storage Layers -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 4</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Storage Layers Architecture</h2>
+            </div>
+            <p class="text-slate-300">Data bergerak melalui pelbagai lapisan daripada perkakas fizikal sehingga ke aplikasi.</p>
+
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-2">
+                    <div class="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl flex items-center justify-between">
+                        <span class="font-semibold text-indigo-300 text-sm">Application Layer</span>
+                        <span class="text-xs text-slate-400">Docker App / Postgres</span>
+                    </div>
+                    <div class="text-center text-slate-600 text-xs"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl flex items-center justify-between">
+                        <span class="font-semibold text-blue-300 text-sm">Filesystem Layer</span>
+                        <span class="text-xs text-slate-400">ext4 / XFS / Btrfs</span>
+                    </div>
+                    <div class="text-center text-slate-600 text-xs"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="p-3 bg-cyan-950/40 border border-cyan-500/30 rounded-xl flex items-center justify-between">
+                        <span class="font-semibold text-cyan-300 text-sm">Volume Layer</span>
+                        <span class="text-xs text-slate-400">Docker Volume / Partition</span>
+                    </div>
+                    <div class="text-center text-slate-600 text-xs"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="p-3 bg-teal-950/40 border border-teal-500/30 rounded-xl flex items-center justify-between">
+                        <span class="font-semibold text-teal-300 text-sm">Block Device Layer</span>
+                        <span class="text-xs text-slate-400">/dev/sda / /dev/nvme0n1</span>
+                    </div>
+                    <div class="text-center text-slate-600 text-xs"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-between">
+                        <span class="font-semibold text-emerald-300 text-sm">Physical Controller / Media</span>
+                        <span class="text-xs text-slate-400">NVMe Controller / Flash NAND</span>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-cyan-400">Penerangan Lapisan:</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Aplikasi tidak menulis data terus ke kepingan silikon. Ia berhubung dengan <strong>Filesystem</strong> yang menstrukturkan bait kepada fail. Filesystem dipasang pada <strong>Volume/Partition</strong> yang mengambil raw blocks daripada <strong>Block Device</strong>, yang diuruskan oleh pengawal hardware <strong>SSD/HDD</strong>.
+                    </p>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs font-mono text-slate-400">
+                        PENTING: Kegagalan boleh berlaku pada mana-mana satu lapisan ini!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 5: HDD vs SSD -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 5</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">HDD vs SSD Architecture</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-amber-400">HDD (Hard Disk Drive)</h3>
+                        <i class="fa-solid fa-compact-disc text-3xl text-amber-400"></i>
+                    </div>
+                    <ul class="space-y-2 text-xs text-slate-300">
+                        <li><i class="fa-solid fa-gear mr-2 text-amber-400"></i> Component fizikal bergerak (Mekanikal, Platter & Read/Write head).</li>
+                        <li><i class="fa-solid fa-dollar-sign mr-2 text-emerald-400"></i> Sangat murah mengikut kapasiti per-TB.</li>
+                        <li><i class="fa-solid fa-box-archive mr-2 text-blue-400"></i> Sesuai untuk Bulk Storage, Archives, Video Media Server.</li>
+                        <li><i class="fa-solid fa-triangle-exclamation mr-2 text-red-400"></i> Slow random access (High Latency due to seek time).</li>
+                    </ul>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-cyan-400">SSD (Solid State Drive)</h3>
+                        <i class="fa-solid fa-microchip text-3xl text-cyan-400"></i>
+                    </div>
+                    <ul class="space-y-2 text-xs text-slate-300">
+                        <li><i class="fa-solid fa-bolt mr-2 text-cyan-400"></i> Memory Flash NAND (Tiada komponen fizikal bergerak).</li>
+                        <li><i class="fa-solid fa-tachograph-digital mr-2 text-emerald-400"></i> Extremely fast random access (Ultra low latency).</li>
+                        <li><i class="fa-solid fa-database mr-2 text-blue-400"></i> Ideal untuk Databases, OS Drive, Container Runtime.</li>
+                        <li><i class="fa-solid fa-coins mr-2 text-amber-400"></i> Harga lebih tinggi per-TB berbanding HDD.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-300">
+                <strong>Prinsip Reka Bentuk:</strong> SSD tidak sentiasa jawapan untuk semua workload. Gunakan <strong>SSD</strong> untuk performance-critical data (Databases) dan <strong>HDD</strong> untuk kapasiti besar (Backups, Cold Storage).
+            </div>
+        </div>
+
+        <!-- SLIDE 6: Storage Capacity -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 6</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Storage Capacity vs Performance</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-700 flex justify-around text-center">
+                        <div>
+                            <p class="text-xs text-slate-400">Standard NAS Drive</p>
+                            <p class="text-2xl font-bold text-amber-400">16 TB</p>
+                            <p class="text-xs text-slate-500">HDD (7200 RPM)</p>
+                        </div>
+                        <div class="border-r border-slate-700"></div>
+                        <div>
+                            <p class="text-xs text-slate-400">NVMe OS Drive</p>
+                            <p class="text-2xl font-bold text-cyan-400">1 TB</p>
+                            <p class="text-xs text-slate-500">PCIe Gen4 SSD</p>
+                        </div>
+                    </div>
+                    <div class="space-y-2 text-xs text-slate-300">
+                        <p class="text-amber-300 font-semibold"><i class="fa-solid fa-circle-exclamation mr-1"></i> Mitos: Storage besar tidak bermaksud storage laju!</p>
+                        <p>HDD 16TB mampu menyimpan bertan-tan fail backup, namun apabila dieksekusi query database PostgreSQL yang kompleks, latency boleh melonjak tinggi.</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-3">
+                    <h3 class="text-md font-bold text-white">Formula Metric Utama:</h3>
+                    <div class="p-3 bg-slate-900 rounded-xl">
+                        <p class="text-xs font-bold text-cyan-400">Capacity (Kapasiti)</p>
+                        <p class="text-xs text-slate-400">Berapa banyak data yang Boleh disetor (TB, PB).</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl">
+                        <p class="text-xs font-bold text-emerald-400">Throughput (Kadar Pemindahan)</p>
+                        <p class="text-xs text-slate-400">Berapa cepat data boleh dipindahkan secara berterusan (MB/s, GB/s).</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl">
+                        <p class="text-xs font-bold text-purple-400">IOPS (Input/Output Operations Per Second)</p>
+                        <p class="text-xs text-slate-400">Berapa banyak operasi kecil read/write boleh berlaku dalam 1 saat.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 7: IOPS & Throughput -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 7</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">IOPS vs Throughput</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-4 border-l-4 border-purple-500">
+                    <h3 class="text-lg font-bold text-purple-400"><i class="fa-solid fa-arrows-split-up-and-left mr-2"></i> IOPS (Random I/O)</h3>
+                    <p class="text-xs text-slate-300">Bilangan operasi baca/tulis saiz kecil (contoh: 4KB blocks) setiap saat.</p>
+                    <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-1">
+                        <p class="text-slate-400">Sangat Penting Untuk:</p>
+                        <p class="text-purple-300 font-semibold">• Database OLTP (PostgreSQL, MySQL)</p>
+                        <p class="text-purple-300 font-semibold">• Virtual Machine / Container Volumes</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-4 border-l-4 border-emerald-500">
+                    <h3 class="text-lg font-bold text-emerald-400"><i class="fa-solid fa-gauge-high mr-2"></i> Throughput (Sequential I/O)</h3>
+                    <p class="text-xs text-slate-300">Volume data keseluruhan yang boleh dipindahkan dalam satu julat masa (MB/s).</p>
+                    <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-1">
+                        <p class="text-slate-400">Sangat Penting Untuk:</p>
+                        <p class="text-emerald-300 font-semibold">• Large Backup Stream (.tar files)</p>
+                        <p class="text-emerald-300 font-semibold">• Video Streaming & Bulk Media Transfer</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 8: Latency Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 8</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Storage Latency Impact</h2>
+            </div>
+            
+            <p class="text-slate-300">Latency storage adalah masa yang diambil oleh perkakas storage untuk membalas permintaan I/O tunggal.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30">
+                        <div class="flex items-center justify-between text-emerald-400 font-bold mb-2">
+                            <span>NVMe SSD</span>
+                            <span>&lt; 0.1 ms Latency</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Aplikasi bertindak balas serta-merta. Query database siap dalam beberapa milisaat.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-red-950/30 border border-red-500/30">
+                        <div class="flex items-center justify-between text-red-400 font-bold mb-2">
+                            <span>HDD / High Latency Storage</span>
+                            <span>10 - 20 ms Latency</span>
+                        </div>
+                        <p class="text-xs text-slate-300">I/O bottleneck! Thread aplikasi tersumbat (I/O Wait tinggi) menunggu jawapan disk.</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl text-xs font-mono text-cyan-300 flex items-center justify-between">
+                    <span>Low Latency Storage = Low CPU I/O Wait = Fast Web Response Time</span>
+                    <i class="fa-solid fa-bolt text-amber-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 9: Filesystem -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 9</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Filesystem Overview</h2>
+            </div>
+            <p class="text-slate-300">Filesystem bertindak seperti indeks perpustakaan. Ia mengatur bagaimana data disimpan, dicari dan diuruskan pada disk.</p>
+
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <span class="badge-blue text-xs px-2 py-0.5 rounded font-bold">ext4</span>
+                    <h3 class="font-bold text-white text-md">Standard Linux Filesystem</h3>
+                    <p class="text-xs text-slate-400">Sangat stabil, diuji bertahun-tahun, pilihan default untuk kebanyakan distro Linux & server.</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <span class="badge-cyan text-xs px-2 py-0.5 rounded font-bold">XFS</span>
+                    <h3 class="font-bold text-white text-md">High-Performance File System</h3>
+                    <p class="text-xs text-slate-400">Cemerlang mengendalikan fail bersaiz sangat besar dan parallel I/O workloads (RHEL Default).</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <span class="badge-purple text-xs px-2 py-0.5 rounded font-bold">Btrfs / ZFS</span>
+                    <h3 class="font-bold text-white text-md">Advanced Copy-on-Write (CoW)</h3>
+                    <p class="text-xs text-slate-400">Menyokong built-in Snapshot, Raid, Checksumming dan Self-healing data corruption.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 10: Partition & Mount -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 10</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Partition & Mount Concept</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex flex-wrap items-center justify-center gap-2 text-xs md:text-sm font-mono text-center">
+                    <div class="p-3 bg-slate-800 border border-slate-600 rounded-xl text-slate-200">Disk Physical (/dev/sda)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl text-blue-300">Partition (/dev/sda1)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-purple-900/40 border border-purple-500/40 rounded-xl text-purple-300">Filesystem (ext4)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-emerald-900/40 border border-emerald-500/40 rounded-xl text-emerald-300">Mount Point (/data)</div>
+                </div>
+
+                <!-- Copy Command Examples -->
+                <div class="space-y-2 mt-4">
+                    <p class="text-xs text-slate-400">Command Linux berguna untuk memeriksa partition & mount:</p>
+                    <div class="flex items-center justify-between bg-slate-900 p-3 rounded-lg text-xs font-mono text-slate-300 border border-slate-800">
+                        <span>lsblk -f</span>
+                        <button onclick="copyToClipboard('lsblk -f', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 11: Mount Point -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 11</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Mount Point Explained</h2>
+            </div>
+            
+            <p class="text-slate-300">Mount point ialah folder tertentu dalam Linux directory tree tempat di mana sesuatu storage partition dicantumkan.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 font-mono text-xs">
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <p class="text-emerald-400 font-bold">/ (Root Directory)</p>
+                    <div class="pl-4 border-l border-slate-700 space-y-1">
+                        <p class="text-slate-400">├── /var/lib/docker <span class="text-slate-500">(Mounted on Primary SSD)</span></p>
+                        <p class="text-blue-400 font-bold">├── /data <span class="text-blue-300">(Mounted on Dedicated High-Speed Disk)</span></p>
+                        <div class="pl-4 border-l border-slate-800 text-slate-400">
+                            <p>├── /data/database</p>
+                            <p>└── /data/uploads</p>
+                        </div>
+                        <p class="text-amber-400 font-bold">└── /mnt/backup <span class="text-amber-300">(Mounted via Network/NAS)</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 12: File Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 12</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">File Storage Architecture</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-blue-400"><i class="fa-solid fa-folder-tree mr-2"></i> Structural Hierarchical</h3>
+                    <p class="text-xs text-slate-300">Data diatur dalam struktur hirarki Folder & Directory. Diakses menggunakan path unik seperti `/var/log/nginx/access.log`.</p>
+                    <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-1 text-slate-400 font-mono">
+                        <p>Contoh Penggunaan:</p>
+                        <p class="text-slate-200">• Local Linux Filesystem</p>
+                        <p class="text-slate-200">• Network Attached Storage (NAS)</p>
+                        <p class="text-slate-200">• Shared Folders (NFS / SMB)</p>
+                    </div>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl space-y-3">
+                    <h3 class="text-md font-bold text-white">Kelebihan & Kekurangan:</h3>
+                    <p class="text-xs text-emerald-400"><i class="fa-solid fa-circle-check"></i> Mudah difahami oleh manusia & OS secara native.</p>
+                    <p class="text-xs text-red-400"><i class="fa-solid fa-circle-xmark"></i> Sukar untuk scale apabila fail mencecah puluhan juta (directory lookup slow).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 13: Block Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 13</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Block Storage Architecture</h2>
+            </div>
+
+            <p class="text-slate-300">Block Storage menyediakan storage dalam bentuk blok mentah (raw blocks). Tiada konsep fail atau folder sehinggalah anda formatnya dengan filesystem.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center text-center font-mono text-xs">
+                    <div class="p-3 bg-cyan-900/40 border border-cyan-500/40 rounded-xl text-cyan-300">Block Storage Volume (/dev/sdb)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl text-blue-300">Format (ext4 / XFS)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-emerald-900/40 border border-emerald-500/40 rounded-xl text-emerald-300">Ready Files & Directories</div>
+                </div>
+
+                <div class="p-3 bg-slate-900 rounded-xl text-xs text-slate-300 space-y-1">
+                    <p class="text-cyan-400 font-bold">Ciri Utama:</p>
+                    <p>• Ultra-low latency & high performance.</p>
+                    <p>• Boleh di-attach ke virtual machine (Contoh: AWS EBS, Cloud Volume).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 14: Object Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 14</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Object Storage Architecture</h2>
+            </div>
+
+            <p class="text-slate-300">Object Storage menyimpan data sebagai "Object" tidak berstruktur yang dilabel bersama Metadata dan Key unik. Diakses menggunakan API (HTTP/REST S3 API).</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="p-3 bg-purple-950/40 border border-purple-500/30 rounded-xl space-y-2 text-xs font-mono">
+                        <div class="text-purple-300 font-bold">Object Payload</div>
+                        <div class="text-slate-400">Key: <span class="text-slate-200">backups/db-2026-08-19.tar.gz</span></div>
+                        <div class="text-slate-400">Metadata: <span class="text-slate-200">{ "encrypted": "true", "owner": "admin" }</span></div>
+                        <div class="text-slate-400">Data: <span class="text-slate-200">[ Binary Data Stream ]</span></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-slate-300">
+                    <h3 class="font-bold text-white text-sm">Kegunaan Ideal:</h3>
+                    <p>• Offsite Backups & Archives (Restic / Borg targets)</p>
+                    <p>• Unstructured Media (Photos, Videos, User Uploads)</p>
+                    <p>• Highly Scalable (Petabyte-scale tanpa masalah hierarchy)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 15: Storage Types Comparison -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 15</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Perbandingan Jenis Storage</h2>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="p-3">Ciri</th>
+                            <th class="p-3 text-blue-400">File Storage</th>
+                            <th class="p-3 text-cyan-400">Block Storage</th>
+                            <th class="p-3 text-purple-400">Object Storage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800 text-slate-300">
+                        <tr>
+                            <td class="p-3 font-semibold">Struktur Data</td>
+                            <td class="p-3">Hierarchical Folders</td>
+                            <td class="p-3">Raw Blocks</td>
+                            <td class="p-3">Flat Namespace (Key-Value)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Cara Akses</td>
+                            <td class="p-3">OS Protocol (NFS/SMB)</td>
+                            <td class="p-3">Disk Driver / SCSI</td>
+                            <td class="p-3">HTTP REST API (S3 API)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Latency / Speed</td>
+                            <td class="p-3">Sederhana</td>
+                            <td class="p-3 text-emerald-400 font-bold">Sangat Laju (Lowest)</td>
+                            <td class="p-3">Tinggi (HTTP overhead)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Use Case Terbaik</td>
+                            <td class="p-3">Shared NAS files</td>
+                            <td class="p-3">Databases, VM Disks</td>
+                            <td class="p-3">Backups, Media, Offsite</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SLIDE 16: Docker Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 16</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Docker Storage Architecture</h2>
+            </div>
+
+            <p class="text-slate-300"> Container filesystem secara laluan asal (Writable Layer) adalah <strong>ephemeral</strong>. Apabila container dipadam, data di dalam Writable Layer akan musnah sepenuhnya.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500 space-y-2">
+                    <h3 class="text-md font-bold text-red-400">Writable Layer (Ephemeral)</h3>
+                    <p class="text-xs text-slate-300">Data ditulis terus di dalam container instance. Boleh rosak atau terpadam jika container di-recreate!</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border-l-4 border-emerald-500 space-y-2">
+                    <h3 class="text-md font-bold text-emerald-400">Persistent Storage (Volume / Bind Mount)</h3>
+                    <p class="text-xs text-slate-300">Data disimpan terpisah di luar container cycle pada host disk. Data kekal walaupun container dimatikan.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 17: Docker Volume -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 17</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Docker Managed Volume</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center text-center font-mono text-xs">
+                    <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl text-blue-300">PostgreSQL Container</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-cyan-900/40 border border-cyan-500/40 rounded-xl text-cyan-300">Docker Volume (pg_data)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-emerald-900/40 border border-emerald-500/40 rounded-xl text-emerald-300">Host Storage (/var/lib/docker/volumes/...)</div>
+                </div>
+
+                <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-xs text-amber-200">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>AMARAN PENTING:</strong> Docker Volume ≠ Backup! Volume hanyalah persistent local storage. Jika disk host terbakar, Docker volume turut musnah!
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 18: Bind Mount -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 18</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Docker Bind Mount</h2>
+            </div>
+
+            <p class="text-slate-300">Bind mount memetakan mana-mana folder khusus di Host OS terus ke dalam lokasi folder dalam Container.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 font-mono text-xs">
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-slate-300">
+                    <p class="text-purple-400">Host Path: <span class="text-white">/srv/app/config.json</span></p>
+                    <p class="text-slate-500">↓ MAPPED TO ↓</p>
+                    <p class="text-cyan-400">Container Path: <span class="text-white">/app/config.json</span></p>
+                </div>
+                <p class="text-slate-400 text-xs">Sangat berguna untuk config file, source code semasa development, dan mount khusus pada disk luaran.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 19: Database Storage -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 19</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Database Storage Requirements</h2>
+            </div>
+
+            <p class="text-slate-300">Database memerlukan kawalan I/O yang sangat stabil dan pantas (ACID compliance).</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-slate-300">
+                    <h3 class="text-sm font-bold text-cyan-400">Faktor Prestasi Utama:</h3>
+                    <p>• <strong>Low Latency NVMe SSD:</strong> Menghindari bottleneck transaksi.</p>
+                    <p>• <strong>High Random IOPS:</strong> Membolehkan pembacaan & penulisan serentak.</p>
+                    <p>• <strong>WAL (Write-Ahead Logging):</strong> Memerlukan penulisan sequential yang cepat ke disk.</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-slate-300">
+                    <h3 class="text-sm font-bold text-amber-400">Risiko Storage DB:</h3>
+                    <p>• Jangan letak live DB data di atas Network Drive (NFS) berkualiti rendah kerana risiko lock failure & latency tinggi.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 20: RAID Concept -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 20</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">RAID (Redundant Array of Independent Disks)</h2>
+            </div>
+
+            <p class="text-slate-300">RAID menggabungkan beberapa physical disk menjadi satu logical storage unit untuk Performance, Redundancy atau gabungan kedua-duanya.</p>
+
+            <div class="glass-panel p-6 rounded-2xl border-l-4 border-amber-500 space-y-4">
+                <h3 class="text-xl font-bold text-amber-400">Mantra Terpenting Infrastructure:</h3>
+                <p class="text-2xl font-extrabold text-white">"RAID BUKAN BACKUP!"</p>
+                <p class="text-xs text-slate-300">RAID melindungi sistem anda daripada kegagalan perkakas disk (Hardware Fault Tolerance), tetapi TIDAK melindungi daripada pemadaman tidak sengaja atau kerosakan fail.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 21: RAID Levels -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 21</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Tahap-Tahap RAID (RAID Levels)</h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-red-400 font-bold">RAID 0 (Striping)</span>
+                    <p class="text-slate-300">Performance maksimum. TIADA Redundancy. 1 disk rosak = Semua data hilang!</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-emerald-400 font-bold">RAID 1 (Mirroring)</span>
+                    <p class="text-slate-300">Salinan pendua 1:1 pada disk kedua. Redundancy tinggi. Tolerate 1 disk failure.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-cyan-400 font-bold">RAID 5 (Parity)</span>
+                    <p class="text-slate-300">Menggunakan parity disebar pada minimum 3 disk. Boleh survive 1 disk failure.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-purple-400 font-bold">RAID 6 (Dual Parity)</span>
+                    <p class="text-slate-300">Menggunakan dual parity pada min 4 disk. Boleh survive 2 disk failure serentak.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2 col-span-2">
+                    <span class="text-amber-400 font-bold">RAID 10 (1+0 Striped Mirrors)</span>
+                    <p class="text-slate-300">Gabungan kelajuan RAID 0 dan ketahanan RAID 1. Pilihan popular untuk server database production.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 22: RAID vs Backup Scenario -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 22</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Simulasi Senario: RAID vs Backup</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-3 border-t-4 border-blue-500">
+                    <h3 class="font-bold text-blue-400 text-md">Senario 1: Disks 1 Terbakar / Rosak</h3>
+                    <div class="p-3 bg-emerald-950/40 rounded-lg text-xs text-emerald-300">
+                        <strong>RAID 1/5/10:</strong> <i class="fa-solid fa-check mr-1"></i> BERJAYA! Sistem kekal dalam keadaan Uptime/Available. Disk rosak dikeluarkan & diganti.
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl space-y-3 border-t-4 border-red-500">
+                    <h3 class="font-bold text-red-400 text-md">Senario 2: Admin Terpadam Database (`DROP DATABASE production;`)</h3>
+                    <div class="p-3 bg-red-950/40 rounded-lg text-xs text-red-300">
+                        <strong>RAID:</strong> <i class="fa-solid fa-xmark mr-1"></i> GAGAL! Pemadaman serta-merta ditulis ke kesemua disk RAID!
+                    </div>
+                    <div class="p-3 bg-emerald-950/40 rounded-lg text-xs text-emerald-300">
+                        <strong>BACKUP:</strong> <i class="fa-solid fa-check mr-1"></i> BERJAYA! Boleh restore semula dump snapshot dari malam sebelumnya.
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center font-bold text-cyan-300 text-sm">
+                "RAID menjaga High Availability. Backup menjaga Disaster Recovery."
+            </div>
+        </div>
+
+        <!-- SLIDE 23: Snapshot -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 23</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa itu Snapshot?</h2>
+            </div>
+
+            <p class="text-slate-300">Snapshot ialah gambaran keadaan sistem pada satu titik masa khusus (Point-in-Time Read-Only Frozen View).</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center text-xs">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <span class="text-slate-400 block">10:00 AM</span>
+                        <span class="text-purple-400 font-bold">Snapshot A Created</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <span class="text-slate-400 block">11:00 AM</span>
+                        <span class="text-amber-400 font-bold">System Upgrade Executed</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <span class="text-slate-400 block">11:05 AM</span>
+                        <span class="text-cyan-400 font-bold">Instant Rollback to Snapshot A</span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-300">Sangat bermanfaat untuk pengujian pantas sebelum OS/App upgrade. Namun, jika storage utama rosak, snapshot di dalam storage itu turut musnah.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 24: Snapshot vs Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 24</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Snapshot vs Backup</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 text-xs">
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <h3 class="text-purple-400 font-bold text-sm">SNAPSHOT</h3>
+                    <p class="text-slate-300">• Sangat pantas dicipta (hampir instant via Copy-on-Write).</p>
+                    <p class="text-slate-300">• Masih bergantung pada storage asal / underlying disk pool.</p>
+                    <p class="text-slate-300">• Utama untuk local rollback pantas.</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <h3 class="text-emerald-400 font-bold text-sm">BACKUP</h3>
+                    <p class="text-slate-300">• Mengambil masa lebih lama bergantung saiz data.</p>
+                    <p class="text-slate-300">• Salinan kendiri yang dipindahkan ke medium/lokasi berasingan.</p>
+                    <p class="text-slate-300">• Utama untuk pemulihan bencana (Disaster Recovery).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 25: Replication -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 25</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Data Replication</h2>
+            </div>
+
+            <p class="text-slate-300">Replication ialah proses menyalin perubahan data dari Primary Server ke Replica/Secondary Server secara terus (Synchronous atau Asynchronous).</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center font-mono text-xs text-center">
+                    <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl text-blue-300">Primary Database Server</div>
+                    <i class="fa-solid fa-arrows-retweet text-cyan-400 text-lg"></i>
+                    <div class="p-3 bg-cyan-900/40 border border-cyan-500/40 rounded-xl text-cyan-300">Replica Database Server</div>
+                </div>
+                <p class="text-xs text-slate-300">Gunaan utama: Read Scaling (mengurangkan beban primary) dan Failover High Availability.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 26: Why Replication is Not Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 26</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kenapa Replication Bukan Backup?</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500 space-y-4">
+                <h3 class="text-lg font-bold text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Replication Menyebarkan Kesilapan (Replicates Mistakes)</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Jika virus merebak, data terpadam atau database mengalami corrupt data di Primary Server, mekanisme replication akan menyalin kerosakan tersebut ke Replica Server dalam hitungan saat!
+                </p>
+                <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-amber-300">
+                    Primary: DELETE * FROM users; ----(Replicated)----> Replica: DELETE * FROM users;
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 27: Apa itu Backup? -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 27</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa itu Backup?</h2>
+            </div>
+
+            <p class="text-slate-300">Backup ialah salinan data lengkap, selamat dan konsisten dari masa lampau yang diasingkan daripada infrastruktur pengeluaran (Production).</p>
+
+            <div class="grid md:grid-cols-3 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-emerald-400 font-bold"><i class="fa-solid fa-shield-halved mr-1"></i> Data Integrity</span>
+                    <p class="text-slate-400">Data telah di-verify dan di-encrypt.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-blue-400 font-bold"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Historical Point</span>
+                    <p class="text-slate-400">Boleh dipulihkan mengikut garis masa (Point-in-time).</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-purple-400 font-bold"><i class="fa-solid fa-box-archive mr-1"></i> Isolated Storage</span>
+                    <p class="text-slate-400">Disimpan di peranti atau lokasi offsite berasingan.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 28: Full Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 28</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Full Backup</h2>
+            </div>
+
+            <p class="text-slate-300">Menyalin keseluruhan set data dari awal sehingga akhir tanpa terkecuali.</p>
+
+            <div class="grid md:grid-cols-2 gap-6 text-xs">
+                <div class="glass-panel p-5 rounded-2xl space-y-2">
+                    <h3 class="text-emerald-400 font-bold text-sm"><i class="fa-solid fa-thumbs-up mr-1"></i> Kelebihan:</h3>
+                    <p class="text-slate-300">• Proses restore sangat mudah & pantas (Hanya perlukan 1 fail archive ini sahaja).</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-2">
+                    <h3 class="text-red-400 font-bold text-sm"><i class="fa-solid fa-thumbs-down mr-1"></i> Kekurangan:</h3>
+                    <p class="text-slate-300">• Memakan saiz storage yang sangat besar.</p>
+                    <p class="text-slate-300">• Proses backup mengambil masa yang paling lama.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 29: Incremental Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 29</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Incremental Backup</h2>
+            </div>
+
+            <p class="text-slate-300">Hanya menyalin data yang <strong>BERUBAH SEJAK BACKUP TERAKHIR</strong> (Sama ada Full atau Incremental sebelumnya).</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs font-mono">
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <p class="text-blue-400">Ahad: <span class="text-white">FULL BACKUP (100 GB)</span></p>
+                    <p class="text-cyan-400">Isnin: <span class="text-white">INCREMENTAL (Perubahan Isnin = 2 GB)</span></p>
+                    <p class="text-cyan-400">Selasa: <span class="text-white">INCREMENTAL (Perubahan Selasa sahaja = 3 GB)</span></p>
+                </div>
+                <p class="text-amber-300">Untuk Restore Selasa: Memerlukan Full Ahad + Incremental Isnin + Incremental Selasa!</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 30: Differential Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 30</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Differential Backup</h2>
+            </div>
+
+            <p class="text-slate-300">Menyalin semua data yang <strong>BERUBAH SEJAK FULL BACKUP TERAKHIR</strong>.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs font-mono">
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <p class="text-blue-400">Ahad: <span class="text-white">FULL BACKUP (100 GB)</span></p>
+                    <p class="text-purple-400">Isnin: <span class="text-white">DIFFERENTIAL (Perubahan Isnin = 2 GB)</span></p>
+                    <p class="text-purple-400">Selasa: <span class="text-white">DIFFERENTIAL (Perubahan Isnin + Selasa = 5 GB)</span></p>
+                </div>
+                <p class="text-emerald-300">Untuk Restore Selasa: Hanya perlukan Full Ahad + Differential Selasa!</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 31: Full vs Incremental vs Differential -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 31</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ringkasan Jenis Backup</h2>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="p-3">Jenis Backup</th>
+                            <th class="p-3">Kelajuan Backup</th>
+                            <th class="p-3">Saiz Storage</th>
+                            <th class="p-3">Kelajuan Restore</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800 text-slate-300">
+                        <tr>
+                            <td class="p-3 font-bold text-blue-400">Full</td>
+                            <td class="p-3 text-red-400">Paling Perlahan</td>
+                            <td class="p-3 text-red-400">Paling Besar</td>
+                            <td class="p-3 text-emerald-400 font-bold">Paling Terpantas (1 File)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-bold text-cyan-400">Incremental</td>
+                            <td class="p-3 text-emerald-400 font-bold">Paling Pantas</td>
+                            <td class="p-3 text-emerald-400 font-bold">Paling Kecil</td>
+                            <td class="p-3 text-amber-400">Perlahan (Perlu Restore Chain)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-bold text-purple-400">Differential</td>
+                            <td class="p-3 text-amber-400">Sederhana</td>
+                            <td class="p-3 text-amber-400">Sederhana</td>
+                            <td class="p-3 text-cyan-400">Pantas (Full + 1 Diff)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SLIDE 32: 3-2-1 Backup Strategy -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 32</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Strategi Backup 3-2-1</h2>
+            </div>
+
+            <p class="text-slate-300">Standard emas industri dalam memastikan ketahanan data daripada sebarang bencana local.</p>
+
+            <div class="grid md:grid-cols-3 gap-4 text-center">
+                <div class="glass-panel p-6 rounded-2xl border-t-4 border-blue-500 space-y-2">
+                    <span class="text-3xl font-black text-blue-400 block">3</span>
+                    <h3 class="font-bold text-white text-sm">Salinan Data (Copies)</h3>
+                    <p class="text-xs text-slate-400">1 Live Production + 2 Backup Copies.</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border-t-4 border-cyan-500 space-y-2">
+                    <span class="text-3xl font-black text-cyan-400 block">2</span>
+                    <h3 class="font-bold text-white text-sm">Medium Berbeza</h3>
+                    <p class="text-xs text-slate-400">Contoh: Local NVMe SSD + Local NAS Hard Drive.</p>
+                </div>
+                <div class="glass-panel p-6 rounded-2xl border-t-4 border-emerald-500 space-y-2">
+                    <span class="text-3xl font-black text-emerald-400 block">1</span>
+                    <h3 class="font-bold text-white text-sm">Salinan Offsite</h3>
+                    <p class="text-xs text-slate-400">1 salinan disimpan di lokasi geografi berasingan (Cloud S3).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 33: 3-2-1-1-0 Concept -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 33</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Konsep Lanjutan: 3-2-1-1-0</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center text-xs">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                        <span class="text-xl font-bold text-blue-400 block">3</span>
+                        <span class="text-slate-300">Copies of Data</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                        <span class="text-xl font-bold text-cyan-400 block">2</span>
+                        <span class="text-slate-300">Different Media</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                        <span class="text-xl font-bold text-emerald-400 block">1</span>
+                        <span class="text-slate-300">Offsite Storage</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                        <span class="text-xl font-bold text-purple-400 block">1</span>
+                        <span class="text-slate-300">Offline / Immutable Copy</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 col-span-2 md:col-span-1">
+                        <span class="text-xl font-bold text-amber-400 block">0</span>
+                        <span class="text-slate-300">Restore Errors (Verified)</span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-300">Standard perusahaan terbaik untuk bertahan daripada serangan Ransomware moden.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 34: Offsite Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-orange text-xs px-3 py-1 rounded-full font-semibold">SLIDE 34</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Offsite Backup</h2>
+            </div>
+
+            <p class="text-slate-300">Memindahkan salinan backup ke bangunan atau rantau awan (Cloud Region) yang berbeza.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center font-mono text-xs text-center">
+                    <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl text-blue-300">Home Server / Datacenter A</div>
+                    <i class="fa-solid fa-cloud-arrow-up text-orange-400 text-2xl"></i>
+                    <div class="p-3 bg-orange-900/40 border border-orange-500/40 rounded-xl text-orange-300">Cloud Object Storage / Remote Server B</div>
+                </div>
+                <p class="text-xs text-slate-300">Melindungi perniagaan daripada bencana fizikal setempat seperti Kebakaran, Banjir, Kecurian, dan Kerosakan Elektrik Total.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 35: Offline Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 35</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Offline Backup (Air-Gapped)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-md font-bold text-cyan-400"><i class="fa-solid fa-plug-circle-xmark mr-2"></i> Fizikal Air-Gap</h3>
+                    <i class="fa-solid fa-hard-drive text-3xl text-slate-500"></i>
+                </div>
+                <p class="text-xs text-slate-300">
+                    Backup dicipta ke external hard drive/tape, kemudian kabel di-unplug secara fizikal. Media ini disimpan dalam peti besi. Hacker yang memenceroboh rangkaian server TIDAK BOLEH memadam drive ini secara jarak jauh.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 36: Immutable Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 36</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Immutable Backup</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <h3 class="text-md font-bold text-purple-400"><i class="fa-solid fa-lock mr-2"></i> Write Once, Read Many (WORM)</h3>
+                <p class="text-xs text-slate-300">
+                    Backup ditulis dengan penetapan polisi kebenaran (S3 Object Lock / Retention Lock). Selepas dicipta, TIADA SESIAPA — termasuk root admin — boleh memadam atau mengubah fail backup tersebut dalam tempoh masa terkunci (contoh: 30 hari).
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 37: Backup Encryption -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 37</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Backup Encryption</h2>
+            </div>
+
+            <p class="text-slate-300">Fail backup mengandungi keseluruhan rahsia perniagaan anda (Passwords, PII Users, DB dumps). Ia MESTI di-encrypt sebelum dihantar keluar.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center font-mono text-xs text-center">
+                    <div class="p-3 bg-slate-800 rounded-xl text-slate-300">Raw Data Dump</div>
+                    <i class="fa-solid fa-key text-amber-400 text-lg"></i>
+                    <div class="p-3 bg-amber-900/40 border border-amber-500/40 rounded-xl text-amber-300">AES-256 Encrypted Payload</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-slate-800 rounded-xl text-slate-300">Public Cloud Storage</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 38: Encryption Key Management -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 38</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Encryption Key Management</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500 space-y-4">
+                <h3 class="text-lg font-bold text-red-400"><i class="fa-solid fa-skull-crossbones mr-2"></i> Kehilangan Key = Kehilangan Data</h3>
+                <p class="text-xs text-slate-300">
+                    Jika anda mempunyai 10TB backup ter-encrypt dengan sempurna, tetapi Passphrase / Private Key anda hilang semasa bencana server utama terbakar, backup itu TIDAK BOLEH DIPULIHKAN SAMPAI BILA-BILA!
+                </p>
+                <p class="text-xs text-amber-300 font-bold">Langkah Wajib: Simpan salinan Passphrase/Key di Password Manager terpisah & salinan fizikal ter-encrypt.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 39: Backup Retention -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 39</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Backup Retention Policy</h2>
+            </div>
+
+            <p class="text-slate-300">Menentukan berapa lama sesuatu fail backup disimpan sebelum dipadam secara automatik untuk menjimatkan ruang storage.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 font-mono text-xs">
+                <p class="text-slate-400">Contoh Polisi GFS (Grandfather-Father-Son):</p>
+                <div class="p-3 bg-slate-900 rounded-xl space-y-1">
+                    <p class="text-cyan-400">Daily Backups: <span class="text-white">Simpan 7 Hari Terakhir</span></p>
+                    <p class="text-blue-400">Weekly Backups: <span class="text-white">Simpan 4 Minggu Terakhir</span></p>
+                    <p class="text-purple-400">Monthly Backups: <span class="text-white">Simpan 12 Bulan Terakhir</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 40: Retention Policy Impact -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 40</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Impak Tempoh Retention</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <h3 class="text-md font-bold text-amber-400">Senario: Silent Corruption / Pemadaman Senyap</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Pengguna terpadam satu document secara senyap 2 minggu lepas, tetapi baru menyedarinya hari ini. Jika Polisi Retention anda hanya menyimpan 7 hari terakhir, SEMUA backup terkini mengandungi versi file terpadam! Retention lebih panjang (Monthly) diperlukan.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 41: RPO -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 41</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">RPO (Recovery Point Objective)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <h3 class="text-xl font-bold text-emerald-400">"Berapa banyak kehilangan DATA yang sanggup anda tanggung?"</h3>
+                <p class="text-xs text-slate-300">RPO diukur dalam julat MASA transaksi data.</p>
+                <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-2">
+                    <p>• Jika Backup dijalankan setiap <strong>24 Jam</strong> <i class="fa-solid fa-arrow-right text-slate-500"></i> RPO anda = <strong>24 Jam Data Loss</strong>.</p>
+                    <p>• Jika Backup/Replication dijalankan setiap <strong>15 Minit</strong> <i class="fa-solid fa-arrow-right text-slate-500"></i> RPO anda = <strong>15 Minit Data Loss</strong>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 42: RTO -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 42</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">RTO (Recovery Time Objective)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <h3 class="text-xl font-bold text-cyan-400">"Berapa lama DOWNTIME sistem yang anda sanggup terima?"</h3>
+                <p class="text-xs text-slate-300">RTO ialah jumlah masa yang diambil dari saat bencana berlaku sehingga aplikasi sedia beroperasi semula.</p>
+                <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-1">
+                    <p>• Memuat turun 5TB backup dari internet mengambil masa 8 Jam <i class="fa-solid fa-arrow-right text-slate-500"></i> RTO minimum = 8 Jam Downtime.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 43: RPO vs RTO -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 43</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Visualisasi RPO vs RTO</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6 text-xs">
+                <div class="flex items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <div class="text-emerald-400 font-bold">
+                        <i class="fa-solid fa-database block text-xl mb-1"></i>
+                        <span>Last Backup Point</span>
+                    </div>
+                    <div class="flex-1 px-4 text-center">
+                        <span class="text-red-400 font-bold text-xs uppercase block">← RPO (Data Lost) →</span>
+                        <div class="w-full bg-red-500/20 h-1 my-1 rounded"></div>
+                    </div>
+                    <div class="text-red-500 font-bold">
+                        <i class="fa-solid fa-burst block text-xl mb-1"></i>
+                        <span>DISASTER EVENT</span>
+                    </div>
+                    <div class="flex-1 px-4 text-center">
+                        <span class="text-cyan-400 font-bold text-xs uppercase block">← RTO (Downtime) →</span>
+                        <div class="w-full bg-cyan-500/20 h-1 my-1 rounded"></div>
+                    </div>
+                    <div class="text-cyan-400 font-bold">
+                        <i class="fa-solid fa-circle-check block text-xl mb-1"></i>
+                        <span>System Restored</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 44: Backup Frequency -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 44</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kekerapan Backup (Backup Frequency)</h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-slate-400 font-bold">Personal Blog / Portfolio</span>
+                    <p class="text-slate-200">Kekerapan: <strong>Mingguan / Harian</strong></p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-blue-400 font-bold">Standard App Perniagaan</span>
+                    <p class="text-slate-200">Kekerapan: <strong>Setiap Jam / Setiap 6 Jam</strong></p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <span class="text-emerald-400 font-bold">Sistem Perbankan / Transactional</span>
+                    <p class="text-slate-200">Kekerapan: <strong>Continuous Data Protection (CDP) / Instant WAL Streaming</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 45: Database Backup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 45</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Database Backup Strategy</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 text-xs">
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <h3 class="text-cyan-400 font-bold text-sm">Logical Backup (e.g. pg_dump)</h3>
+                    <p class="text-slate-300">Mengeksport struktur SQL schema & insert statements. Sangat mesra versi, tetapi agak perlahan untuk DB bersaiz Terabyte.</p>
+                    <div class="p-2 bg-slate-900 rounded font-mono text-slate-300">pg_dump -U postgres dbname > dump.sql</div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <h3 class="text-purple-400 font-bold text-sm">Physical Backup (e.g. pg_basebackup)</h3>
+                    <p class="text-slate-300">Menyalin terus blok fail biner database. Sangat pantas untuk DB bersaiz besar.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 46: File Backup Tools -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 46</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">File Backup Tools Overview</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl space-y-1">
+                    <span class="text-cyan-400 font-bold">Restic</span>
+                    <p class="text-slate-300">Tool moden berdedikasi: Built-in encryption, deduplication pantas, menyokong S3 Cloud/SFTP.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-1">
+                    <span class="text-emerald-400 font-bold">BorgBackup</span>
+                    <p class="text-slate-300">Deduplicating archiver terkemuka dengan kompresi nisbah tinggi.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-1">
+                    <span class="text-amber-400 font-bold">Rsync</span>
+                    <p class="text-slate-300">Tool penyelarasan fail pantas, sesuai untuk pergerakan data tempatan.</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-1">
+                    <span class="text-purple-400 font-bold">Tar / Gzip</span>
+                    <p class="text-slate-300">Standard pengarsipan mudah Linux untuk skrip serba ringkas.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 47: Restic Deep Dive -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 47</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Alat Backup Moden: Restic</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex justify-around items-center font-mono text-xs text-center">
+                    <div class="p-3 bg-slate-800 rounded-xl text-slate-300">Local Files</div>
+                    <i class="fa-solid fa-shield-cat text-cyan-400 text-xl"></i>
+                    <div class="p-3 bg-cyan-900/40 border border-cyan-500/40 rounded-xl text-cyan-300">Restic Repository (Deduplicated & Encrypted)</div>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <div class="p-3 bg-slate-800 rounded-xl text-slate-300">Remote Cloud Storage</div>
+                </div>
+                <div class="p-3 bg-slate-900 rounded-xl font-mono text-xs text-slate-300 flex justify-between items-center">
+                    <span>restic -r s3:s3.amazonaws.com/my-bucket backup /srv/data</span>
+                    <button onclick="copyToClipboard('restic -r s3:s3.amazonaws.com/my-bucket backup /srv/data', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 48: Rsync Caution -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 48</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Rsync Caution: Mirroring vs Backup</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="p-3 bg-slate-900 rounded-xl font-mono text-xs text-slate-300 flex justify-between items-center">
+                    <span>rsync -av --delete /src/ /dest/</span>
+                    <button onclick="copyToClipboard('rsync -av --delete /src/ /dest/', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Copy</button>
+                </div>
+                <div class="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-xs text-red-200">
+                    <i class="fa-solid fa-circle-exclamation mr-1"></i> Flag `--delete` pada rsync akan memadam fail di destination sekiranya ia terpadam di source. Ini bukan Versioned Backup!
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 49: Trio Strategy -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 49</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Gabungan Trio: Snapshot + Backup + Replication</h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4 text-xs">
+                <div class="glass-panel p-5 rounded-2xl space-y-2 border-t-4 border-purple-500">
+                    <h3 class="font-bold text-purple-400">1. Snapshot</h3>
+                    <p class="text-slate-300">Untuk pemulihan rollback tempatan pantas (Instant Local Rollback).</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-2 border-t-4 border-cyan-500">
+                    <h3 class="font-bold text-cyan-400">2. Replication</h3>
+                    <p class="text-slate-300">Untuk kesediaan ketersediaan tinggi apabila server mati (High Availability / Failover).</p>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl space-y-2 border-t-4 border-emerald-500">
+                    <h3 class="font-bold text-emerald-400">3. Backup</h3>
+                    <p class="text-slate-300">Untuk pemulihan bencana dan sejarah data terasing (Disaster Recovery & History).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 50: Backup Architecture Diagram -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 50</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Seni Bina Aliran Backup Lengkap</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl text-center space-y-4">
+                <div class="p-3 bg-blue-900/40 border border-blue-500/40 rounded-xl inline-block text-xs font-mono text-blue-300">
+                    Primary Home Server (Raspberry Pi / Linux Server)
+                </div>
+                <div class="flex justify-center gap-4 text-xs font-mono">
+                    <div class="p-3 bg-purple-900/30 border border-purple-500/30 rounded-xl text-purple-300">Local Snapshot</div>
+                    <div class="p-3 bg-emerald-900/30 border border-emerald-500/30 rounded-xl text-emerald-300">Local Backup (NAS)</div>
+                    <div class="p-3 bg-orange-900/30 border border-orange-500/30 rounded-xl text-orange-300">Offsite S3 Storage</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 51: Backup Scheduling -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 51</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Backup Scheduling & Automation</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-xs text-slate-300">Backup manual sering dilupakan. Gunakan Cronjob atau Systemd Timers untuk automasi berjadual.</p>
+                <div class="p-3 bg-slate-900 rounded-xl font-mono text-xs text-slate-300">
+                    <p class="text-slate-500"># Run backup job every night at 2:00 AM</p>
+                    <p class="text-emerald-400">0 2 * * * /usr/local/bin/backup-script.sh</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 52: Backup Verification -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 52</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Pengesahan Backup (Backup Verification)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <h3 class="text-lg font-bold text-amber-400">Hukum Schrodinger's Backup:</h3>
+                <p class="text-sm font-semibold text-white">"Keadaan sebarang backup tidak diketahui sehinggalah anda cuba memulihkannya (Restore)!"</p>
+                <div class="p-3 bg-slate-900 rounded-xl text-xs space-y-1 text-slate-300">
+                    <p>• Semak Checksum hash secara teratur.</p>
+                    <p>• Sahkan repositori backup tidak corrupt (e.g., `restic check`).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 53: Restore Flow -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 53</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Aliran Proses Pemulihan (Restore Flow)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex flex-wrap items-center justify-between text-xs font-mono text-center gap-2">
+                    <div class="p-2 bg-slate-800 rounded">1. Select Target Snapshot</div>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <div class="p-2 bg-slate-800 rounded">2. Decrypt & Extract Data</div>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <div class="p-2 bg-slate-800 rounded">3. Restore DB Schema & Data</div>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <div class="p-2 bg-slate-800 rounded">4. Start Services & Test</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 54: Restore Testing Drill -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 54</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Latihan Restore Drill (Restore Drill)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-xs text-slate-300">
+                    Jadualkan latihan restore bulanan pada persekitaran ujian (Test Environment). Ini memastikan fail backup bukan sahaja boleh diekstrak, tetapi aplikasi boleh berfungsi sepenuhnya dengan data tersebut.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 55: Full Disaster Recovery Scenario -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 55</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Senario Pemulihan Bencana Lengkap</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 border-l-4 border-red-500">
+                <p class="text-xs text-red-300 font-bold">Senario: Raspberry Pi / Server Utama Meletup / Rosak Sepenuhnya!</p>
+                <div class="space-y-2 text-xs text-slate-300">
+                    <p>1. Beli Hardware Baharu & Install OS.</p>
+                    <p>2. Install Docker Runtime & Pull Config dari Git.</p>
+                    <p>3. Muat turun & Decrypt data dari Offsite Backup.</p>
+                    <p>4. Restore Database Volume & Fail Aplikasi.</p>
+                    <p>5. Sambung semula Cloudflare Tunnel / DNS domain.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 56: Disaster Recovery Plan -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 56</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Disaster Recovery (DR) Plan</h2>
+            </div>
+
+            <p class="text-slate-300">Dokumen rasmi bertulis langkah demi langkah yang mesti diikuti semasa panik krisis berlaku.</p>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-slate-300">
+                <p>• Siapa yang perlu dihubungi (Escalation Path).</p>
+                <p>• Di mana tempat tersimpannya decryption keys.</p>
+                <p>• Urutan perkhidmatan yang mesti di-restore (Database dahulu, kemudian API, kemudian Frontend).</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 57: Bare Metal Recovery -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 57</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Bare Metal Recovery</h2>
+            </div>
+
+            <p class="text-slate-300">Pemulihan dari asas perkakas kosong tanpa sebarang Operating System asal.</p>
+        </div>
+
+        <!-- SLIDE 58: Recovery Dependencies -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 58</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Recovery Dependencies</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-slate-300">
+                <p class="font-bold text-amber-400">Perkara Penting Selain Backup Data:</p>
+                <p>• Domain & Cloudflare DNS Access Credentials</p>
+                <p>• Docker Images / Compose Files</p>
+                <p>• Environment variables (.env) & Secrets</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 59: Documentation Strategy -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 59</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Pendokumentasian Infrastruktur</h2>
+            </div>
+
+            <p class="text-slate-300">Dokumentasikan senarai mount points, cronjobs, dan skrip restore dalam Git repository bertutup.</p>
+        </div>
+
+        <!-- SLIDE 60: Storage Monitoring -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 60</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Pemantauan Storage (Storage Monitoring)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-xs text-slate-300">Gunakan Prometheus & Grafana untuk memantau metric disk:</p>
+                <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono space-y-1">
+                    <p class="text-cyan-400">Disk Usage Percentage (&gt; 85% Trigger Warning Alert)</p>
+                    <p class="text-purple-400">Inode Usage Percentage</p>
+                    <p class="text-amber-400">SMART Health Check Drives Status</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 61: Backup Monitoring -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 61</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Pemantauan Fail Backup</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-xs text-slate-300">Hantar alert ke Slack / Telegram jika skrip backup harian gagal dijalankan (Exit Status != 0).</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 62: Backup Failure Scenarios -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 62</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Punca Kegagalan Backup</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl text-red-300">1. Disk Sasaran Penuh (Disk Full)</div>
+                <div class="glass-panel p-4 rounded-xl text-red-300">2. Rangkaian Offsite Terputus (Network Timeout)</div>
+                <div class="glass-panel p-4 rounded-xl text-red-300">3. Kebenaran Fail Dinafikan (Permission Denied)</div>
+                <div class="glass-panel p-4 rounded-xl text-red-300">4. Passphrase/Credentials Tamat Tempoh</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 63: Storage Hardware Failure -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 63</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kegagalan Hardware Storage</h2>
+            </div>
+
+            <p class="text-slate-300">Semua disk fizikal (SSD/HDD) AKAN rosak pada akhirnya. Ia hanyalah masalah masa.</p>
+        </div>
+
+        <!-- SLIDE 64: Human Error Scenario -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 64</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ancaman Human Error</h2>
+            </div>
+
+            <p class="text-slate-300">`rm -rf /` atau pemadaman salah jadual database oleh developer adalah punca kehilangan data nombor 1!</p>
+        </div>
+
+        <!-- SLIDE 65: Ransomware Scenario -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 65</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ancaman Ransomware</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500 space-y-3">
+                <p class="text-xs text-slate-300">Ransomware akan cuba menceroboh dan meng-encrypt fail live server serta fail backup yang di-mount secara aktif. Inilah sebabnya Immutable & Offline Backup sangat penting!</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 66: Home Lab Architecture -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 66</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Seni Bina Home Lab Storage</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl text-xs font-mono space-y-2">
+                <p class="text-cyan-400">Raspberry Pi 4 / Mini PC</p>
+                <p class="text-slate-400">├── Primary NVMe SSD (OS + Docker Persistent Volumes)</p>
+                <p class="text-slate-400">├── Local External HDD (Daily Local Restic Backup Target)</p>
+                <p class="text-slate-400">└── Backblaze B2 / AWS S3 (Nightly Encrypted Offsite Copy)</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 67: NAS -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 67</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Network Attached Storage (NAS)</h2>
+            </div>
+
+            <p class="text-slate-300">Peranti storage khas yang disambung ke rangkaian tempatan (LAN) bagi menyediakan ruang fail terpusat.</p>
+        </div>
+
+        <!-- SLIDE 68: Home Server + NAS Setup -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 68</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Integrasi Home Server + NAS</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs">
+                <p class="text-slate-300">Home server menjalankan container aplikasi, manakala NAS bertindak sebagai target backup tempatan utama menerusi NFS/NFS mount.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 69: Cloud Object Storage Integration -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 69</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Penggunaan Cloud Object Storage</h2>
+            </div>
+
+            <p class="text-slate-300">Penyedia seperti Backblaze B2, AWS S3, atau Cloudflare R2 menyediakan kos simpanan terendah untuk simpanan jangka panjang.</p>
+        </div>
+
+        <!-- SLIDE 70: Storage Tiers -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 70</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Storage Tiers (Hot, Warm, Cold, Archive)</h2>
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-3 text-xs">
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-red-400 font-bold block">Hot Storage</span>
+                    <span class="text-slate-400">SSD Laju / Database</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-amber-400 font-bold block">Warm Storage</span>
+                    <span class="text-slate-400">Local NAS / Daily Backups</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-cyan-400 font-bold block">Cold Storage</span>
+                    <span class="text-slate-400">Cloud S3 Standard</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-purple-400 font-bold block">Archive Storage</span>
+                    <span class="text-slate-400">AWS Glacier / Tape</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 71: Cost vs Recovery -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 71</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kos vs Keperluan Pemulihan</h2>
+            </div>
+
+            <p class="text-slate-300">Semakin rendah RPO dan RTO yang dikehendaki, semakin tinggi kos infrastruktur yang perlu dilaburkan.</p>
+        </div>
+
+        <!-- SLIDE 72: Production Storage Architecture -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 72</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Seni Bina Enterprise Production Storage</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl text-xs font-mono space-y-2 text-center">
+                <p class="text-blue-300">Multi-AZ Database Cluster + NVMe SAN</p>
+                <p class="text-slate-500">↓</p>
+                <p class="text-cyan-300">Automated Hourly Snapshots + Cross-Region S3 Replication</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 73: Storage Security Checklist -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 73</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Keselamatan Storage (Storage Security)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs text-slate-300">
+                <p>• Encryption at Rest (LUKS / Disk Level)</p>
+                <p>• Encryption in Transit (TLS / HTTPS / SSH)</p>
+                <p>• Strict IAM Permissions & Access Keys Rotation</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 74: Encryption at Rest -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 74</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Encryption at Rest</h2>
+            </div>
+
+            <p class="text-slate-300">Memastikan data yang tersimpan pada sektor disk fizikal di-encrypt. Jika harddisk dicuri secara fizikal, data tidak boleh dibaca.</p>
+        </div>
+
+        <!-- SLIDE 75: Encryption in Transit -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 75</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Encryption in Transit</h2>
+            </div>
+
+            <p class="text-slate-300">Memastikan data backup di-encrypt semasa dihantar melalui rangkaian internet (menerusi TLS/SSH tunnel).</p>
+        </div>
+
+        <!-- SLIDE 76: Backup Access Control -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 76</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kawalan Capaian Backup (Least Privilege)</h2>
+            </div>
+
+            <p class="text-slate-300">Gunakan S3 bucket policy bertahap append-only supaya akaun backup script tidak boleh memadam fail lama.</p>
+        </div>
+
+        <!-- SLIDE 77: Retention Policy Example -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 77</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Contoh Polisi Retention Pengeluaran</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs font-mono">
+                <p class="text-emerald-400">DAILY: 14 copies</p>
+                <p class="text-cyan-400">WEEKLY: 8 copies</p>
+                <p class="text-purple-400">MONTHLY: 12 copies</p>
+                <p class="text-amber-400">YEARLY: 2 copies</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 78: Backup Policy Documentation -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 78</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Dokumen Polisi Backup</h2>
+            </div>
+
+            <p class="text-slate-300">Mewujudkan garis panduan wajib organisasi bagi pemilik sistem aplikasi.</p>
+        </div>
+
+        <!-- SLIDE 79: Backup Runbook -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 79</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Runbook Troubleshoot Backup</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs text-slate-300">
+                <p>1. Semak log perkhidmatan Cron/Systemd.</p>
+                <p>2. Periksa baki ruang ruang storage sasaran (`df -h`).</p>
+                <p>3. Uji sambungan rangkaian ke Cloud Object Storage.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 80: Restore Runbook -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 80</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Runbook Pemulihan Emergency</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs text-slate-300">
+                <p>1. Hentikan trafik pengguna (Maintenance Mode).</p>
+                <p>2. Dapatkan Passphrase Decryption Encryption.</p>
+                <p>3. Jalankan skrip pemulihan data & sahkan integrity database.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 81: Interactive Storage Map -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 81</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Interactive Storage Layer Map</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <button onclick="showLayerInfo('app')" class="w-full p-3 bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-500/40 rounded-xl text-left text-xs font-mono text-indigo-300 flex justify-between items-center">
+                        <span>1. Application Layer (Docker/Postgres)</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button onclick="showLayerInfo('fs')" class="w-full p-3 bg-blue-900/40 hover:bg-blue-800/60 border border-blue-500/40 rounded-xl text-left text-xs font-mono text-blue-300 flex justify-between items-center">
+                        <span>2. Filesystem Layer (ext4/XFS)</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button onclick="showLayerInfo('vol')" class="w-full p-3 bg-cyan-900/40 hover:bg-cyan-800/60 border border-cyan-500/40 rounded-xl text-left text-xs font-mono text-cyan-300 flex justify-between items-center">
+                        <span>3. Volume Layer (Docker Volume)</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button onclick="showLayerInfo('ssd')" class="w-full p-3 bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-500/40 rounded-xl text-left text-xs font-mono text-emerald-300 flex justify-between items-center">
+                        <span>4. Physical Media (NVMe SSD)</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl flex items-center justify-center text-center">
+                    <div id="layerInfoBox" class="space-y-2">
+                        <p class="text-slate-400 text-xs">Klik mana-mana lapisan di sebelah kiri untuk penerangan interaktif.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 82: Interactive Backup Chain Simulator -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 82</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Simulator Rantaian Backup (Backup Chain)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <p class="text-xs text-slate-300">Pilih hari untuk disimulasikan proses pemulihannya (Restore):</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="simulateRestore('sun')" class="px-3 py-2 bg-blue-900/60 hover:bg-blue-800 border border-blue-500/50 rounded-xl text-xs font-bold text-blue-300">Ahad (Full)</button>
+                    <button onclick="simulateRestore('mon')" class="px-3 py-2 bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-500/50 rounded-xl text-xs font-bold text-cyan-300">Isnin (Inc)</button>
+                    <button onclick="simulateRestore('tue')" class="px-3 py-2 bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-500/50 rounded-xl text-xs font-bold text-cyan-300">Selasa (Inc)</button>
+                    <button onclick="simulateRestore('wed')" class="px-3 py-2 bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-500/50 rounded-xl text-xs font-bold text-cyan-300">Rabu (Inc)</button>
+                </div>
+
+                <div id="restoreChainResult" class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 min-h-[80px] flex items-center">
+                    Sila klik butang hari di atas.
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 83: Interactive 3-2-1 Strategy Evaluator -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 83</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Simulator Pengesahan Strategi 3-2-1</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-300">Pilih komponen setup infrastruktur anda:</p>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <label class="p-3 bg-slate-900 rounded-xl flex items-center gap-2 cursor-pointer border border-slate-800">
+                        <input type="checkbox" id="chkCopies" onchange="evaluate321()" class="rounded bg-slate-800 text-emerald-500">
+                        <span>3 Salinan Data</span>
+                    </label>
+                    <label class="p-3 bg-slate-900 rounded-xl flex items-center gap-2 cursor-pointer border border-slate-800">
+                        <input type="checkbox" id="chkMedia" onchange="evaluate321()" class="rounded bg-slate-800 text-emerald-500">
+                        <span>2 Jenis Media Berbeza</span>
+                    </label>
+                    <label class="p-3 bg-slate-900 rounded-xl flex items-center gap-2 cursor-pointer border border-slate-800">
+                        <input type="checkbox" id="chkOffsite" onchange="evaluate321()" class="rounded bg-slate-800 text-emerald-500">
+                        <span>1 Salinan Offsite Cloud</span>
+                    </label>
+                </div>
+
+                <div id="eval321Result" class="p-4 rounded-xl text-center font-bold text-slate-400 bg-slate-900">
+                    Sila tanda kotak pilihan di atas.
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 84: Interactive RPO / RTO Calculator -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 84</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Interactive RPO & RTO Slider</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6 text-xs">
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <label class="font-bold text-emerald-400">Sasaran RPO (Max Data Loss Tolerance):</label>
+                        <span id="rpoVal" class="font-bold text-white">1 Jam</span>
+                    </div>
+                    <input type="range" min="1" max="24" value="1" id="rpoRange" oninput="updateRpoRtoSim()" class="w-full">
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <label class="font-bold text-cyan-400">Sasaran RTO (Max Downtime Tolerance):</label>
+                        <span id="rtoVal" class="font-bold text-white">4 Jam</span>
+                    </div>
+                    <input type="range" min="1" max="24" value="4" id="rtoRange" oninput="updateRpoRtoSim()" class="w-full">
+                </div>
+
+                <div id="rpoRtoRecommendation" class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 85: Interactive Disaster Recovery Stepper -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 85</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Simulasi Interaktif Pemulihan Bencana</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6 text-center">
+                <div id="drAnimBox" class="p-6 bg-slate-900 rounded-2xl border border-slate-800 space-y-4">
+                    <i class="fa-solid fa-server text-4xl text-emerald-400"></i>
+                    <p class="text-sm font-bold text-white">Server Beroperasi Normal</p>
+                </div>
+
+                <button id="drActionBtn" onclick="triggerDisasterSimulation()" class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-600/30 text-xs">
+                    <i class="fa-solid fa-bolt mr-2"></i> Simulasi Bencana (Simulate Hardware Crash)
+                </button>
+            </div>
+        </div>
+
+        <!-- SLIDE 86: Quiz 1 -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 86</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kuiz 1: Apakah Fungsi Utama RAID?</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-200 text-sm">Pilih jawapan yang paling tepat:</p>
+                <div class="space-y-2">
+                    <button onclick="checkQuiz(1, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">A. Pengganti menyeluruh kepada fail backup harian.</button>
+                    <button onclick="checkQuiz(1, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">B. Menyediakan Redundancy Perkakas Disk & Ketahanan Kegagalan Fizikal (Hardware Redundancy).</button>
+                    <button onclick="checkQuiz(1, 'C')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">C. Meng-encrypt data semasa dalam perjalanan internet.</button>
+                </div>
+                <div id="quizAns1" class="hidden p-3 rounded-xl font-bold"></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 87: Quiz 2 -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 87</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kuiz 2: Perbezaan Snapshot & Backup</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-200 text-sm">Apakah kenyataan yang BENAR mengenai Snapshot?</p>
+                <div class="space-y-2">
+                    <button onclick="checkQuiz(2, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">A. Snapshot ialah salinan offsite terasing yang tidak bergantung pada storage asal.</button>
+                    <button onclick="checkQuiz(2, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">B. Snapshot ialah point-in-time state tempatan yang masih bergantung pada disk/pool asal.</button>
+                </div>
+                <div id="quizAns2" class="hidden p-3 rounded-xl font-bold"></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 88: Quiz 3 -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 88</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kuiz 3: Senario Replication</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-200 text-sm">Jika pengguna terpadam folder kritikal di Primary Server, apa berlaku di Replica Server?</p>
+                <div class="space-y-2">
+                    <button onclick="checkQuiz(3, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">A. Folder tersebut dikekalkan secara automatik di Replica.</button>
+                    <button onclick="checkQuiz(3, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">B. Pemadaman turut direplikasi dan folder terpadam di Replica.</button>
+                </div>
+                <div id="quizAns3" class="hidden p-3 rounded-xl font-bold"></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 89: Quiz 4 -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 89</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kuiz 4: Maksud RPO</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-200 text-sm">Apakah fokus utama Recovery Point Objective (RPO)?</p>
+                <div class="space-y-2">
+                    <button onclick="checkQuiz(4, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">A. Berapa banyak data loss yang sanggup diterima (Data loss tolerance).</button>
+                    <button onclick="checkQuiz(4, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">B. Berapa lama downtime sistem (Downtime tolerance).</button>
+                </div>
+                <div id="quizAns4" class="hidden p-3 rounded-xl font-bold"></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 90: Quiz 5 -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 90</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kuiz 5: Maksud RTO</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-200 text-sm">Apakah fokus utama Recovery Time Objective (RTO)?</p>
+                <div class="space-y-2">
+                    <button onclick="checkQuiz(5, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">A. Sasaran tempoh masa pemulihan downtime sistem (Recovery time target).</button>
+                    <button onclick="checkQuiz(5, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 rounded-xl text-left border border-slate-800 text-slate-300">B. Saiz maksimum harddisk server.</button>
+                </div>
+                <div id="quizAns5" class="hidden p-3 rounded-xl font-bold"></div>
+            </div>
+        </div>
+
+        <!-- SLIDE 91: Final Challenge -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 91</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Cabaran Akhir: Reka Bentuk Architecture</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs">
+                <p class="text-slate-300 font-bold">Klien memerlukan reka bentuk infrastruktur dengan syarat berikut:</p>
+                <div class="p-3 bg-slate-900 rounded-xl space-y-1 font-mono text-cyan-300">
+                    <p>• RPO = 24 Jam | RTO = 4 Jam</p>
+                    <p>• Primary App: PostgreSQL + Web Container pada Raspberry Pi</p>
+                    <p>• Perlu ada Local Backup + Offsite Encrypted Copy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 92: Master Storage Architecture -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 92</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Master Storage Architecture Diagram</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl text-center font-mono text-xs space-y-3">
+                <div class="p-2 bg-blue-900/40 rounded text-blue-300 border border-blue-500/30">USERS / CLIENTS</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="p-2 bg-cyan-900/40 rounded text-cyan-300 border border-cyan-500/30">APPLICATION & DATABASE</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="flex justify-center gap-2">
+                    <span class="p-2 bg-purple-900/30 rounded text-purple-300 border border-purple-500/30">SNAPSHOT</span>
+                    <span class="p-2 bg-emerald-900/30 rounded text-emerald-300 border border-emerald-500/30">LOCAL BACKUP (NAS)</span>
+                    <span class="p-2 bg-orange-900/30 rounded text-orange-300 border border-orange-500/30">OFFSITE S3 (IMMUTABLE)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 93: Full Self-Hosting Data Architecture -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-cyan text-xs px-3 py-1 rounded-full font-semibold">SLIDE 93</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ekosistem Self-Hosting Terintegrasi</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs font-mono text-slate-300">
+                <p class="text-cyan-400">Internet → Cloudflare Tunnel → Reverse Proxy → App → DB Volume → Backup Script → Offsite Storage</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 94: Storage & Backup Checklist -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-emerald text-xs px-3 py-1 rounded-full font-semibold">SLIDE 94</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Senarai Semak Pengeluaran (Checklist)</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 text-xs text-slate-300">
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <p class="font-bold text-emerald-400">STORAGE & DATA</p>
+                    <p>☑ Dedicated Persistent Volume untuk DB</p>
+                    <p>☑ Disk Space Alerting (&gt;80%)</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl space-y-2">
+                    <p class="font-bold text-cyan-400">BACKUP & RECOVERY</p>
+                    <p>☑ 3-2-1 Strategy Executed</p>
+                    <p>☑ Encrypted Backups & Keys Saved</p>
+                    <p>☑ Monthly Restore Test Verified</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 95: Common Mistakes -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-red text-xs px-3 py-1 rounded-full font-semibold">SLIDE 95</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kesilapan Lazim (Common Mistakes)</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs text-red-300">
+                <p>❌ Menganggap RAID ialah Backup.</p>
+                <p>❌ Menganggap Replication ialah Backup.</p>
+                <p>❌ Menganggap Docker Volume ialah Backup.</p>
+                <p>❌ Menyimpan fail backup pada disk tempatan yang sama sahaja.</p>
+                <p>❌ Tidak pernah menjalankan ujian restore (Un-tested backups).</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 96: Storage Mental Model -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-purple text-xs px-3 py-1 rounded-full font-semibold">SLIDE 96</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Model Mental Storage</h2>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 text-xs">
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-blue-400 font-bold block">STORAGE</span>
+                    <span class="text-slate-300">"Di mana data LIVE berada sekarang?"</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-purple-400 font-bold block">SNAPSHOT</span>
+                    <span class="text-slate-300">"Apakah rupa data pada titik masa ini?"</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-cyan-400 font-bold block">REPLICATION</span>
+                    <span class="text-slate-300">"Bagaimana menyelaraskan salinan kedua?"</span>
+                </div>
+                <div class="glass-panel p-4 rounded-xl">
+                    <span class="text-emerald-400 font-bold block">BACKUP</span>
+                    <span class="text-slate-300">"Bagaimana kita memulihkan data selepas kerosakan?"</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 97: Connection to Previous Topics -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-blue text-xs px-3 py-1 rounded-full font-semibold">SLIDE 97</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Hubungan dengan Topik-Topik Lepas</h2>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-2 text-xs text-slate-300">
+                <p>• <strong>Docker:</strong> Managing Persistent Volumes & Bind Mounts.</p>
+                <p>• <strong>Linux Server:</strong> Mount Points, Filesystem, Disk Partitions.</p>
+                <p>• <strong>Monitoring:</strong> Storage I/O, Disk Capacity Metrics & Alerts.</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 98: Next Topic Preview -->
+        <div class="slide flex-col space-y-6">
+            <div class="flex items-center gap-3">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-semibold">SLIDE 98</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Topik Seterusnya</h2>
+            </div>
+
+            <div class="glass-panel p-8 rounded-2xl space-y-4 text-center border-2 border-amber-500/30">
+                <span class="badge-amber text-xs px-3 py-1 rounded-full font-bold">AKAN DATANG</span>
+                <h3 class="text-2xl md:text-3xl font-extrabold text-white">Advanced Security Architecture</h3>
+                <p class="text-sm text-slate-300 max-w-xl mx-auto">
+                    "Defense in Depth, Zero Trust, Network Segmentation & Threat Modeling"
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 99: Penutup -->
+        <div class="slide flex-col justify-center items-center text-center space-y-8 py-12">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-400 flex items-center justify-center text-slate-950 text-3xl font-extrabold shadow-xl shadow-emerald-500/20 mb-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+            </div>
+            
+            <div class="space-y-4 max-w-3xl">
+                <h2 class="text-3xl md:text-5xl font-extrabold text-white">"Storage Keeps Data Alive."</h2>
+                <h2 class="text-2xl md:text-4xl font-extrabold text-emerald-400">"Backup Gives You A Way Back."</h2>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-2 font-mono text-xs font-bold text-slate-300">
+                <span class="px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">STORE</span>
+                <i class="fa-solid fa-arrow-right text-slate-600 self-center"></i>
+                <span class="px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">PROTECT</span>
+                <i class="fa-solid fa-arrow-right text-slate-600 self-center"></i>
+                <span class="px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">VERIFY</span>
+                <i class="fa-solid fa-arrow-right text-slate-600 self-center"></i>
+                <span class="px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">BACK UP</span>
+                <i class="fa-solid fa-arrow-right text-slate-600 self-center"></i>
+                <span class="px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">RESTORE</span>
+            </div>
+
+            <p class="text-xs text-slate-400 max-w-lg italic">
+                Self-hosting yang matang bukan sekadar menyimpan data — tetapi merancang apa yang berlaku apabila storage gagal.
+            </p>
+        </div>
+
+    </main>
+
+    <!-- Bottom Sticky Navigation Footer Bar -->
+    <footer class="h-16 bg-slate-900/90 border-t border-slate-800 sticky bottom-0 z-50 px-4 md:px-8 flex items-center justify-between backdrop-blur">
+        <div class="flex items-center space-x-2">
+            <button onclick="prevSlide()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-chevron-left text-xs"></i> <span class="hidden sm:inline">Sebelum</span>
+            </button>
+            <button onclick="nextSlide()" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/20">
+                <span class="hidden sm:inline">Seterusnya</span> <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+        </div>
+
+        <!-- Slide Indicator -->
+        <div class="text-xs font-mono text-slate-400">
+            <span id="currentSlideNum" class="text-blue-400 font-bold">1</span> / <span id="totalSlideNum">99</span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="goToSlide(1)" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Ke Slide Pertama">
+                <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <button onclick="goToSlide(totalSlides)" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Ke Slide Terakhir">
+                <i class="fa-solid fa-forward-step"></i>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        // Global Presentation State
+        let currentSlide = 1;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        const slideTitles = [
+            "1. Title", "2. Kenapa Storage Penting?", "3. Storage vs Backup", "4. Storage Layers",
+            "5. HDD vs SSD", "6. Storage Capacity", "7. IOPS & Throughput", "8. Latency Storage",
+            "9. Filesystem", "10. Partition & Mount", "11. Mount Point", "12. File Storage",
+            "13. Block Storage", "14. Object Storage", "15. Perbandingan Jenis Storage", "16. Docker Storage",
+            "17. Docker Volume", "18. Docker Bind Mount", "19. Database Storage", "20. RAID Concept",
+            "21. RAID Levels", "22. RAID vs Backup", "23. Snapshot", "24. Snapshot vs Backup",
+            "25. Data Replication", "26. Why Replication is Not Backup", "27. Apa itu Backup?", "28. Full Backup",
+            "29. Incremental Backup", "30. Differential Backup", "31. Full vs Inc vs Diff", "32. 3-2-1 Backup Strategy",
+            "33. 3-2-1-1-0 Concept", "34. Offsite Backup", "35. Offline Backup", "36. Immutable Backup",
+            "37. Backup Encryption", "38. Encryption Key Management", "39. Backup Retention", "40. Retention Impact",
+            "41. RPO (Recovery Point)", "42. RTO (Recovery Time)", "43. RPO vs RTO", "44. Backup Frequency",
+            "45. Database Backup", "46. File Backup Tools", "47. Restic Tool", "48. Rsync Caution",
+            "49. Trio Strategy", "50. Backup Architecture", "51. Backup Scheduling", "52. Backup Verification",
+            "53. Restore Flow", "54. Restore Drill", "55. Disaster Scenario", "56. DR Plan",
+            "57. Bare Metal Recovery", "58. Recovery Dependencies", "59. Documentation Strategy", "60. Storage Monitoring",
+            "61. Backup Monitoring", "62. Backup Failure Causes", "63. Hardware Failure", "64. Human Error Scenario",
+            "65. Ransomware Scenario", "66. Home Lab Architecture", "67. NAS", "68. Home Server + NAS",
+            "69. Cloud Object Storage", "70. Storage Tiers", "71. Cost vs Recovery", "72. Production Architecture",
+            "73. Storage Security", "74. Encryption at Rest", "75. Encryption in Transit", "76. Access Control",
+            "77. Retention Example", "78. Backup Policy", "79. Backup Runbook", "80. Restore Runbook",
+            "81. Interactive Storage Map", "82. Interactive Backup Chain", "83. Interactive 3-2-1", "84. Interactive RPO/RTO",
+            "85. Interactive DR Simulation", "86. Quiz 1: RAID", "87. Quiz 2: Snapshot", "88. Quiz 3: Replication",
+            "89. Quiz 4: RPO", "90. Quiz 5: RTO", "91. Final Challenge", "92. Master Architecture",
+            "93. Full Ecosystem", "94. Production Checklist", "95. Common Mistakes", "96. Storage Mental Model",
+            "97. Topik Lepas", "98. Topik Seterusnya", "99. Penutup"
+        ];
+
+        // Initialize UI Elements
+        window.onload = function() {
+            document.getElementById('totalSlideNum').innerText = totalSlides;
+            populateSlideDropdown();
+            showSlide(currentSlide);
+            updateRpoRtoSim();
+            
+            // Keyboard Controls
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowRight' || e.key === 'Space') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    goToSlide(1);
+                } else if (e.key === 'End') {
+                    goToSlide(totalSlides);
+                }
+            });
+        };
+
+        function populateSlideDropdown() {
+            const select = document.getElementById('slideSelect');
+            select.innerHTML = '';
+            slideTitles.forEach((title, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx + 1;
+                opt.innerText = title;
+                select.appendChild(opt);
+            });
+        }
+
+        function showSlide(index) {
+            if (index < 1) index = 1;
+            if (index > totalSlides) index = totalSlides;
+
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[index - 1].classList.add('active');
+
+            currentSlide = index;
+            document.getElementById('currentSlideNum').innerText = currentSlide;
+            document.getElementById('slideSelect').value = currentSlide;
+
+            // Progress Bar Width
+            const progressPct = ((currentSlide - 1) / (totalSlides - 1)) * 100;
+            document.getElementById('progressBar').style.width = progressPct + '%';
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) showSlide(currentSlide + 1);
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) showSlide(currentSlide - 1);
+        }
+
+        function goToSlide(index) {
+            showSlide(index);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        function copyToClipboard(text, btn) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const origText = btn.innerText;
+            btn.innerText = 'Copied!';
+            btn.classList.add('bg-emerald-600');
+            setTimeout(() => {
+                btn.innerText = origText;
+                btn.classList.remove('bg-emerald-600');
+            }, 1500);
+        }
+
+        // Interactive Widget Logic (Slide 81)
+        function showLayerInfo(layer) {
+            const box = document.getElementById('layerInfoBox');
+            if (layer === 'app') {
+                box.innerHTML = `<h4 class="font-bold text-indigo-400 text-sm">1. Application Layer</h4><p class="text-xs text-slate-300">Menjana data live (e.g., PostgreSQL, Web uploads). Tidak peduli di mana data disimpan fizikal.</p>`;
+            } else if (layer === 'fs') {
+                box.innerHTML = `<h4 class="font-bold text-blue-400 text-sm">2. Filesystem Layer</h4><p class="text-xs text-slate-300">ext4 / XFS memeta fail ke dalam direktori dan menguruskan file permissions.</p>`;
+            } else if (layer === 'vol') {
+                box.innerHTML = `<h4 class="font-bold text-cyan-400 text-sm">3. Volume Layer</h4><p class="text-xs text-slate-300">Docker Volume menyediakan pemisahan persistent storage daripada container lifecycle.</p>`;
+            } else if (layer === 'ssd') {
+                box.innerHTML = `<h4 class="font-bold text-emerald-400 text-sm">4. Physical Media</h4><p class="text-xs text-slate-300">NVMe NAND Flash controller melaksanakan pembacaan/penulisan elektron fizikal.</p>`;
+            }
+        }
+
+        // Backup Chain Simulator (Slide 82)
+        function simulateRestore(day) {
+            const res = document.getElementById('restoreChainResult');
+            if (day === 'sun') {
+                res.innerHTML = `<span class="text-blue-400 font-bold">Restore Ahad:</span> Hanya perlukan 1 fail: <span class="text-white">Full Backup Ahad (100GB)</span>. Kelajuan: Terpantas.`;
+            } else if (day === 'mon') {
+                res.innerHTML = `<span class="text-cyan-400 font-bold">Restore Isnin:</span> Perlukan <span class="text-white">Full Backup Ahad</span> + <span class="text-white">Incremental Isnin (2GB)</span>.`;
+            } else if (day === 'tue') {
+                res.innerHTML = `<span class="text-cyan-400 font-bold">Restore Selasa:</span> Perlukan Rantaian Rangkaian: <span class="text-white">Full Ahad</span> + <span class="text-white">Inc Isnin</span> + <span class="text-white">Inc Selasa</span>.`;
+            } else if (day === 'wed') {
+                res.innerHTML = `<span class="text-cyan-400 font-bold">Restore Rabu:</span> Perlukan Rantaian Penuh: <span class="text-white">Full Ahad</span> + <span class="text-white">Inc Isnin</span> + <span class="text-white">Inc Selasa</span> + <span class="text-white">Inc Rabu</span>.`;
+            }
+        }
+
+        // 3-2-1 Evaluator (Slide 83)
+        function evaluate321() {
+            const c = document.getElementById('chkCopies').checked;
+            const m = document.getElementById('chkMedia').checked;
+            const o = document.getElementById('chkOffsite').checked;
+            const res = document.getElementById('eval321Result');
+
+            if (c && m && o) {
+                res.className = "p-4 rounded-xl text-center font-bold text-emerald-300 bg-emerald-950/40 border border-emerald-500/40";
+                res.innerHTML = `<i class="fa-solid fa-circle-check text-xl mb-1 block"></i> PAHIT MANIS TERCAPAI! Strategi anda memenuhi standard keselamatan 3-2-1 sepenuhnya!`;
+            } else {
+                res.className = "p-4 rounded-xl text-center font-bold text-amber-300 bg-amber-950/40 border border-amber-500/40";
+                res.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-xl mb-1 block"></i> TERDAPAT RISIKO! Strategi belum lengkap. Anda masih terdedah kepada kerosakan fizikal tempatan.`;
+            }
+        }
+
+        // RPO/RTO Simulator (Slide 84)
+        function updateRpoRtoSim() {
+            const rpo = document.getElementById('rpoRange').value;
+            const rto = document.getElementById('rtoRange').value;
+            document.getElementById('rpoVal').innerText = rpo + " Jam";
+            document.getElementById('rtoVal').innerText = rto + " Jam";
+
+            const box = document.getElementById('rpoRtoRecommendation');
+            let text = `<p class="font-bold text-blue-400 text-xs">Cadangan Seni Bina Merekabentuk Target Ini:</p>`;
+
+            if (rpo <= 1 && rto <= 1) {
+                text += `<p class="text-slate-300 text-xs">• Memerlukan <strong>Continuous Replication (HA Cluster)</strong> + Instant WAL Streaming. Kos: Tinggi.</p>`;
+            } else if (rpo <= 6) {
+                text += `<p class="text-slate-300 text-xs">• Memerlukan <strong>Automated Hourly Snapshot & Hourly Incremental Restic Backups</strong>.</p>`;
+            } else {
+                text += `<p class="text-slate-300 text-xs">• Memadai dengan <strong>Nightly Cronjob Full/Incremental Backup (24 Jam)</strong>. Kos: Sangat Murah.</p>`;
+            }
+            box.innerHTML = text;
+        }
+
+        // Disaster Simulator (Slide 85)
+        function triggerDisasterSimulation() {
+            const box = document.getElementById('drAnimBox');
+            const btn = document.getElementById('drActionBtn');
+
+            box.className = "p-6 bg-red-950/50 rounded-2xl border-2 border-red-500 space-y-4 animate-pulse";
+            box.innerHTML = `<i class="fa-solid fa-dumpster-fire text-4xl text-red-500"></i><p class="text-sm font-bold text-red-300">BENCANA: Hardware Crash / SSD Burnout!</p><p class="text-xs text-slate-300">Sistem terhenti total. Aplikasi Down.</p>`;
+
+            btn.onclick = recoverDisasterSimulation;
+            btn.className = "px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 text-xs";
+            btn.innerHTML = `<i class="fa-solid fa-rotate-left mr-2"></i> Mulakan Pemulihan Data (Restore Offsite Backup)`;
+        }
+
+        function recoverDisasterSimulation() {
+            const box = document.getElementById('drAnimBox');
+            const btn = document.getElementById('drActionBtn');
+
+            box.className = "p-6 bg-slate-900 rounded-2xl border border-emerald-500 space-y-4";
+            box.innerHTML = `<i class="fa-solid fa-circle-check text-4xl text-emerald-400"></i><p class="text-sm font-bold text-emerald-300">PEMULIHAN BERJAYA!</p><p class="text-xs text-slate-300">New Hardware Provisioned → Offsite S3 Decrypted → Postgres Restored → App Active.</p>`;
+
+            btn.onclick = triggerDisasterSimulation;
+            btn.className = "px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-600/30 text-xs";
+            btn.innerHTML = `<i class="fa-solid fa-bolt mr-2"></i> Simulasi Bencana Semula`;
+        }
+
+        // Quiz Checker Logic
+        function checkQuiz(qNum, option) {
+            const box = document.getElementById(`quizAns${qNum}`);
+            box.classList.remove('hidden');
+
+            const correctAnswers = { 1: 'B', 2: 'B', 3: 'B', 4: 'A', 5: 'A' };
+
+            if (option === correctAnswers[qNum]) {
+                box.className = "p-3 rounded-xl font-bold bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs";
+                box.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Tepat sekali! Jawapan anda betul.`;
+            } else {
+                box.className = "p-3 rounded-xl font-bold bg-red-950/60 border border-red-500/40 text-red-300 text-xs";
+                box.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1"></i> Kurang tepat. Sila cuba lagi atau baca semula slide perbandingan.`;
+            }
+        }
+    </script>
+</body>
+</html>

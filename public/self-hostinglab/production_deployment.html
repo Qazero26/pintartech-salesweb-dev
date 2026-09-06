@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Deployment: Dari Home Server Ke Production-Ready System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dev: '#3b82f6',
+                        prod: '#22c55e',
+                        sec: '#ef4444',
+                        mon: '#a855f7',
+                        bak: '#14b8a6',
+                        cf: '#f97316'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        .slide-enter {
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            background: #090d16;
+            border: 1px solid #1e293b;
+        }
+        /* Custom scrollbar for inner scrollable areas */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .pulse-dot {
+            animation: pulseGlow 2s infinite;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.15); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
+
+    <!-- Top Progress Bar & Header Navigation -->
+    <header class="fixed top-0 left-0 w-full z-50 glass-panel border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold text-xs border border-emerald-500/20">
+                PROD
+            </span>
+            <div>
+                <h1 class="text-xs md:text-sm font-semibold tracking-wide text-slate-200">Production Deployment</h1>
+                <p class="text-[10px] md:text-xs text-slate-400">Dari Home Server Ke Production-Ready System</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-4">
+            <!-- Grid Overview Button -->
+            <button id="overview-btn" onclick="toggleOverviewModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 border border-slate-700/60" title="Senarai Semua Slide (Grid Overview)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span class="hidden sm:inline">Overview</span>
+            </button>
+
+            <!-- Counter badge -->
+            <div class="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono font-medium text-emerald-400">
+                <span id="current-slide-num">1</span> / <span id="total-slides-num">52</span>
+            </div>
+        </div>
+        <!-- Progress bar line -->
+        <div class="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 via-emerald-400 to-purple-500 transition-all duration-300" id="progress-bar" style="width: 1.92%;"></div>
+    </header>
+
+    <!-- Main Slide Content Container -->
+    <main class="flex-1 mt-16 mb-16 px-3 sm:px-6 md:px-12 py-4 flex items-center justify-center max-w-7xl mx-auto w-full">
+        <div id="slides-container" class="w-full">
+
+            <!-- SLIDE 1: TAJUK -->
+            <div class="slide slide-enter hidden" data-slide="1">
+                <div class="glass-panel rounded-2xl p-6 md:p-12 text-center max-w-4xl mx-auto shadow-2xl relative overflow-hidden">
+                    <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-4">
+                        Modul Lanjutan (Advanced Level)
+                    </span>
+                    <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-3">
+                        Production Deployment
+                    </h1>
+                    <p class="text-lg sm:text-2xl font-medium text-emerald-400 mb-8">
+                        Dari Home Server Ke Production-Ready System
+                    </p>
+
+                    <!-- Pipeline Flow Visual -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 my-8 text-xs">
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">🍓</span>
+                            <span class="font-medium text-slate-300">Home Server</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">🐳</span>
+                            <span class="font-medium text-slate-300">Docker</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">☁️</span>
+                            <span class="font-medium text-slate-300">Cloudflare</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">🔐</span>
+                            <span class="font-medium text-slate-300">Security</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">📊</span>
+                            <span class="font-medium text-slate-300">Monitoring</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col items-center">
+                            <span class="text-2xl mb-1">💾</span>
+                            <span class="font-medium text-slate-300">Backup</span>
+                        </div>
+                        <div class="bg-emerald-950/40 border border-emerald-500/40 p-3 rounded-xl flex flex-col items-center col-span-2 sm:col-span-1">
+                            <span class="text-2xl mb-1">🚀</span>
+                            <span class="font-bold text-emerald-400">Production</span>
+                        </div>
+                    </div>
+
+                    <blockquote class="text-slate-300 italic text-sm md:text-base border-l-4 border-emerald-500 pl-4 py-2 mt-6 text-left max-w-2xl mx-auto bg-slate-900/60 rounded-r-lg">
+                        "Production bukan sekadar server boleh buka website."
+                    </blockquote>
+                </div>
+            </div>
+
+            <!-- SLIDE 2: APA ITU PRODUCTION? -->
+            <div class="slide slide-enter hidden" data-slide="2">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-2">
+                        <span class="text-emerald-400">01.</span> Apa Itu Production?
+                    </h2>
+                    <p class="text-slate-400 mb-6 text-sm">Memahami jurang antara kawasan ujikaji tempatan dan alam realiti pengguna.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 my-6">
+                        <div class="bg-slate-900/80 border border-blue-500/30 rounded-xl p-5 relative overflow-hidden">
+                            <div class="inline-block px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-bold mb-3">DEVELOPMENT</div>
+                            <h3 class="text-lg font-semibold text-white mb-2">Tempat Membina & Menguji</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed">
+                                Environment khas untuk pembangun (developer) membuat eksperimen, menambah feature, dan mencari bugs tanpa mengganggu sesiapa.
+                            </p>
+                            <div class="mt-4 pt-3 border-t border-slate-800 text-xs font-mono text-blue-300 flex items-center gap-2">
+                                <span>Developer</span> &rarr; <span>Code</span> &rarr; <span>Test</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-emerald-500/30 rounded-xl p-5 relative overflow-hidden">
+                            <div class="inline-block px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs font-bold mb-3">PRODUCTION</div>
+                            <h3 class="text-lg font-semibold text-white mb-2">Digunakan Pengguna Sebenar</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed">
+                                Environment awam yang mengendalikan transaksi sebenar, data kritikal, dan pengguna sebenar. Toleransi terhadap kegagalan adalah sangat rendah.
+                            </p>
+                            <div class="mt-4 pt-3 border-t border-slate-800 text-xs font-mono text-emerald-300 flex items-center gap-2">
+                                <span>Users</span> &rarr; <span>Internet</span> &rarr; <span>System</span> &rarr; <span>Real Data</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 3: "WORKING" VS "PRODUCTION READY" -->
+            <div class="slide slide-enter hidden" data-slide="3">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">
+                        "Working" vs "Production Ready"
+                    </h2>
+                    <p class="text-slate-400 mb-6 text-sm">Aplikasi yang boleh dibuka tidak bermaksud ia bersedia untuk bebanan sebenar.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5">
+                            <div class="text-red-400 font-bold mb-3 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-red-500"></span> WORKING SETUP
+                            </div>
+                            <ul class="space-y-2 text-sm text-slate-300">
+                                <li class="flex items-center gap-2 text-emerald-400 font-medium">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    Website boleh dibuka di browser
+                                </li>
+                                <li class="text-slate-500 text-xs pl-6">(Tetapi tiada perlindungan jika crashed, tiada backup jika hard disk rosak)</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-slate-900/90 border border-emerald-500/40 rounded-xl p-5">
+                            <div class="text-emerald-400 font-bold mb-3 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-emerald-500 pulse-dot"></span> PRODUCTION-READY SETUP
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Authentication</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Security Layer</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Monitoring</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Centralized Logging</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Automated Backup</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Tested Recovery</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Zero-Downtime Updates</div>
+                                <div class="bg-slate-800/80 p-2 rounded text-emerald-300">✓ Secrets Management</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold text-center text-sm md:text-base">
+                        "Berjaya berjalan ≠ Production Ready."
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 4: DEVELOPMENT VS PRODUCTION TABLE -->
+            <div class="slide slide-enter hidden" data-slide="4">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Perbandingan Development vs Production</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Perbezaan keperluan operasi mengikut persekitaran.</p>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs md:text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400">
+                                    <th class="py-3 px-4">Komponen</th>
+                                    <th class="py-3 px-4 text-blue-400 bg-blue-950/20">Development</th>
+                                    <th class="py-3 px-4 text-emerald-400 bg-emerald-950/20">Production</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Infrastruktur</td>
+                                    <td class="py-3 px-4 text-slate-400">Laptop / PC Tempatan</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Server Dedikasi / VPS / Cloud</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Konfigurasi</td>
+                                    <td class="py-3 px-4 text-slate-400">Debug mode = ON</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Production Config (Hardened)</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Database</td>
+                                    <td class="py-3 px-4 text-slate-400">Local DB / SQLite / Mock</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Real DB + Replicated Storage</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Sambungan</td>
+                                    <td class="py-3 px-4 text-slate-400">Temporary Tunnel / Localhost</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Stable Domain + Strict HTTPS</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Data</td>
+                                    <td class="py-3 px-4 text-slate-400">Test / Dummy Data</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Data Pengguna Sebenar (Sensitif)</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 font-semibold text-slate-300">Pemulihan</td>
+                                    <td class="py-3 px-4 text-slate-400">Restart Manual</td>
+                                    <td class="py-3 px-4 text-emerald-300 font-medium">Auto-Recovery + Auto-Restart</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 5: PRODUCTION ARCHITECTURE -->
+            <div class="slide slide-enter hidden" data-slide="5">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Production Architecture (Asas)</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Aliran trafik utama dari Internet hingga ke storan data.</p>
+
+                    <!-- Flow diagram -->
+                    <div class="flex flex-col items-center space-y-2 my-4 text-xs font-mono">
+                        <div class="px-4 py-1.5 rounded bg-slate-800 text-slate-300 border border-slate-700">INTERNET</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-blue-900/40 text-blue-300 border border-blue-500/30">DNS (Domain Name System)</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-orange-950/60 text-orange-300 border border-orange-500/30">CLOUDFLARE (Proxy / WAF)</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-orange-900/40 text-orange-200 border border-orange-500/20">CLOUDFLARE TUNNEL (Encrypted Outbound)</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-slate-800 text-slate-200 border border-slate-700">HOME SERVER / VPS</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-purple-900/40 text-purple-300 border border-purple-500/30">REVERSE PROXY (Nginx / Caddy / Traefik)</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-500/30">APPLICATION (Docker Container)</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="px-4 py-1.5 rounded bg-teal-900/40 text-teal-300 border border-teal-500/30">DATABASE (Persistent Storage)</div>
+                    </div>
+
+                    <div class="p-3 bg-purple-950/20 border border-purple-500/30 rounded-lg text-center text-xs text-purple-300">
+                        ⚡ Supporting Layers: <strong>Logging</strong> • <strong>Monitoring</strong> • <strong>Alerting</strong> (Berjalan merentasi semua komponen)
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 6: DOMAIN -->
+            <div class="slide slide-enter hidden" data-slide="6">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">02. Domain: Identiti Stabil</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Menghubungkan pengguna ke server melalui nama yang mudah diingati.</p>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-6 rounded-xl mb-6 text-center">
+                        <span class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Contoh Production Domain</span>
+                        <div class="text-2xl md:text-4xl font-mono font-bold text-emerald-400 my-2">app.domainbos.com</div>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-4 text-center text-xs">
+                        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-slate-200 mb-1">1. User</div>
+                            <p class="text-slate-400">Taip URL dalam browser</p>
+                        </div>
+                        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-blue-400 mb-1">2. DNS Lookup</div>
+                            <p class="text-slate-400">Tukar nama domain ke IP Cloudflare</p>
+                        </div>
+                        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-emerald-400 mb-1">3. Application</div>
+                            <p class="text-slate-400">Trafik sampai ke aplikasi sasaran</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 p-4 bg-slate-900/80 border-l-4 border-blue-500 text-sm text-slate-300">
+                         Domain memberikan <strong>stable public identity</strong>. Jika IP server fizikal bertukar, pengguna tetap membuka URL yang sama tanpa sebarang gangguan.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 7: HTTPS -->
+            <div class="slide slide-enter hidden" data-slide="7">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">03. HTTPS & Keselamatan Sambungan</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Enkripsi lalu lintas data menggunakan TLS/SSL.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 mb-6 text-sm">
+                        <div class="bg-red-950/30 border border-red-500/30 p-4 rounded-xl flex items-center justify-between">
+                            <span class="font-mono text-red-400">http://example.com</span>
+                            <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs font-bold">❌ Tidak Selamat</span>
+                        </div>
+                        <div class="bg-emerald-950/30 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between">
+                            <span class="font-mono text-emerald-400">https://example.com</span>
+                            <span class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-bold">✅ Selamat (TLS)</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">3 Teras Utama HTTPS (TLS Goals):</h3>
+                    <div class="grid md:grid-cols-3 gap-4 text-xs mb-6">
+                        <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-emerald-400 mb-1">🔒 Encryption</div>
+                            <p class="text-slate-400">Orang tengah tidak boleh membaca kandungan paket data.</p>
+                        </div>
+                        <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-blue-400 mb-1">🛡️ Authentication</div>
+                            <p class="text-slate-400">Memastikan anda berhubung dengan server sebenar, bukan penyamar.</p>
+                        </div>
+                        <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl">
+                            <div class="font-bold text-purple-400 mb-1">✨ Integrity</div>
+                            <p class="text-slate-400">Memastikan data tidak diubah suai semasa dalam perjalanan.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs md:text-sm font-medium">
+                        ⚠️ <strong>Peringatan Penting:</strong> "HTTPS tidak menjadikan application anda automatik secure daripada SQL Injection atau bug koding!"
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 8: REVERSE PROXY -->
+            <div class="slide slide-enter hidden" data-slide="8">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">04. Reverse Proxy</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Penjaga pintu hadapan (gatekeeper) server anda.</p>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl mb-6 font-mono text-xs flex flex-col md:flex-row items-center justify-between gap-3 text-center">
+                        <div class="p-2 bg-slate-800 text-slate-300 rounded w-full md:w-auto">Internet</div>
+                        <div>&rarr; HTTPS:443 &rarr;</div>
+                        <div class="p-2 bg-purple-900/50 border border-purple-500/40 text-purple-300 rounded font-bold w-full md:w-auto">Reverse Proxy</div>
+                        <div>&rarr; HTTP:8080 &rarr;</div>
+                        <div class="p-2 bg-emerald-900/50 border border-emerald-500/40 text-emerald-300 rounded font-bold w-full md:w-auto">Application Container</div>
+                    </div>
+
+                    <h3 class="text-sm font-semibold text-slate-300 mb-3">Fungsi Utama Reverse Proxy:</h3>
+                    <ul class="grid md:grid-cols-2 gap-3 text-xs text-slate-300">
+                        <li class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                            <strong>• TLS Termination:</strong> Menguruskan sijil SSL/TLS di satu tempat sahaja.
+                        </li>
+                        <li class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                            <strong>• Request Routing:</strong> Mengarahkan domain berbeza ke aplikasi berbeza.
+                        </li>
+                        <li class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                            <strong>• Security Shielding:</strong> Menyembunyikan port sebenar aplikasi tempatan.
+                        </li>
+                        <li class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                            <strong>• Centralized Header Control:</strong> Menguruskan CORS, Gzip compression, dan Security Headers.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SLIDE 9: MULTIPLE APPLICATIONS -->
+            <div class="slide slide-enter hidden" data-slide="9">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Menguruskan Pelbagai Subdomain</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Satu Reverse Proxy mengendalikan banyak servis serentak.</p>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-6 rounded-xl my-4">
+                        <div class="text-center font-mono text-xs text-purple-400 font-bold mb-4">DOMAIN UTAMA: domainbos.com</div>
+                        <div class="grid md:grid-cols-3 gap-4 text-xs font-mono">
+                            <div class="p-4 rounded bg-slate-950 border border-blue-500/30 text-center">
+                                <div class="text-blue-400 font-bold">app.domainbos.com</div>
+                                <div class="text-slate-500 my-1">↓</div>
+                                <div class="text-slate-300">Web App (Frontend)</div>
+                            </div>
+                            <div class="p-4 rounded bg-slate-950 border border-emerald-500/30 text-center">
+                                <div class="text-emerald-400 font-bold">api.domainbos.com</div>
+                                <div class="text-slate-500 my-1">↓</div>
+                                <div class="text-slate-300">REST API Backend</div>
+                            </div>
+                            <div class="p-4 rounded bg-slate-950 border border-amber-500/30 text-center">
+                                <div class="text-amber-400 font-bold">admin.domainbos.com</div>
+                                <div class="text-slate-500 my-1">↓</div>
+                                <div class="text-slate-300">Admin Dashboard</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 text-center">Reverse proxy membaca <em>Host Header</em> daripada HTTP Request dan menyalurkan trafik ke port tempatan yang betul (contoh: 3000, 8080, 9000).</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 10: CONTAINERIZATION -->
+            <div class="slide slide-enter hidden" data-slide="10">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">05. Containerization (Docker)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Membungkus aplikasi berserta dependency ke dalam kontena yang konsisten.</p>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl mb-6">
+                        <div class="font-mono text-xs text-slate-400 mb-2">STRUKTUR SERVER DOCKER:</div>
+                        <div class="space-y-2 text-xs font-mono">
+                            <div class="p-2 bg-slate-800 text-slate-300 rounded">Linux OS (Host Machine)</div>
+                            <div class="p-2 bg-blue-900/30 text-blue-300 border border-blue-500/30 rounded">Docker Engine</div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <div class="p-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded text-center">Web Container</div>
+                                <div class="p-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded text-center">API Container</div>
+                                <div class="p-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded text-center">Worker Container</div>
+                                <div class="p-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded text-center">Database Container</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-3 text-xs text-slate-300">
+                        <div class="p-3 bg-slate-900/60 rounded border border-slate-800">✅ <strong>Consistent Environment:</strong> "It works on my machine" tidak lagi menjadi alasan.</div>
+                        <div class="p-3 bg-slate-900/60 rounded border border-slate-800">✅ <strong>Isolation:</strong> Masalah pada Web App tidak merosakkan Database secara langsung.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 11: DOCKER COMPOSE -->
+            <div class="slide slide-enter hidden" data-slide="11">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Docker Compose: Multi-Container Setup</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Menguruskan keseluruhan stack aplikasi dalam satu fail deklaratif.</p>
+
+                    <div class="code-block p-4 rounded-xl mb-4 text-xs text-slate-300">
+                        <div class="text-slate-500 mb-1"># docker-compose.yml</div>
+                        <pre class="text-emerald-400">
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+  api:
+    build: ./api
+    environment:
+      - DATABASE_HOST=db
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - db_data:/var/lib/postgresql/data</pre>
+                    </div>
+
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Docker Compose membantu mendefinisikan network tempatan, volume storan, dan hubungan kebergantungan (dependencies) antara servis hanya dengan satu perintah: <code class="bg-slate-800 px-1.5 py-0.5 rounded text-emerald-400">docker compose up -d</code>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 12: ENVIRONMENT VARIABLES -->
+            <div class="slide slide-enter hidden" data-slide="12">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">06. Environment Variables (.env)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Asingkan konfigurasi aplikasi daripada kod sumber (source code).</p>
+
+                    <div class="code-block p-4 rounded-xl mb-6 text-xs text-slate-300 font-mono">
+                        <div class="text-slate-500 mb-2"># Contoh fail .env dalam Production</div>
+                        <div class="text-blue-400">APP_ENV=<span class="text-amber-300">production</span></div>
+                        <div class="text-blue-400">APP_PORT=<span class="text-amber-300">8080</span></div>
+                        <div class="text-blue-400">DATABASE_HOST=<span class="text-amber-300">db</span></div>
+                        <div class="text-blue-400">LOG_LEVEL=<span class="text-amber-300">warn</span></div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/80 border-l-4 border-emerald-500 text-sm text-slate-300">
+                        <strong>Mengapa Penting?</strong> Kod aplikasi yang sama boleh dijalankan di laptop (development) atau di server (production) tanpa perlu mengubah walau satu baris kod sumber—hanya tukar nilai Environment Variable.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 13: SECRETS -->
+            <div class="slide slide-enter hidden" data-slide="13">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">07. Secrets Management</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Melindungi maklumat rahsia daripada kebocoran.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-red-950/20 border border-red-500/30 p-4 rounded-xl">
+                            <h3 class="text-red-400 font-bold text-xs uppercase tracking-wider mb-2">❌ JANGAN SIMPAN:</h3>
+                            <ul class="text-xs text-slate-300 space-y-1 font-mono">
+                                <li>• API Keys & Tokens</li>
+                                <li>• Database Passwords</li>
+                                <li>• Cloudflare Tunnel Secret</li>
+                                <li>• SSH Private Keys</li>
+                            </ul>
+                            <p class="text-[11px] text-red-300 mt-3">Dalam: Git Repository, Frontend JS, atau Public Code.</p>
+                        </div>
+
+                        <div class="bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-xl">
+                            <h3 class="text-emerald-400 font-bold text-xs uppercase tracking-wider mb-2">✅ GUNAKAN:</h3>
+                            <ul class="text-xs text-slate-300 space-y-1">
+                                <li>• Production Environment Variables</li>
+                                <li>• Docker Secrets / Secret Managers</li>
+                                <li>• Protected Server Configuration Files</li>
+                                <li>• Fail <code class="text-emerald-300">.gitignore</code> yang ketat</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 14: DATABASE DEPLOYMENT -->
+            <div class="slide slide-enter hidden" data-slide="14">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">08. Database Deployment & Isolation</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Database adalah jantung sistem. Ia tidak sepatutnya terdedah kepada awam.</p>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl my-4 font-mono text-xs text-center">
+                        <div class="text-slate-400 mb-2">ISOLASI NETWORK DATABASE</div>
+                        <div class="flex flex-col md:flex-row items-center justify-center gap-2">
+                            <span class="p-2 bg-slate-800 text-slate-300 rounded">Public Internet</span>
+                            <span>&rarr;</span>
+                            <span class="p-2 bg-emerald-900/40 text-emerald-300 rounded border border-emerald-500/30">Application Server</span>
+                            <span>&rarr;</span>
+                            <span class="p-2 bg-red-950/50 text-red-300 rounded border border-red-500/40 font-bold">Database (Internal Network Only)</span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+                        <p>🔒 <strong>Prinsip Utama:</strong> Database TIDAK PERLU exposed ke public internet (Jangan buka Port 5432 / 3306 pada IP awam).</p>
+                        <p>🛡️ Hanya container aplikasi dalam Docker Network dalaman yang dibenarkan berkomunikasi dengan Database.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 15: PERSISTENT STORAGE -->
+            <div class="slide slide-enter hidden" data-slide="15">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">09. Persistent Storage & Volume</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Memastikan data tidak hilang apabila kontena dipadam atau di-update.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-6 text-xs">
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-amber-500/30">
+                            <div class="text-amber-400 font-bold mb-2">CONTAINERS</div>
+                            <p class="text-slate-300 leading-relaxed">Boleh dipadam, diganti, atau di-restart pada bila-bila masa (Stateless / Ephemeral).</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-teal-500/30">
+                            <div class="text-teal-400 font-bold mb-2">DATA / VOLUMES</div>
+                            <p class="text-slate-300 leading-relaxed">Mesti kekal tersimpan secara selamat di dalam storan fizikal host server (Stateful).</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/90 border border-slate-800 rounded-xl text-center">
+                        <div class="font-mono text-xs text-slate-400">Container &rarr; Docker Volume &rarr; Host Storage</div>
+                        <div class="mt-3 text-sm font-semibold text-emerald-400">
+                            "Container boleh hilang. Data tidak sepatutnya hilang."
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 16: LOGGING -->
+            <div class="slide slide-enter hidden" data-slide="16">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">10. Logging</h2>
+                    <p class="text-slate-400 mb-4 text-sm">"Kalau ada masalah, kita perlu tahu apa yang berlaku."</p>
+
+                    <div class="grid md:grid-cols-2 gap-3 text-xs mb-4">
+                        <div class="bg-slate-900/60 p-3 rounded border border-slate-800 text-slate-300">
+                            <strong class="text-blue-400">• Application Logs:</strong> Exception, stack traces, logic errors.
+                        </div>
+                        <div class="bg-slate-900/60 p-3 rounded border border-slate-800 text-slate-300">
+                            <strong class="text-emerald-400">• Access Logs:</strong> HTTP status codes (200, 404, 500), IP, latency.
+                        </div>
+                        <div class="bg-slate-900/60 p-3 rounded border border-slate-800 text-slate-300">
+                            <strong class="text-amber-400">• Auth Logs:</strong> Percubaan login gagal, perubahan password.
+                        </div>
+                        <div class="bg-slate-900/60 p-3 rounded border border-slate-800 text-slate-300">
+                            <strong class="text-purple-400">• System Logs:</strong> Service restarts, OOM (Out Of Memory) killed events.
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-red-950/20 border border-red-500/30 rounded text-red-300 text-xs">
+                        ⚠️ <strong>Peraturan Utama Log:</strong> JANGAN sesekali meletakkan maklumat sensitif (password, credit card, JWT token) dalam fail log!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 17: MONITORING -->
+            <div class="slide slide-enter hidden" data-slide="17">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">11. Monitoring Infrastructure</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Memantau kesihatan sistem secara masa nyata (Real-Time Metrics).</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-4 text-center text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-slate-400 mb-1">CPU Usage</div>
+                            <div class="text-xl font-bold text-blue-400 font-mono">42%</div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-slate-400 mb-1">RAM Usage</div>
+                            <div class="text-xl font-bold text-emerald-400 font-mono">1.8 / 4 GB</div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-slate-400 mb-1">Disk Space</div>
+                            <div class="text-xl font-bold text-amber-400 font-mono">78%</div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-slate-400 mb-1">Tunnel Status</div>
+                            <div class="text-xl font-bold text-emerald-400 font-mono">ACTIVE</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">Monitoring membantu pentadbir sistem mengesan kekangan sumber sebelum server mengalami kegagalan total (crash).</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 18: HEALTH CHECK -->
+            <div class="slide slide-enter hidden" data-slide="18">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">12. Health Checks</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Menjawab soalan penting: "Adakah aplikasi ini benar-benar sihat?"</p>
+
+                    <div class="code-block p-4 rounded-xl mb-4 text-xs font-mono">
+                        <span class="text-blue-400">GET</span> /health<br>
+                        <span class="text-emerald-400">Response 200 OK</span>: {"status": "ok", "database": "connected"}
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                            <div class="font-bold text-blue-400 mb-1">Liveness Probe</div>
+                            <p class="text-slate-300">Memastikan proses aplikasi masih hidup. Jika gagal &rarr; restart container.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                            <div class="font-bold text-emerald-400 mb-1">Readiness Probe</div>
+                            <p class="text-slate-300">Memastikan aplikasi bersedia menerima trafik (cth: sambungan DB sudah sedia).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 19: ALERTING -->
+            <div class="slide slide-enter hidden" data-slide="19">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">13. Alerting Systems</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Notifikasi pantas apabila parameter sistem melepasi had bahaya.</p>
+
+                    <div class="bg-slate-900 p-4 rounded-xl border border-red-500/40 mb-6 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🚨</span>
+                            <div>
+                                <div class="text-xs font-bold text-red-400">ALERT TRIGGERED: DISK SPACE &gt; 95%</div>
+                                <div class="text-[11px] text-slate-400">Server: pi-home-01 | Time: 03:14 AM</div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 bg-red-500/20 text-red-400 text-[10px] font-bold rounded">CRITICAL</span>
+                    </div>
+
+                    <h3 class="text-xs font-semibold text-slate-300 mb-2">Contoh Amaran Wajib:</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Servis aplikasi Down</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Storan Disk hampir penuh</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Penggunaan Memory melampau</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Process Backup gagal</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Sijil SSL bakal tamat tempoh</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">• Cloudflare Tunnel terputus</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 20: UPTIME -->
+            <div class="slide slide-enter hidden" data-slide="20">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">14. Uptime & Availability Targets</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Berapa lama sistem anda dijangka kekal beroperasi tanpa gangguan?</p>
+
+                    <div class="grid md:grid-cols-3 gap-4 mb-6 text-center text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-lg font-bold text-blue-400 font-mono">99%</div>
+                            <div class="text-slate-400 mt-1">Downtime: ~3.65 hari / tahun</div>
+                            <div class="text-[10px] text-slate-500 mt-2">Sesuai untuk Homelab / Hobby</div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-lg font-bold text-emerald-400 font-mono">99.9%</div>
+                            <div class="text-slate-400 mt-1">Downtime: ~8.76 jam / tahun</div>
+                            <div class="text-[10px] text-slate-500 mt-2">Sesuai untuk Small Business</div>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-lg font-bold text-purple-400 font-mono">99.99%</div>
+                            <div class="text-slate-400 mt-1">Downtime: ~52.6 minit / tahun</div>
+                            <div class="text-[10px] text-slate-500 mt-2">Enterprise Grade</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300 text-center">
+                        💡 Kos dan kompleksiti meningkat secara mendadak bagi setiap penambahan angka '9'. Sasarkan availability mengikut keperluan sebenar project anda.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 21: BACKUP -->
+            <div class="slide slide-enter hidden" data-slide="21">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">15. Backup Strategy</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Insurans terpenting untuk data produksi anda.</p>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 mb-6 text-xs font-mono flex flex-col md:flex-row items-center justify-between gap-2 text-center">
+                        <span class="p-2 bg-slate-800 text-slate-300 rounded">Application Data</span>
+                        <span>&rarr;</span>
+                        <span class="p-2 bg-teal-900/40 text-teal-300 rounded border border-teal-500/30">Database Dump</span>
+                        <span>&rarr;</span>
+                        <span class="p-2 bg-teal-950 text-teal-200 rounded border border-teal-500/40">Encrypted Backup File</span>
+                        <span>&rarr;</span>
+                        <span class="p-2 bg-purple-900/40 text-purple-300 rounded border border-purple-500/30">Remote Storage (Cloud S3 / Offsite)</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-teal-300 text-center">
+                            <strong>Regular</strong> (Berkala)
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-teal-300 text-center">
+                            <strong>Protected</strong> (Enkripsi)
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-teal-300 text-center">
+                            <strong>Monitored</strong> (Dipantau)
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-teal-300 text-center">
+                            <strong>Tested</strong> (Diuji)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 22: 3-2-1 BACKUP -->
+            <div class="slide slide-enter hidden" data-slide="22">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Prinsip 3-2-1 Backup Rule</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Panduan standard industri untuk keselamatan salinan data.</p>
+
+                    <div class="grid md:grid-cols-3 gap-6 mb-6 text-center">
+                        <div class="bg-slate-900/90 border border-teal-500/40 p-5 rounded-xl">
+                            <div class="text-3xl font-black text-teal-400 mb-2">3</div>
+                            <div class="text-sm font-bold text-slate-200">Salinan Data</div>
+                            <p class="text-xs text-slate-400 mt-2">1 Data Asal + 2 Salinan Backup</p>
+                        </div>
+                        <div class="bg-slate-900/90 border border-teal-500/40 p-5 rounded-xl">
+                            <div class="text-3xl font-black text-teal-400 mb-2">2</div>
+                            <div class="text-sm font-bold text-slate-200">Jenis Media Berbeza</div>
+                            <p class="text-xs text-slate-400 mt-2">Contoh: Local NVMe SSD + External NAS</p>
+                        </div>
+                        <div class="bg-slate-900/90 border border-teal-500/40 p-5 rounded-xl">
+                            <div class="text-3xl font-black text-teal-400 mb-2">1</div>
+                            <div class="text-sm font-bold text-slate-200">Lokasi Offsite</div>
+                            <p class="text-xs text-slate-400 mt-2">Disimpan di luar bangunan (Cloud / Remote Server)</p>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400 text-center">Sesuaikan strategi backup ini mengikut tahap toleransi risiko dan bajet anda.</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 23: RESTORE TEST -->
+            <div class="slide slide-enter hidden" data-slide="23">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">16. Disaster Restore Testing</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Ujian pemulihan data adalah lebih kritikal daripada proses membuat backup.</p>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 mb-6 font-mono text-xs flex items-center justify-between text-center">
+                        <span class="text-teal-400">Backup File</span> &rarr;
+                        <span class="text-blue-400">Restore Procedure</span> &rarr;
+                        <span class="text-purple-400">Integrity Verification</span> &rarr;
+                        <span class="text-emerald-400">Application OK</span>
+                    </div>
+
+                    <div class="p-6 rounded-xl bg-red-950/30 border border-red-500/40 text-center">
+                        <div class="text-lg md:text-xl font-bold text-red-400">
+                            "Backup yang belum diuji bukan bukti recovery."
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">
+                            Lakukan ujian restore secara berkala (cth: sebulan sekali) dalam environment ujian untuk memastikan fail backup tidak rosak (corrupted).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 24: DEPLOYMENT PIPELINE -->
+            <div class="slide slide-enter hidden" data-slide="24">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">17. Continuous Deployment Flow</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Aliran automatik atau berstruktur dari kod sumber ke server.</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-2 my-6 text-xs text-center font-mono">
+                        <div class="p-3 bg-slate-900 border border-slate-800 rounded text-slate-300">Developer</div>
+                        <div class="p-3 bg-slate-900 border border-slate-800 rounded text-blue-400">Git Push</div>
+                        <div class="p-3 bg-slate-900 border border-slate-800 rounded text-purple-400">Build Image</div>
+                        <div class="p-3 bg-slate-900 border border-slate-800 rounded text-amber-400">Run Tests</div>
+                        <div class="p-3 bg-slate-900 border border-slate-800 rounded text-teal-400">Deploy Server</div>
+                        <div class="p-3 bg-emerald-950 border border-emerald-500/40 rounded text-emerald-400 font-bold">Production</div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">
+                        Amalan CI/CD (Continuous Integration / Continuous Deployment) mengurangkan kebergantungan kepada proses manual yang berisiko human error.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 25: VERSION CONTROL -->
+            <div class="slide slide-enter hidden" data-slide="25">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Version Control (Git)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Menguruskan jejak sejarah penukaran kod sumber.</p>
+
+                    <div class="code-block p-4 rounded-xl mb-6 text-xs font-mono text-slate-300">
+                        <div class="text-slate-500"># Git Branch Structure</div>
+                        <div class="text-emerald-400">main &rarr; (Production Deployment Code Only)</div>
+                        <div class="text-blue-400">develop &rarr; (Staging / Integration Testing)</div>
+                        <div class="text-purple-400">feature/* &rarr; (Penambahan fungsi baru)</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">• Track Changes</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">• Easy Collaboration</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">• Rapid Rollback</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">• Audit History</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 26: BUILD PHASE -->
+            <div class="slide slide-enter hidden" data-slide="26">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Build Phase & Container Registries</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Bina imej sekali sahaja, deploy di mana-mana jua.</p>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 mb-6 text-xs font-mono flex flex-wrap items-center justify-between gap-2 text-center">
+                        <span class="text-slate-300">Source Code</span> &rarr;
+                        <span class="text-blue-400">Dockerfile</span> &rarr;
+                        <span class="text-purple-400">Docker Image</span> &rarr;
+                        <span class="text-amber-400">Registry (GHCR/DockerHub)</span> &rarr;
+                        <span class="text-emerald-400">Production Server</span>
+                    </div>
+
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Prinsip Immutability: Jangan compile kod baru terus di atas Production Server. Bina <strong>Container Image</strong> berlabel versi khas (cth: <code class="text-emerald-400">v1.2.0</code>) di tempat binaan, kemudian deploy imej tersebut.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 27: DEPLOYMENT STRATEGIES -->
+            <div class="slide slide-enter hidden" data-slide="27">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">18. Deployment Strategies</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Teknik kemaskini versi aplikasi di persekitaran produksi.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-slate-200 mb-1">1. Manual Deployment</h3>
+                            <p class="text-slate-400">Tutup app lama, ganti kod, buka app baru. Memerlukan downtime seketika.</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-blue-400 mb-1">2. Rolling Deployment</h3>
+                            <p class="text-slate-400">Kemaskini kontena satu per satu tanpa menutup keseluruhan servis.</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-emerald-500/30">
+                            <h3 class="font-bold text-emerald-400 mb-1">3. Blue/Green Deployment</h3>
+                            <p class="text-slate-400">Dua persekitaran identikal berjalan serentak. Trafik alih serta-merta.</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-purple-500/30">
+                            <h3 class="font-bold text-purple-400 mb-1">4. Canary Deployment</h3>
+                            <p class="text-slate-400">Lepaskan versi baru kepada sebilangan kecil peratusan pengguna dahulu.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 28: BLUE / GREEN -->
+            <div class="slide slide-enter hidden" data-slide="28">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Blue / Green Deployment</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Strategi penukaran trafik sepantas kilat.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 mb-6 text-xs text-center font-mono">
+                        <div class="p-4 bg-blue-950/40 border border-blue-500/40 rounded-xl">
+                            <div class="text-blue-400 font-bold mb-1">BLUE (Active - Version 1.0)</div>
+                            <span class="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
+                            <p class="text-slate-400 mt-2">Menerima 100% Trafik Pengguna</p>
+                        </div>
+                        <div class="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl">
+                            <div class="text-emerald-400 font-bold mb-1">GREEN (Idle - Version 2.0)</div>
+                            <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+                            <p class="text-slate-400 mt-2">Diuji Sepenuhnya & Sedia Digunakan</p>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300 text-center">
+                        Setelah sedia, Reverse Proxy ditukar haluan untuk mengarah pengguna ke persekitaran <strong>GREEN</strong>. Jika ada isu, alih semula trafik ke <strong>BLUE</strong> dalam beberapa saat.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 29: CANARY -->
+            <div class="slide slide-enter hidden" data-slide="29">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Canary Deployment</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Mengurangkan risiko dengan pengeluaran secara berperingkat.</p>
+
+                    <div class="space-y-3 font-mono text-xs mb-6">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                            <span>Fasa 1: Pengeluaran Awal</span>
+                            <span class="text-amber-400 font-bold">95% Old | 5% New Traffic</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                            <span>Fasa 2: Pemantauan Stabil</span>
+                            <span class="text-blue-400 font-bold">80% Old | 20% New Traffic</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                            <span>Fasa 3: Pengeluaran Penuh</span>
+                            <span class="text-emerald-400 font-bold">0% Old | 100% New Traffic</span>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400 text-center">
+                        Mengesan bug tersembunyi dengan menguji pada kelompok pengguna kecil sebelum mengemas kini keseluruhan pelayan.
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 30: ROLLBACK -->
+            <div class="slide slide-enter hidden" data-slide="30">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">19. Rollback Plan</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Jalan keluar cemas apabila deployment baru mengalami kegagalan.</p>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border border-red-500/30 mb-6 font-mono text-xs flex items-center justify-between text-center">
+                        <span class="text-emerald-400">Deploy v2.0</span> &rarr;
+                        <span class="text-red-400">Critical Bug Detected</span> &rarr;
+                        <span class="text-amber-400">Trigger Rollback</span> &rarr;
+                        <span class="text-emerald-400">Restore Stable v1.0</span>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/90 border-l-4 border-amber-500 text-sm text-amber-300 font-semibold text-center">
+                        "Setiap deployment strategy mesti ada jalan keluar (Exit Plan)."
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 31: DATABASE MIGRATION -->
+            <div class="slide slide-enter hidden" data-slide="31">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Database Migration Strategy</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Menguruskan perubahan skema database tanpa merosakkan data sedia ada.</p>
+
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 mb-6 font-mono text-xs text-center flex justify-around">
+                        <span class="text-teal-300">1. Backup DB</span> &rarr;
+                        <span class="text-blue-300">2. Run Migration</span> &rarr;
+                        <span class="text-purple-300">3. Deploy App</span> &rarr;
+                        <span class="text-emerald-300">4. Verify Integrity</span>
+                    </div>
+
+                    <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl text-xs text-red-300">
+                        ⚠️ <strong>PENTING:</strong> Jangan ubah skema database produksi secara manual melalui SQL command GUI tanpa fail skrip migration dan pelan pemulihan!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 32: ZERO DOWNTIME -->
+            <div class="slide slide-enter hidden" data-slide="32">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">20. Konsep Zero-Downtime Deployment</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Menukar versi aplikasi tanpa memutuskan pengguna yang sedang aktif.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 mb-6 text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-slate-200 mb-1">Bagaimana Ia Berfungsi?</h3>
+                            <p class="text-slate-400 leading-relaxed">Reverse Proxy menahan trafik baharu seketika, mengarahkan sambungan ke kontena baru yang telah disahkan sihat (Health Check OK), sebelum menamatkan kontena lama.</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-slate-200 mb-1">Teknologi Terlibat</h3>
+                            <p class="text-slate-400 leading-relaxed">• Reverse Proxy Graceful Reload<br>• Docker Swarm / Kubernetes<br>• Load Balancer Session Draining</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 33: RESOURCE MONITORING -->
+            <div class="slide slide-enter hidden" data-slide="33">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">24. Resource Planning & Bottlenecks</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Mengetahui bila server fizikal anda mula kehabisan tenaga.</p>
+
+                    <div class="space-y-3 font-mono text-xs mb-6">
+                        <div>
+                            <div class="flex justify-between mb-1 text-slate-300"><span>CPU Utilization</span><span>80% (Warning)</span></div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div class="bg-amber-500 h-full" style="width: 80%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1 text-slate-300"><span>RAM Usage</span><span>70% (OK)</span></div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div class="bg-blue-500 h-full" style="width: 70%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1 text-slate-300"><span>Disk Usage</span><span>92% (CRITICAL)</span></div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div class="bg-red-500 h-full" style="width: 92%"></div></div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">Resource planning membolehkan anda merancang kerja pembersihan atau penambahan spesifikasi sebelum crash berlaku.</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 34: SCALING -->
+            <div class="slide slide-enter hidden" data-slide="34">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">21. Scaling: Vertical vs Horizontal</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Dua pendekatan membesarkan kapasiti sistem.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-4 text-xs">
+                        <div class="bg-slate-900 p-5 rounded-xl border border-blue-500/30">
+                            <h3 class="text-base font-bold text-blue-400 mb-2">Vertical Scaling (Scale UP)</h3>
+                            <p class="text-slate-300 mb-3">Tukar spesifikasi server kepada yang lebih besar (tambah RAM, CPU, Disk SSD).</p>
+                            <span class="inline-block px-2 py-1 bg-blue-500/20 text-blue-300 rounded font-mono">1 Server Besar</span>
+                        </div>
+                        <div class="bg-slate-900 p-5 rounded-xl border border-emerald-500/30">
+                            <h3 class="text-base font-bold text-emerald-400 mb-2">Horizontal Scaling (Scale OUT)</h3>
+                            <p class="text-slate-300 mb-3">Tambah bilangan nod server serupa dan agihkan beban melalui Load Balancer.</p>
+                            <span class="inline-block px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded font-mono">Banyak Server Kecil</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 35: RASPBERRY PI VS VPS -->
+            <div class="slide slide-enter hidden" data-slide="35">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Raspberry Pi vs VPS</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Memilih infrastruktur fizikal yang tepat untuk jenis beban kerja.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-base font-bold text-red-400 mb-2">🍓 Raspberry Pi (Home Server)</div>
+                            <ul class="space-y-1.5 text-slate-300">
+                                <li>✓ Sangat rendah penggunaan elektrik</li>
+                                <li>✓ Kawalan fizikal 100% di rumah</li>
+                                <li>✓ Cemerlang untuk persekitaran pembelajaran</li>
+                                <li>⚠️ Kebergantungan kepada talian internet rumah & bekalan elektrik tempatan</li>
+                            </ul>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <div class="text-base font-bold text-blue-400 mb-2">☁️ VPS (Cloud Server)</div>
+                            <ul class="space-y-1.5 text-slate-300">
+                                <li>✓ Sambungan internet & bekalan kuasa gred Datacenter</li>
+                                <li>✓ Public IP statik yang stabil</li>
+                                <li>✓ Mudah ditambah spesifikasi (Flexible Scaling)</li>
+                                <li>⚠️ Memerlukan yuran komitmen bulanan</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 36: HOME PRODUCTION -->
+            <div class="slide slide-enter hidden" data-slide="36">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Home Production Deployment</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Production tidak semestinya bermaksud Cloud bernilai ribuan ringgit.</p>
+
+                    <div class="p-5 bg-slate-900 border border-slate-800 rounded-xl mb-6 text-xs text-slate-300 leading-relaxed">
+                        <strong class="text-emerald-400">Home Production bermaksud:</strong><br>
+                        Home Server (Raspberry Pi / Mini PC) + Pengguna Sebenar + Data Sebenar + Keperluan Uptime Sebenar.
+                    </div>
+
+                    <p class="text-xs text-slate-400 text-center">
+                        Meskipun bertempat di rumah, anda masih perlu menerapkan amalan keselamatan, backup, dan monitoring yang ketat!
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 37: DISASTER RECOVERY -->
+            <div class="slide slide-enter hidden" data-slide="37">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">23. Disaster Recovery Scenario</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Bersedia menghadapi senario terburuk.</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-6">
+                        <div class="p-3 bg-red-950/20 border border-red-500/30 rounded text-red-300">⚡ Power Outage</div>
+                        <div class="p-3 bg-red-950/20 border border-red-500/30 rounded text-red-300">💾 Storage Disk Failure</div>
+                        <div class="p-3 bg-red-950/20 border border-red-500/30 rounded text-red-300">🔥 Database Corruption</div>
+                        <div class="p-3 bg-red-950/20 border border-red-500/30 rounded text-red-300">🔓 Credential Compromise</div>
+                    </div>
+
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 font-mono text-xs text-center">
+                        DETECT &rarr; CONTAIN &rarr; RECOVER &rarr; VERIFY &rarr; RESTORE SERVICE
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 38: RPO & RTO -->
+            <div class="slide slide-enter hidden" data-slide="38">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Objektif Pemulihan: RPO & RTO</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Dua parameter kritikal dalam merancang pemulihan bencana.</p>
+
+                    <div class="grid md:grid-cols-2 gap-6 mb-6 text-xs">
+                        <div class="bg-slate-900 p-5 rounded-xl border border-teal-500/30">
+                            <h3 class="text-base font-bold text-teal-400 mb-1">RPO (Recovery Point Objective)</h3>
+                            <p class="text-slate-300 mb-2">Berapa banyak data yang sanggup anda rugi (hilang)?</p>
+                            <span class="font-mono text-slate-400">Contoh: RPO = 1 Jam (Kekerapan Backup)</span>
+                        </div>
+                        <div class="bg-slate-900 p-5 rounded-xl border border-blue-500/30">
+                            <h3 class="text-base font-bold text-blue-400 mb-1">RTO (Recovery Time Objective)</h3>
+                            <p class="text-slate-300 mb-2">Berapa lama sistem boleh berada dalam keadaan terhenti (down)?</p>
+                            <span class="font-mono text-slate-400">Contoh: RTO = 4 Jam (Masa Pemulihan)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 39: SECURITY IN PRODUCTION -->
+            <div class="slide slide-enter hidden" data-slide="39">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Security Checklist in Production</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Perlindungan berlapis (Defense in Depth).</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-slate-300">
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Enkripsi HTTPS Strict</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Robust Auth & RBAC</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Prinsip Least Privilege</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Firewall (UFW / Cloud)</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Cloudflare WAF Rules</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Secrets Encrypted</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Auto OS Security Updates</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Centralized Log Auditing</div>
+                        <div class="p-2.5 bg-slate-900 rounded border border-slate-800">✓ Offsite Backups</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 40: PRODUCTION CHECKLIST -->
+            <div class="slide slide-enter hidden" data-slide="40">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">25. Production Checklist (Ringkasan)</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Empat pilar utama sebelum melancarkan aplikasi ke awam.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs">
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-blue-400 mb-2">🌐 NETWORK</h3>
+                            <p class="text-slate-400">DNS Configured • HTTPS Verified • Tunnel/Routing Active</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-emerald-400 mb-2">💻 APPLICATION</h3>
+                            <p class="text-slate-400">Auth Secure • Dependencies Updated • Health Checks Ready</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-amber-400 mb-2">💾 DATA</h3>
+                            <p class="text-slate-400">Persistent Volumes • Automated Backup • Restore Tested</p>
+                        </div>
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                            <h3 class="font-bold text-purple-400 mb-2">📊 OPERATIONS</h3>
+                            <p class="text-slate-400">Logging Active • Monitoring Live • Alerts Configured</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 41: DOCUMENTATION -->
+            <div class="slide slide-enter hidden" data-slide="41">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Dokumentasi Operasi (Runbook)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Jangan biarkan pengetahuan sistem hanya wujud dalam kepala anda.</p>
+
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2 mb-6">
+                        <p><strong>Perkara Wajib Didokumentasikan:</strong></p>
+                        <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                            <li>Rajah Seni Bina System (Architecture Diagram)</li>
+                            <li>Lokasi penyimpanan Secret / Key (tanpa menulis kata laluan dalam doc)</li>
+                            <li>Prosedur deployment & rollback step-by-step</li>
+                            <li>Prosedur pemulihan data cemas (Emergency Runbook)</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-amber-300 text-xs">
+                        ⚠️ <strong>AMARAN:</strong> Jangan simpan kata laluan sebenar dalam dokumen teks biasa!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 42: AUTOMATION -->
+            <div class="slide slide-enter hidden" data-slide="42">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Automasi Operasi Server</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Mengurangkan kesilapan manusia (human error) melalui skrip automatik.</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs mb-6">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• Auto Backup Execution</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• SSL Cert Auto-Renewal</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• Auto Service Restart</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• Health Check Pings</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• CI/CD Deployment Trigger</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">• Log Rotation & Cleaning</div>
+                    </div>
+
+                    <blockquote class="text-xs text-slate-400 italic text-center">
+                        "Automasi mengurangkan human error. Namun, automasi tanpa ujian berhati-hati juga boleh mempercepatkan kesilapan."
+                    </blockquote>
+                </div>
+            </div>
+
+            <!-- SLIDE 43: PRODUCTION ARCHITECTURE FULL -->
+            <div class="slide slide-enter hidden" data-slide="43">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Production Architecture (Lengkap)</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Gambaran menyeluruh komponen sistem berproduksi.</p>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-[11px] space-y-1 text-center">
+                        <div class="text-slate-400">INTERNET &rarr; DNS &rarr; CLOUDFLARE (WAF / Access)</div>
+                        <div class="text-slate-500">↓ (Encrypted Tunnel)</div>
+                        <div class="text-purple-400">HOME SERVER / PI &rarr; REVERSE PROXY</div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="flex justify-center gap-4 text-emerald-400">
+                            <span>[WEB CONTAINER]</span>
+                            <span>[API CONTAINER]</span>
+                        </div>
+                        <div class="text-slate-500">↓</div>
+                        <div class="text-teal-400">DATABASE (Isolated Volume) &rarr; REMOTE BACKUP</div>
+                    </div>
+
+                    <div class="mt-4 p-3 bg-purple-950/20 border border-purple-500/30 rounded text-center text-xs text-purple-300">
+                        Sokongan: Security Policy + Centralized Logging + Prometheus/Grafana Monitoring + Alert Manager
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 44: PRODUCTION REQUEST FLOW (ANIMATED SIMULATOR) -->
+            <div class="slide slide-enter hidden" data-slide="44">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">Simulasi Aliran Request (Flow)</h2>
+                    <p class="text-slate-400 mb-4 text-xs">Tekan butang di bawah untuk melihat bagaimana satu paket data bergerak dalam seni bina produksi.</p>
+
+                    <!-- Interactive Step Visualizer -->
+                    <div id="flow-display-box" class="bg-slate-950 border border-emerald-500/40 p-5 rounded-xl min-h-[140px] flex flex-col justify-center items-center text-center my-4">
+                        <span id="flow-step-num" class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold mb-2">Langkah 1 / 12</span>
+                        <h3 id="flow-step-title" class="text-base font-bold text-white mb-1">1. User membuka domain</h3>
+                        <p id="flow-step-desc" class="text-xs text-slate-300">Pengguna memasukkan URL https://app.domainbos.com di dalam pelayar web.</p>
+                    </div>
+
+                    <div class="flex justify-between items-center mt-4">
+                        <button onclick="prevFlowStep()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-medium border border-slate-700">← Langkah Sebelum</button>
+                        <button onclick="nextFlowStep()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium">Langkah Seterusnya →</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 45: WHAT CAN GO WRONG? -->
+            <div class="slide slide-enter hidden" data-slide="45">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">What Can Go Wrong? (Senario Kegagalan)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Sistem pengeluaran mesti menjangka kegagalan di setiap lapisan.</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs font-mono text-red-400 mb-6">
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ DNS Misconfiguration</div>
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ Certificate Expired</div>
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ Tunnel Disconnected</div>
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ Container Crash</div>
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ Database Locked</div>
+                        <div class="p-2.5 bg-red-950/20 rounded border border-red-500/20">❌ Disk Out of Space</div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900 border-l-4 border-red-500 text-slate-200 text-xs font-semibold text-center">
+                        "Production architecture perlu sedia menjangka failure."
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 46: FAILURE TO RECOVERY -->
+            <div class="slide slide-enter hidden" data-slide="46">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Kitaran Pemulihan Insiden</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Langkah teratur dari kegagalan sehingga pemulihan berterusan.</p>
+
+                    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-xs font-mono flex flex-wrap justify-center gap-2 text-slate-300">
+                        <span class="text-red-400">FAILURE</span> &rarr;
+                        <span class="text-amber-400">DETECT</span> &rarr;
+                        <span class="text-purple-400">ALERT</span> &rarr;
+                        <span class="text-blue-400">CONTAIN</span> &rarr;
+                        <span class="text-teal-400">RECOVER</span> &rarr;
+                        <span class="text-emerald-400">POST-INCIDENT REVIEW</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 47: PRODUCTION MINDSET -->
+            <div class="slide slide-enter hidden" data-slide="47">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Production Mindset</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Prinsip pemikiran kejuruteraan sistem.</p>
+
+                    <div class="text-center my-6">
+                        <div class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-amber-300 to-emerald-400 mb-4">
+                            "Build for Failure."
+                        </div>
+                        <p class="text-xs md:text-sm text-slate-300 max-w-2xl mx-auto leading-relaxed">
+                            Reka bentuk produksi bukan tentang berangan mengelakkan semua failure. Ia tentang kesediaan:
+                        </p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center text-sm font-semibold text-emerald-400">
+                        DETECT &rarr; RECOVER &rarr; LEARN
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 48: MASTER ARCHITECTURE -->
+            <div class="slide slide-enter hidden" data-slide="48">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Master Architecture Diagram</h2>
+                    <p class="text-slate-400 mb-4 text-sm">Gambaran lengkap integrasi dari luar ke dalam pelayan.</p>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-[11px] text-center space-y-1">
+                        <div class="text-blue-400">USER &rarr; INTERNET &rarr; DNS &rarr; CLOUDFLARE WAF (HTTPS)</div>
+                        <div class="text-slate-500">↓ Cloudflare Tunnel</div>
+                        <div class="text-purple-400">HOME SERVER (Reverse Proxy - Nginx/Traefik)</div>
+                        <div class="text-slate-500">↓ Internal Docker Network</div>
+                        <div class="text-emerald-400">[Web App] • [API App] • [Admin Dashboard]</div>
+                        <div class="text-slate-500">↓ Isolated Database Storage</div>
+                        <div class="text-teal-400">PostgreSQL / MySQL &rarr; Automated Offsite Backup</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 49: END-TO-END ROADMAP -->
+            <div class="slide slide-enter hidden" data-slide="49">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Pelan Perjalanan Pembelajaran (Roadmap)</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Bagaimana setiap subjek yang anda pelajari bergabung membentuk satu sistem.</p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[11px] font-mono text-center">
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">1. Localhost</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">2. Networking</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">3. Public IP</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">4. Port Forwarding</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">5. ngrok</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded text-orange-400">6. Cloudflare Tunnel</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">7. DNS & HTTPS</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">8. Security</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded text-blue-400">9. Linux Basics</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded text-blue-400">10. Docker</div>
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded">11. Raspberry Pi</div>
+                        <div class="p-2 bg-emerald-950 border border-emerald-500/40 rounded text-emerald-400 font-bold">12. Production</div>
+                    </div>
+
+                    <p class="text-xs text-slate-300 text-center mt-6">
+                        "Setiap topik adalah satu lapisan (layer) dalam seni bina sistem produksi."
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 50: INTERACTIVE FINAL QUIZ -->
+            <div class="slide slide-enter hidden" data-slide="50">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">50. Kuiz Uji Kefahaman Interaktif</h2>
+                    <p class="text-slate-400 mb-4 text-xs">Uji kefahaman anda berkenaan konsep production deployment di bawah:</p>
+
+                    <div id="quiz-container" class="space-y-4 text-xs">
+                        <!-- Quiz Question Item -->
+                        <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                            <p class="font-semibold text-slate-200 mb-2">S1: Apakah perbezaan utama Development vs Production?</p>
+                            <div class="space-y-1.5">
+                                <button onclick="checkQuiz(this, false)" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">A. Development lebih laju daripada Production</button>
+                                <button onclick="checkQuiz(this, true)" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">B. Production mengendalikan data & pengguna sebenar dengan kawalan operasi lengkap</button>
+                            </div>
+                            <div class="quiz-feedback hidden mt-2 text-[11px] p-2 rounded"></div>
+                        </div>
+
+                        <!-- Quiz Question Item -->
+                        <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                            <p class="font-semibold text-slate-200 mb-2">S2: Apakah maksud RPO (Recovery Point Objective)?</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="checkQuiz(this, false)" class="text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">A. Masa untuk restart server</button>
+                                <button onclick="checkQuiz(this, true)" class="text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">B. Jumlah data loss yang boleh diterima</button>
+                            </div>
+                            <div class="quiz-feedback hidden mt-2 text-[11px] p-2 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 51: INTERACTIVE CHECKLIST FINAL -->
+            <div class="slide slide-enter hidden" data-slide="51">
+                <div class="glass-panel rounded-2xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">51. Production Readiness Checklist</h2>
+                    <p class="text-slate-400 mb-4 text-xs">Tanda (check) item di bawah untuk menguji persediaan pelancaran sistem anda:</p>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs font-mono">
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> Domain & DNS Configured
+                        </label>
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> HTTPS SSL Active
+                        </label>
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> Reverse Proxy Active
+                        </label>
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> Automated Backups
+                        </label>
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> Restore Tested
+                        </label>
+                        <label class="flex items-center gap-2 p-2 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800">
+                            <input type="checkbox" class="accent-emerald-500" onchange="updateChecklistProgress()"> Rollback Plan Ready
+                        </label>
+                    </div>
+
+                    <div class="mt-4 text-right text-xs text-emerald-400 font-mono" id="checklist-progress-text">
+                        Skor Readiness: 0 / 6 Item Diselesaikan
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 52: PENUTUP -->
+            <div class="slide slide-enter hidden" data-slide="52">
+                <div class="glass-panel rounded-2xl p-6 md:p-12 text-center max-w-4xl mx-auto shadow-2xl relative overflow-hidden">
+                    <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-4">
+                        Rumusan Akhir
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+                        "Production Bukan Satu Tool."
+                    </h2>
+
+                    <p class="text-sm md:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed mb-6">
+                        Ia adalah gabungan Architecture + Security + Deployment + Monitoring + Backup + Disaster Recovery.
+                    </p>
+
+                    <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl my-6 text-xs md:text-sm font-semibold text-emerald-400 max-w-xl mx-auto">
+                        "Production-ready bermaksud sistem itu bukan sahaja boleh berjalan—tetapi kita tahu bagaimana hendak menjaganya apabila sesuatu berlaku."
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-2 text-xs font-mono font-bold text-slate-300">
+                        <span class="px-3 py-1 bg-slate-800 rounded">BUILD</span> &rarr;
+                        <span class="px-3 py-1 bg-slate-800 text-red-400 rounded">SECURE</span> &rarr;
+                        <span class="px-3 py-1 bg-slate-800 text-purple-400 rounded">MONITOR</span> &rarr;
+                        <span class="px-3 py-1 bg-slate-800 text-teal-400 rounded">BACKUP</span> &rarr;
+                        <span class="px-3 py-1 bg-slate-800 text-blue-400 rounded">RECOVER</span> &rarr;
+                        <span class="px-3 py-1 bg-emerald-900 text-emerald-300 rounded">IMPROVE</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom Controls Footer -->
+    <footer class="fixed bottom-0 left-0 w-full z-40 glass-panel border-t border-slate-800/80 px-4 py-3 flex items-center justify-between">
+        <button id="prev-btn" onclick="prevSlide()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700/80 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span>Sebelum</span>
+        </button>
+
+        <div class="text-[11px] text-slate-400 hidden sm:block">
+            Gunakan <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">→</kbd> pada papan kekunci
+        </div>
+
+        <button id="next-btn" onclick="nextSlide()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-lg shadow-emerald-950/40 flex items-center gap-1.5">
+            <span>Seterusnya</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+    </footer>
+
+    <!-- Slide Overview Grid Modal -->
+    <div id="overview-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex flex-col p-4 md:p-8">
+        <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span>📑</span> Senarai Semua Slide (52 Slide)
+            </h3>
+            <button onclick="toggleOverviewModal()" class="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div id="grid-thumbnails" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 pr-2">
+            <!-- Dynamically populated via JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // State management variables
+        let currentSlide = 1;
+        const totalSlides = 52;
+
+        // Flow step simulator state (Slide 44)
+        let currentFlowStep = 0;
+        const flowSteps = [
+            { num: 1, title: "1. User membuka domain", desc: "Pengguna memasukkan URL https://app.domainbos.com di pelayar web." },
+            { num: 2, title: "2. DNS Resolve", desc: "Sistem DNS menterjemah domain kepada IP Public milik Cloudflare Proxy." },
+            { num: 3, title: "3. Connection HTTPS", desc: "Pelayar dan Cloudflare melengkapkan TLS Handshake secara terenkripsi." },
+            { num: 4, title: "4. Cloudflare Ingress", desc: "Cloudflare menerima permintaan (request) di edge server terdekat." },
+            { num: 5, title: "5. WAF & Security Check", desc: "Cloudflare menyemak peraturan firewall (WAF), DDOS protection & Bot Filter." },
+            { num: 6, title: "6. Cloudflare Tunnel", desc: "Trafik dihantar terus ke Home Server melalui sambungan Cloudflare Tunnel terkawal." },
+            { num: 7, title: "7. Server Receive", desc: "Pelayar Home Server (cloudflared daemon) menerima paket trafik." },
+            { num: 8, title: "8. Reverse Proxy Routing", desc: "Nginx / Traefik membaca Host header dan menyalurkan request ke port aplikasi." },
+            { num: 9, title: "9. Application Processing", desc: "Kontena Docker Web/API memproses maklumat perniagaan." },
+            { num: 10, title: "10. Database Query", desc: "Jika perlu, aplikasi berkomunikasi dengan Database dalam Docker Network dalaman." },
+            { num: 11, title: "11. Response Return", desc: "Aplikasi menghasilkan tindak balas (HTTP Response 200 OK) kembali ke pengguna." },
+            { num: 12, title: "12. Audit & Logging", desc: "Aktiviti direkodkan dalam sistem Log & Prometheus Monitoring." }
+        ];
+
+        // Initialize presentation engine on DOM load
+        document.addEventListener('DOMContentLoaded', () => {
+            showSlide(currentSlide);
+            buildOverviewGrid();
+            setupKeyboardNav();
+            setupTouchSwipe();
+        });
+
+        // Function to render slide by index
+        function showSlide(index) {
+            if (index < 1) index = 1;
+            if (index > totalSlides) index = totalSlides;
+
+            currentSlide = index;
+
+            // Update DOM slides visibility
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach(slide => {
+                const slideNum = parseInt(slide.getAttribute('data-slide'));
+                if (slideNum === currentSlide) {
+                    slide.classList.remove('hidden');
+                } else {
+                    slide.classList.add('hidden');
+                }
+            });
+
+            // Update UI Counters & Progress Bar
+            document.getElementById('current-slide-num').innerText = currentSlide;
+            document.getElementById('total-slides-num').innerText = totalSlides;
+            const progressPercent = (currentSlide / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // Update Nav Buttons State
+            document.getElementById('prev-btn').disabled = (currentSlide === 1);
+            document.getElementById('next-btn').disabled = (currentSlide === totalSlides);
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                showSlide(currentSlide + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                showSlide(currentSlide - 1);
+            }
+        }
+
+        // Keyboard navigation setup
+        function setupKeyboardNav() {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    showSlide(1);
+                } else if (e.key === 'End') {
+                    showSlide(totalSlides);
+                } else if (e.key === 'Escape') {
+                    const modal = document.getElementById('overview-modal');
+                    if (!modal.classList.contains('hidden')) {
+                        toggleOverviewModal();
+                    }
+                }
+            });
+        }
+
+        // Touch Swipe navigation support for mobile viewports
+        function setupTouchSwipe() {
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            document.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, false);
+
+            document.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+
+            function handleSwipe() {
+                const swipeThreshold = 50;
+                if (touchEndX < touchStartX - swipeThreshold) {
+                    nextSlide(); // Swipe Left
+                }
+                if (touchEndX > touchStartX + swipeThreshold) {
+                    prevSlide(); // Swipe Right
+                }
+            }
+        }
+
+        // Slide Overview Grid Modal logic
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function buildOverviewGrid() {
+            const gridContainer = document.getElementById('grid-thumbnails');
+            gridContainer.innerHTML = '';
+
+            for (let i = 1; i <= totalSlides; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-3 rounded-lg border text-left flex flex-col justify-between h-20 transition text-xs font-mono ${
+                    i === currentSlide 
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-400 font-bold' 
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                }`;
+                btn.onclick = () => {
+                    showSlide(i);
+                    toggleOverviewModal();
+                };
+                btn.innerHTML = `
+                    <span class="text-[10px] text-slate-500">Slide ${i}</span>
+                    <span class="truncate w-full font-sans text-[11px] font-medium text-slate-200">
+                        ${getSlideTitle(i)}
+                    </span>
+                `;
+                gridContainer.appendChild(btn);
+            }
+        }
+
+        // Helper slide titles for Overview grid
+        function getSlideTitle(index) {
+            const titles = {
+                1: "Tajuk Utama", 2: "Apa Itu Production?", 3: "Working vs Ready", 4: "Dev vs Production",
+                5: "Production Architecture", 6: "Domain & Identity", 7: "HTTPS & TLS", 8: "Reverse Proxy",
+                9: "Multiple Domains", 10: "Docker Containers", 11: "Docker Compose", 12: "Environment Variables",
+                13: "Secrets Management", 14: "Database Isolation", 15: "Persistent Storage", 16: "Logging Systems",
+                17: "Monitoring Setup", 18: "Health Checks", 19: "Alerting Systems", 20: "Uptime Targets",
+                21: "Backup Strategy", 22: "3-2-1 Backup Rule", 23: "Restore Testing", 24: "Deployment Pipeline",
+                25: "Version Control", 26: "Build Phase", 27: "Deployment Strategies", 28: "Blue/Green Strategy",
+                29: "Canary Deployment", 30: "Rollback Strategy", 31: "Database Migration", 32: "Zero Downtime",
+                33: "Resource Limits", 34: "Scaling Systems", 35: "Raspberry Pi vs VPS", 36: "Home Production",
+                37: "Disaster Recovery", 38: "RPO & RTO", 39: "Security Checklist", 40: "Production Checklist",
+                41: "Operations Runbook", 42: "System Automation", 43: "Full Architecture", 44: "Request Flow Simulator",
+                45: "Failure Scenarios", 46: "Recovery Lifecycle", 47: "Production Mindset", 48: "Master Architecture",
+                49: "Learning Roadmap", 50: "Kuiz Interaktif", 51: "Final Checklist", 52: "Penutup"
+            };
+            return titles[index] || `Slide ${index}`;
+        }
+
+        // Interactive Request Flow Step functions (Slide 44)
+        function updateFlowUI() {
+            const step = flowSteps[currentFlowStep];
+            document.getElementById('flow-step-num').innerText = `Langkah ${step.num} / ${flowSteps.length}`;
+            document.getElementById('flow-step-title').innerText = step.title;
+            document.getElementById('flow-step-desc').innerText = step.desc;
+        }
+
+        function nextFlowStep() {
+            if (currentFlowStep < flowSteps.length - 1) {
+                currentFlowStep++;
+                updateFlowUI();
+            }
+        }
+
+        function prevFlowStep() {
+            if (currentFlowStep > 0) {
+                currentFlowStep--;
+                updateFlowUI();
+            }
+        }
+
+        // Interactive Quiz Logic (Slide 50)
+        function checkQuiz(button, isCorrect) {
+            const parent = button.closest('.bg-slate-900\\/90');
+            const feedback = parent.querySelector('.quiz-feedback');
+            feedback.classList.remove('hidden', 'bg-emerald-950/40', 'bg-red-950/40', 'text-emerald-300', 'text-red-300');
+            
+            if (isCorrect) {
+                feedback.classList.add('bg-emerald-950/40', 'text-emerald-300');
+                feedback.innerText = "✅ Tepat Sekali! Jawapan anda betul.";
+            } else {
+                feedback.classList.add('bg-red-950/40', 'text-red-300');
+                feedback.innerText = "❌ Kurang tepat. Sila semak semula nota berkaitan.";
+            }
+        }
+
+        // Interactive Final Checklist Logic (Slide 51)
+        function updateChecklistProgress() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            let checkedCount = 0;
+            checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+            
+            const progressText = document.getElementById('checklist-progress-text');
+            progressText.innerText = `Skor Readiness: ${checkedCount} / ${checkboxes.length} Item Diselesaikan`;
+        }
+    </script>
+</body>
+</html>

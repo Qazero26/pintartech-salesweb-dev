@@ -1,0 +1,131 @@
+/* PintarMathKids Sales Page Styles & Utility Enhancements */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+.heading-font, .pmk-heading-font {
+  font-family: 'Fredoka', cursive, sans-serif;
+}
+
+body, .pmk-theme {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  background-color: #f8fafc;
+}
+
+/* Custom Pattern Backgrounds */
+.bg-polka-dots-dark, .pmk-bg-polka-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
+}
+
+.bg-math-grid-paper, .pmk-bg-math-grid {
+  background-color: #F8FAFC;
+  background-image: 
+    linear-gradient(rgba(46, 196, 182, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(46, 196, 182, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.bg-math-symbols-light {
+  background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='10' y='25' fill='%232EC4B6' font-weight='900' font-size='18' opacity='0.15'%3E%2B%3C/text%3E%3Ctext x='70' y='35' fill='%23FF9F1C' font-weight='900' font-size='18' opacity='0.15'%3E%E2%88%92%3C/text%3E%3Ctext x='40' y='75' fill='%239B51E0' font-weight='900' font-size='18' opacity='0.15'%3E%C3%97%3C/text%3E%3Ctext x='90' y='95' fill='%23FF6B6B' font-weight='900' font-size='18' opacity='0.15'%3E%C3%B7%3C/text%3E%3Ctext x='15' y='110' fill='%231E293B' font-weight='900' font-size='16' opacity='0.12'%3E%3D%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+.bg-math-symbols-dark {
+  background-image: url("data:image/svg+xml,%3Csvg width='140' height='140' viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='15' y='30' fill='%23FBBF24' font-weight='900' font-size='22' opacity='0.18'%3E%2B%3C/text%3E%3Ctext x='85' y='40' fill='%2334D399' font-weight='900' font-size='22' opacity='0.18'%3E%E2%88%92%3C/text%3E%3Ctext x='45' y='90' fill='%2338BDF8' font-weight='900' font-size='22' opacity='0.18'%3E%C3%97%3C/text%3E%3Ctext x='105' y='115' fill='%23F472B6' font-weight='900' font-size='22' opacity='0.18'%3E%C3%B7%3C/text%3E%3Ctext x='20' y='130' fill='%23A78BFA' font-weight='900' font-size='20' opacity='0.18'%3E%3D%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Custom 3D Box Shadows */
+.shadow-3d-orange, .pmk-shadow-3d-orange {
+  box-shadow: 0px 6px 0px #CC7900;
+}
+.shadow-3d-orange:active, .pmk-shadow-3d-orange:active {
+  box-shadow: 0px 2px 0px #CC7900;
+  transform: translateY(4px);
+}
+
+.shadow-3d-teal, .pmk-shadow-3d-teal {
+  box-shadow: 0px 6px 0px #1E9185;
+}
+
+.shadow-3d-purple {
+  box-shadow: 0px 6px 0px #6B2CA0;
+}
+
+/* Keyframe Animations */
+@keyframes pmkFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(4deg); }
+}
+
+@keyframes pmkFloatRev {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-4deg); }
+}
+
+@keyframes pmkMathDrift {
+  0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  50% { transform: translateY(-16px) rotate(8deg) scale(1.05); }
+}
+
+@keyframes pmkPulseGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(255, 159, 28, 0.6); }
+  50% { box-shadow: 0 0 30px rgba(255, 159, 28, 0.9); }
+}
+
+.animate-float, .pmk-animate-float {
+  animation: pmkFloat 4s ease-in-out infinite;
+}
+
+.animate-float-reverse, .pmk-animate-float-rev {
+  animation: pmkFloatRev 5s ease-in-out infinite;
+}
+
+.animate-math-drift, .pmk-animate-math-drift {
+  animation: pmkMathDrift 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow, .pmk-animate-pulse-glow {
+  animation: pmkPulseGlow 2s infinite;
+}
+
+/* Logo Slot Styling */
+.pmk-logo-slot {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2EC4B6 0%, #10b981 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(46, 196, 182, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #2EC4B6;
+  border-radius: 4px;
+}
+
+/* Mobile Responsive Adjustments */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw;
+}
+
+@media (max-width: 640px) {
+  .pmk-logo-slot {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 12px !important;
+  }
+}

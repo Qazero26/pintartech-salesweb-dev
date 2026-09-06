@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi Home Server - Dari Zero Ke Self-Hosted Server</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        rpi: {
+                            500: '#c51a4a',
+                            600: '#a3123b',
+                            700: '#820d2e'
+                        },
+                        cloudflare: '#f38020',
+                        docker: '#2496ed',
+                        linux: '#f34f29',
+                        darkbg: '#0b0f19',
+                        cardbg: '#161e2e'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        
+        .slide {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(10px);
+        }
+        
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Custom Scrollbar for slide content */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #030712;
+            border: 1px solid #1f2937;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Glassmorphism utility */
+        .glass-card {
+            background: rgba(22, 30, 46, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between select-none">
+
+    <!-- Top Progress Bar -->
+    <div class="w-full bg-slate-800 h-1.5 fixed top-0 left-0 z-50">
+        <div id="progress-bar" class="bg-gradient-to-r from-rpi-500 via-docker to-cloudflare h-full w-0 transition-all duration-300"></div>
+    </div>
+
+    <!-- Header / Navigation Control Top -->
+    <header class="w-full px-6 py-4 flex justify-between items-center z-40 border-b border-slate-800/60 bg-slate-900/60 backdrop-blur-md">
+        <div class="flex items-center space-x-3">
+            <span class="text-2xl">🍓</span>
+            <div>
+                <h1 class="text-sm font-bold text-slate-100 tracking-wide uppercase">Raspberry Pi Home Server</h1>
+                <p class="text-xs text-slate-400">Dari Zero Ke Self-Hosted Server</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <span id="slide-indicator" class="text-xs font-mono font-semibold bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">
+                1 / 51
+            </span>
+            <button id="toc-btn" title="Senarai Slide" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-list-ul"></i>
+                <span class="hidden sm:inline">Menu</span>
+            </button>
+            <button id="fullscreen-btn" title="Skrin Penuh" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs border border-slate-700 transition">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Slide Viewport -->
+    <main class="flex-1 relative w-full flex items-center justify-center p-4 sm:p-8 overflow-hidden">
+        <div id="slides-container" class="w-full max-w-5xl h-full flex items-center justify-center">
+
+            <!-- SLIDE 1: TAJUK -->
+            <div class="slide active flex-col items-center justify-center text-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-8 sm:p-12 shadow-2xl relative border border-rpi-500/30">
+                <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 w-48 h-48 bg-rpi-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="inline-flex items-center space-x-2 bg-rpi-500/20 text-rpi-500 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest border border-rpi-500/30 mb-6">
+                    <span>Teknologi Self-Hosting</span>
+                </div>
+                
+                <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight mb-4">
+                    Raspberry Pi <span class="bg-gradient-to-r from-rpi-500 via-rose-400 to-amber-400 bg-clip-text text-transparent">Home Server</span>
+                </h1>
+                
+                <p class="text-xl sm:text-2xl text-slate-300 font-medium mb-10">
+                    Dari Zero Ke Self-Hosted Server
+                </p>
+
+                <!-- Visual Stack Diagram -->
+                <div class="grid grid-cols-5 gap-2 sm:gap-4 w-full max-w-2xl mb-10 text-xs sm:text-sm">
+                    <div class="flex flex-col items-center p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                        <span class="text-2xl mb-1">🍓</span>
+                        <span class="font-bold text-rose-400">Raspberry Pi</span>
+                    </div>
+                    <div class="flex flex-col items-center p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                        <span class="text-2xl mb-1">🐧</span>
+                        <span class="font-bold text-sky-400">Linux</span>
+                    </div>
+                    <div class="flex flex-col items-center p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                        <span class="text-2xl mb-1">🐳</span>
+                        <span class="font-bold text-blue-400">Docker</span>
+                    </div>
+                    <div class="flex flex-col items-center p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                        <span class="text-2xl mb-1">☁️</span>
+                        <span class="font-bold text-amber-400">Cloudflare</span>
+                    </div>
+                    <div class="flex flex-col items-center p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                        <span class="text-2xl mb-1">🌍</span>
+                        <span class="font-bold text-emerald-400">Internet</span>
+                    </div>
+                </div>
+
+                <blockquote class="italic text-slate-400 text-sm sm:text-base border-l-2 border-rpi-500 pl-4 py-1">
+                    "Daripada sebuah Raspberry Pi kepada server rumah sebenar."
+                </blockquote>
+            </div>
+
+            <!-- SLIDE 2: KITA DAH BELAJAR APA? -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Refleksi Pembelajaran</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Kita Dah Belajar Apa?</h2>
+                
+                <p class="text-slate-300 text-sm mb-6">Imbas kembali perjalanan pembelajaran networking & server yang telah anda kuasai:</p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-brands fa-python text-amber-400 text-lg"></i> <span>Python Web Server</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-solid fa-network-wired text-sky-400 text-lg"></i> <span>Networking & IP</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-solid fa-globe text-emerald-400 text-lg"></i> <span>Public & Private IP</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-solid fa-door-open text-indigo-400 text-lg"></i> <span>Port & Port Forwarding</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-solid fa-bolt text-purple-400 text-lg"></i> <span>ngrok & Cloudflare Tunnel</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/70 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved text-rose-400 text-lg"></i> <span>Security & Linux Basics</span>
+                    </div>
+                </div>
+
+                <div class="p-5 bg-rpi-500/10 border border-rpi-500/30 rounded-xl flex items-center space-x-4">
+                    <div class="text-4xl">🍓</div>
+                    <div>
+                        <h4 class="text-base font-bold text-white">Langkah Seterusnya</h4>
+                        <p class="text-sm text-slate-300">"Sekarang kita perlukan <strong>mesin fizikal sebenar</strong> yang sentiasa ON untuk menjalankan server kita."</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 3: APA ITU RASPBERRY PI? -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rpi-500/20 text-rpi-500 border border-rpi-500/30 mb-4 w-fit">Pengenalan Hardware</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Apa Itu Raspberry Pi?</h2>
+                
+                <p class="text-slate-300 mb-6 text-sm">Raspberry Pi ialah sebuah **Single-Board Computer (SBC)** bersaiz kad kredit yang lengkap dengan komponen komputer biasa.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                        <h3 class="text-base font-bold text-rpi-500 mb-3 flex items-center">
+                            <i class="fa-solid fa-microchip mr-2"></i> Komponen Utama Hardware
+                        </h3>
+                        <ul class="space-y-2 text-slate-300 text-xs sm:text-sm">
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span><strong>CPU:</strong> ARM-based processor</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span><strong>RAM:</strong> 1GB - 8GB LPDDR4</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span><strong>Storage:</strong> microSD card / USB SSD</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span><strong>Network:</strong> Gigabit Ethernet & Wi-Fi</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span><strong>I/O:</strong> USB 3.0, HDMI, GPIO pins</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                        <h3 class="text-base font-bold text-sky-400 mb-3 flex items-center">
+                            <i class="fa-solid fa-cubes mr-2"></i> Kegunaan Utama
+                        </h3>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ Learning & Linux</div>
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ Home Server</div>
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ Automation Lab</div>
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ Network Monitoring</div>
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ Small Web Apps</div>
+                            <div class="p-2.5 bg-slate-900/60 rounded border border-slate-700/60 text-slate-300">✓ IoT Projects</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 4: KENAPA GUNA RASPBERRY PI? -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Kelebihan & Reality Check</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Kenapa Guna Raspberry Pi?</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Kelebihan -->
+                    <div class="bg-emerald-950/30 border border-emerald-500/30 p-5 rounded-xl">
+                        <h3 class="text-base font-bold text-emerald-400 mb-4 flex items-center">
+                            <i class="fa-solid fa-thumbs-up mr-2"></i> Kelebihan Utama (Pros)
+                        </h3>
+                        <ul class="space-y-2.5 text-xs sm:text-sm text-slate-200">
+                            <li class="flex items-start space-x-2"><i class="fa-solid fa-circle-check text-emerald-400 mt-1"></i><span><strong>Saiz Fizikal Kecil:</strong> Senang disorok atau diletakkan di sebelah router.</span></li>
+                            <li class="flex items-start space-x-2"><i class="fa-solid fa-circle-check text-emerald-400 mt-1"></i><span><strong>Kuasa Sangat Rendah:</strong> Menggunakan 5W - 15W sahaja (murah bil elektrik 24/7).</span></li>
+                            <li class="flex items-start space-x-2"><i class="fa-solid fa-circle-check text-emerald-400 mt-1"></i><span><strong>Pengoperasian Senyap:</strong> Tiada bunyi bising fan pelayan enterprise.</span></li>
+                            <li class="flex items-start space-x-2"><i class="fa-solid fa-circle-check text-emerald-400 mt-1"></i><span><strong>Ekosistem Linux Mantap:</strong> Sokongan komuniti luas & OS stabil.</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- Had/Peringatan -->
+                    <div class="bg-amber-950/30 border border-amber-500/30 p-5 rounded-xl">
+                        <h3 class="text-base font-bold text-amber-400 mb-4 flex items-center">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Peringatan Penting
+                        </h3>
+                        <p class="text-slate-300 text-xs sm:text-sm mb-4 leading-relaxed">
+                            Raspberry Pi tidak sesuai untuk semua jenis tugas (workload heavy).
+                        </p>
+                        <div class="p-3 bg-amber-900/40 border border-amber-500/30 rounded text-xs text-amber-200">
+                            ⚠️ Tidak digalakkan untuk video transcoding 4K berat, database korporat raksasa, atau trafik jutaan penggunan serentak.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 5: RASPBERRY PI BUKAN MAGIC -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Konsep Asas</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Raspberry Pi Bukan Magic!</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Membeli Raspberry Pi tidak secara automatik menjadikan anda mempunyai server yang siap pakai.
+                </p>
+
+                <div class="p-6 bg-slate-900/90 border border-slate-700 rounded-xl mb-6 text-center">
+                    <div class="text-sm text-slate-400 uppercase font-semibold mb-3">Formula Home Server</div>
+                    <div class="flex flex-wrap justify-center items-center gap-2 text-xs sm:text-sm font-bold text-white">
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">Hardware</span> +
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">OS</span> +
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">Storage</span> +
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">Power</span> +
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">Network</span> +
+                        <span class="px-3 py-1.5 bg-slate-800 rounded border border-slate-700">Security</span>
+                    </div>
+                </div>
+
+                <div class="p-5 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl">
+                    <p class="text-base font-semibold text-rose-300">
+                        "Raspberry Pi bukan server automatik. Kitalah jurutera yang membina dan mentadbir server di atasnya."
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 6: HARDWARE YANG DIPERLUKAN -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rpi-500/20 text-rpi-500 border border-rpi-500/30 mb-4 w-fit">Keperluan Hardware</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Hardware Yang Diperlukan</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">🍓</div>
+                        <h4 class="font-bold text-sm text-white">Raspberry Pi Board</h4>
+                        <p class="text-xs text-slate-400 mt-1">Model 4B atau 5 (RAM 4GB/8GB disyorkan).</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">🔌</div>
+                        <h4 class="font-bold text-sm text-white">Power Supply Official</h4>
+                        <p class="text-xs text-slate-400 mt-1">USB-C Power Supply stabil (5V 3A / 5V 5A).</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">💾</div>
+                        <h4 class="font-bold text-sm text-white">Storage Media</h4>
+                        <p class="text-xs text-slate-400 mt-1">microSD Class 10 / USB 3.0 SSD Adapter.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">🌐</div>
+                        <h4 class="font-bold text-sm text-white">Kabel Ethernet</h4>
+                        <p class="text-xs text-slate-400 mt-1">Sambungan fizikal LAN lebih stabil daripada Wi-Fi.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">❄️</div>
+                        <h4 class="font-bold text-sm text-white">Case & Passive Heatsink</h4>
+                        <p class="text-xs text-slate-400 mt-1">Perlindungan fizikal dan pelindung haba CPU.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <div class="text-2xl mb-2">💻</div>
+                        <h4 class="font-bold text-sm text-white">Laptop Setup</h4>
+                        <p class="text-xs text-slate-400 mt-1">Hanya diperlukan semasa initial setup awal.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 7: STORAGE (microSD VS SSD) -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-purple-500/20 text-purple-400 border border-purple-500/30 mb-4 w-fit">Pemilihan Storage</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Storage: microSD vs SSD</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <span class="text-2xl">🎴</span>
+                            <h3 class="text-lg font-bold text-slate-200">microSD Card</h3>
+                        </div>
+                        <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span>Sangat mudah & murah untuk bermula</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span>Cukup baik untuk projek pembelajaran awal</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-xmark text-rose-400"></i><span>Ketahanan rendah pada penulisan data kerap (write cycles)</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-xmark text-rose-400"></i><span>Berisiko corrupt jika sudden power outage</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-800/60 border border-indigo-500/40 p-5 rounded-xl">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <span class="text-2xl">💽</span>
+                            <h3 class="text-lg font-bold text-indigo-400">External USB SSD</h3>
+                        </div>
+                        <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span>Kelajuan read/write berlipat ganda jauh lebih pantas</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span>Sangat tahan lama untuk heavy Docker / Database workload</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-check text-emerald-400"></i><span>Sesuai untuk perkhidmatan jangka panjang</span></li>
+                            <li class="flex items-center space-x-2"><i class="fa-solid fa-info-circle text-sky-400"></i><span>Memerlukan kabel adapter USB3-to-SATA yang sesuai</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 8: POWER & STABILITY -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Kestabilan Bekalan Kuasa</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Power & Integrity System</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Server memerlukan bekalan kuasa (power supply) yang **konsisten dan stabil 24/7**.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-rose-950/20 border border-rose-500/30 p-4 rounded-xl">
+                        <h4 class="font-bold text-rose-400 text-sm mb-2"><i class="fa-solid fa-bolt mr-2"></i>Kesan Power Drops / Cable Lemah</h4>
+                        <ul class="space-y-1.5 text-xs text-slate-300">
+                            <li>• Sudden Shutdown / Under-voltage throttling</li>
+                            <li>• Filesystem corruption (Kerosakan sistem fail)</li>
+                            <li>• Data loss pada database / logs</li>
+                            <li>• Service interruption tidak dijangka</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-xl">
+                        <h4 class="font-bold text-emerald-400 text-sm mb-2"><i class="fa-solid fa-shield mr-2"></i>Best Practices Bekalan Kuasa</h4>
+                        <ul class="space-y-1.5 text-xs text-slate-300">
+                            <li>✓ Guna Power Supply Rasmi Raspberry Pi (5V 3A+)</li>
+                            <li>✓ Elakkan guna charger phone murahan/lama</li>
+                            <li>✓ Pertimbangkan mini-UPS / Powerbank pass-through jika perlu</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 9: OPERATING SYSTEM -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Sistem Operasi</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Operating System: Raspberry Pi OS</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    <strong>Raspberry Pi OS (Lite 64-bit)</strong> ialah OS rasmi berasaskan Debian Linux yang dioptimumkan khusus untuk Raspberry Pi.
+                </p>
+
+                <div class="p-6 bg-slate-900 border border-slate-700 rounded-xl mb-6 flex flex-col items-center justify-center space-y-3">
+                    <div class="w-full max-w-md bg-slate-800 p-3 rounded-lg border border-slate-700 text-center text-xs font-mono text-emerald-400">
+                        Applications / Containers (Docker, Python, NGINX)
+                    </div>
+                    <div class="w-full max-w-md bg-slate-800 p-3 rounded-lg border border-slate-700 text-center text-xs font-mono text-sky-400">
+                        Linux Kernel (Debian Core System)
+                    </div>
+                    <div class="w-full max-w-md bg-slate-800 p-3 rounded-lg border border-slate-700 text-center text-xs font-mono text-rose-400">
+                        Raspberry Pi Hardware (ARM Architecture)
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400 text-center">
+                    *Gunakan versi **Lite (without desktop)** untuk kegunaan server kerana ia lebih ringan dan menjimatkan penggunaan RAM.
+                </p>
+            </div>
+
+            <!-- SLIDE 10: HEADLESS SETUP -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 mb-4 w-fit">Mod Pengendalian</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Headless Setup Concept</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    <strong>Headless</strong> bermaksud Raspberry Pi dikendalikan <em>tanpa monitor, papan kekunci, atau tetikus</em> secara terus.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-laptop text-3xl text-indigo-400 mb-2"></i>
+                        <span class="text-xs font-bold text-white">Laptop Pengguna</span>
+                    </div>
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-arrow-right-arrow-left text-2xl text-emerald-400 mb-2"></i>
+                        <span class="text-xs font-bold text-emerald-400">Rangkaian LAN (SSH)</span>
+                    </div>
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-server text-3xl text-rpi-500 mb-2"></i>
+                        <span class="text-xs font-bold text-white">Raspberry Pi (Headless)</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs text-slate-300">
+                    <div class="p-3 bg-slate-900/60 rounded border border-slate-800">✓ Menjimatkan penggunaan ruang & aksesori</div>
+                    <div class="p-3 bg-slate-900/60 rounded border border-slate-800">✓ Boleh diletakkan di mana sahaja berdekatan router</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 11: SETUP RASPBERRY PI -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rpi-500/20 text-rpi-500 border border-rpi-500/30 mb-4 w-fit">Aliran Kerja Setup</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Langkah Flashing & Configuration</h2>
+
+                <div class="space-y-2 text-xs sm:text-sm">
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center space-x-3">
+                        <span class="bg-rpi-500 text-white font-bold px-2.5 py-1 rounded">1</span>
+                        <span class="text-slate-200">Muat turun <strong>Raspberry Pi Imager</strong> pada laptop.</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center space-x-3">
+                        <span class="bg-rpi-500 text-white font-bold px-2.5 py-1 rounded">2</span>
+                        <span class="text-slate-200">Pilih OS: <em>Raspberry Pi OS Lite (64-bit)</em>.</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center space-x-3">
+                        <span class="bg-rpi-500 text-white font-bold px-2.5 py-1 rounded">3</span>
+                        <span class="text-slate-200">Konfigurasi OS Customisation (Hostname: <code>raspberrypi</code>, User: <code>&lt;USERNAME&gt;</code>).</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center space-x-3">
+                        <span class="bg-rpi-500 text-white font-bold px-2.5 py-1 rounded">4</span>
+                        <span class="text-slate-200">Aktifkan <strong>SSH</strong> & masukkan Wi-Fi credential / LAN setup.</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center space-x-3">
+                        <span class="bg-rpi-500 text-white font-bold px-2.5 py-1 rounded">5</span>
+                        <span class="text-slate-200">Flash ke microSD / SSD -> Masukkan ke Pi -> Cucuk Power & Network.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 12: FIRST BOOT -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Penemuan Rangkaian</span>
+                <h2 class="text-3xl font-bold text-white mb-4">First Boot & Cari IP Address</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Selepas menyalakan Raspberry Pi, kita perlu mencari **Private IP Address** yang diberikan oleh Router.
+                </p>
+
+                <div class="bg-slate-900 border border-slate-700 p-4 rounded-xl mb-4 space-y-2 text-xs sm:text-sm text-slate-300">
+                    <p class="font-bold text-sky-400">Cara Mencari IP Raspberry Pi:</p>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Semak senarai <strong>DHCP Client List</strong> di Dashboard Router (cth: 192.168.1.1).</li>
+                        <li>Guna command ping: <code>ping raspberrypi.local</code></li>
+                        <li>Guna scanner app seperti <em>Fing</em> atau <em>nmap</em>.</li>
+                    </ul>
+                </div>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm">
+                    <span class="text-slate-500"># Contoh IP yang dijumpai: 192.168.1.50</span><br>
+                    <span class="text-emerald-400">ssh</span> <span class="text-amber-300">&lt;USERNAME&gt;</span>@<span class="text-sky-300">192.168.1.50</span>
+                </div>
+            </div>
+
+            <!-- SLIDE 13: SSH KE RASPBERRY PI -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 mb-4 w-fit">Remote Access</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Sambungan SSH Pertama</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Buka Terminal (Linux/Mac) atau PowerShell/Command Prompt (Windows) dan mulakan sambungan SSH.
+                </p>
+
+                <!-- Terminal Display Mockup -->
+                <div class="code-block rounded-xl overflow-hidden shadow-xl mb-4 border border-slate-700">
+                    <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center space-x-2">
+                        <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        <span class="text-xs text-slate-400 font-mono ml-2">Terminal - ssh piuser@192.168.1.50</span>
+                    </div>
+                    <div class="p-4 text-xs font-mono text-slate-200 leading-relaxed">
+                        $ ssh &lt;USERNAME&gt;@192.168.1.50<br>
+                        &lt;USERNAME&gt;@192.168.1.50's password: **********<br><br>
+                        Linux raspberrypi 6.1.0-rpi7-2712 #1 SMP PREEMPT Debian 12.5-1<br>
+                        <span class="text-emerald-400">&lt;USERNAME&gt;@raspberrypi</span>:<span class="text-sky-400">~</span>$ <span class="animate-pulse">_</span>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    Tahniah! Anda kini berhubung terus ke terminal sistem operasi Linux di Raspberry Pi.
+                </p>
+            </div>
+
+            <!-- SLIDE 14: VERIFY SYSTEM -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Verifikasi Sistem</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Perintah Verifikasi Asas</h2>
+
+                <p class="text-slate-300 text-sm mb-4">Jalankan perintah ini untuk menyemak status terkini hardware dan OS:</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">hostname</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Menyemak nama hos server ini.</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">whoami</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Menunjukkan pengguna aktif terkini.</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">uname -a</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Maklumat versi Kernel Linux & seni bina (aarch64).</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">ip addr</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Paparan lengkap alamat IP & antaramuka rangkaian.</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">df -h</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Menyemak saiz & baki ruang storage (disk space).</p>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg">
+                        <span class="text-emerald-400 font-bold">free -h</span>
+                        <p class="text-slate-400 text-xs mt-1 font-sans">Menyemak kegunaan RAM terkini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 15: CHECK NETWORK -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 mb-4 w-fit">Networking</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Pemeriksaan Rangkaian (Network)</h2>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono mb-4 text-slate-300">
+                    <span class="text-emerald-400">$ ip addr</span><br>
+                    2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 ...<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;inet <span class="text-amber-300">192.168.1.50/24</span> brd 192.168.1.255 scope global dynamic eth0<br><br>
+                    <span class="text-emerald-400">$ ip route</span><br>
+                    default via <span class="text-sky-300">192.168.1.1</span> dev eth0 proto dhcp src 192.168.1.50
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                    <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                        <span class="text-amber-400 font-bold block mb-1">Private IP</span>
+                        <span class="text-slate-300">192.168.1.50</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                        <span class="text-sky-400 font-bold block mb-1">Gateway (Router)</span>
+                        <span class="text-slate-300">192.168.1.1</span>
+                    </div>
+                    <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                        <span class="text-emerald-400 font-bold block mb-1">Interface</span>
+                        <span class="text-slate-300">eth0 (Ethernet)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 16: STATIC IP VS DHCP RESERVATION -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Strategi IP Address</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Static IP vs DHCP Reservation</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div class="p-5 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <h3 class="text-base font-bold text-amber-400 mb-3">Option A: Static IP Pada Host</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed mb-3">
+                            Ditentukan secara manual dalam fail konfigurasi Linux Raspberry Pi (cth: <code>/etc/dhcpcd.conf</code> atau NetworkManager).
+                        </p>
+                        <span class="text-xs text-amber-300 font-semibold">• Boleh berlaku konflik IP jika router memberikan IP yang sama kepada peranti lain.</span>
+                    </div>
+
+                    <div class="p-5 bg-slate-800/60 border border-emerald-500/40 rounded-xl">
+                        <h3 class="text-base font-bold text-emerald-400 mb-3">Option B: DHCP Reservation (Disyorkan)</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed mb-3">
+                            Dikonfigurasi di dalam <strong>Router Settings</strong>. Router mengunci MAC Address Raspberry Pi supaya sentiasa mendapat IP yang sama.
+                        </p>
+                        <span class="text-xs text-emerald-300 font-semibold">✓ Paling selamat, tersusun & mengelakkan isu IP conflict!</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 17: UPDATE SISTEM -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Penyelenggaraan</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Kemaskini Sistem Sistem (Update)</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Sentiasa pastikan senarai pakej dan aplikasi Linux anda mendapat security patch terkini.
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono space-y-3 mb-6">
+                    <div>
+                        <span class="text-slate-500"># 1. Muat turun senarai senarai pakej terkini daripada server Debian</span><br>
+                        <span class="text-emerald-400">sudo apt update</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500"># 2. Pasang (install) semua kemaskini sekuniti & perisian</span><br>
+                        <span class="text-emerald-400">sudo apt upgrade -y</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-400">
+                    💡 <strong>Tip:</strong> <code>apt update</code> hanya mengemaskini indeks/senarai. <code>apt upgrade</code> yang melakukan pemasangan sebenar.
+                </div>
+            </div>
+
+            <!-- SLIDE 18: CREATE SERVER DIRECTORY -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Struktur Projek</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Cipta Direktori Projek Server</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Susun aplikasi anda di dalam direktori khas supaya sistem kekal rapi:
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono mb-6">
+                    <span class="text-emerald-400">mkdir -p</span> ~/apps/myapp<br>
+                    <span class="text-emerald-400">cd</span> ~/apps/myapp
+                </div>
+
+                <!-- Directory Tree View -->
+                <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl font-mono text-xs text-slate-300">
+                    /home/&lt;USERNAME&gt;/<br>
+                    └── 📁 apps/<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;└── 📁 myapp/<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── 📄 index.html<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 📄 docker-compose.yml
+                </div>
+            </div>
+
+            <!-- SLIDE 19: PYTHON APPLICATION -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Aplikasi Pertama</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Menjalankan Python Web Server</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Gunakan modul bawaan Python untuk menguji fungsi server dengan pantas:
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono space-y-2 mb-4">
+                    <span class="text-slate-500"># Masukkan HTML ringkas</span><br>
+                    echo "&lt;h1&gt;Hello World dari Raspberry Pi!&lt;/h1&gt;" &gt; index.html<br><br>
+                    <span class="text-slate-500"># Jalankan Python HTTP Server pada Port 8080</span><br>
+                    <span class="text-emerald-400">python3 -m http.server 8080 --bind 0.0.0.0</span>
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    Parameter <code>--bind 0.0.0.0</code> memastikan server menerima sambungan daripada semua peranti dalam LAN.
+                </p>
+            </div>
+
+            <!-- SLIDE 20: LOCAL NETWORK TEST -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Ujian LAN</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Ujian Rangkaian Tempatan (Local Test)</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Buka pelayar web (Browser) di laptop atau telefon bimbit yang menyertai Wi-Fi/LAN yang sama:
+                </p>
+
+                <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl mb-6 text-center">
+                    <span class="text-xs text-slate-400 font-mono block mb-2">URL Pelayar Web:</span>
+                    <span class="text-lg font-mono font-bold text-emerald-400 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
+                        http://192.168.1.50:8080
+                    </span>
+                </div>
+
+                <div class="flex items-center space-x-3 p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl">
+                    <i class="fa-solid fa-circle-check text-2xl text-emerald-400"></i>
+                    <p class="text-xs text-slate-200">
+                        Jika paparan "Hello World dari Raspberry Pi!" keluar, ini mengesahkan **Local Web Server** anda telah berjaya berfungsi!
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 21: FIREWALL -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Keselamatan Rangkaian</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Security Sebelum Terhubung Ke Internet</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Jangan sewenang-wenangnya membuka server ke Internet tanpa kawalan firewall (UFW):
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono space-y-2 mb-4">
+                    <span class="text-slate-500"># Pasang UFW (Uncomplicated Firewall)</span><br>
+                    sudo apt install ufw -y<br><br>
+                    <span class="text-slate-500"># Benarkan SSH (Sangat Penting! Elak terputus akses)</span><br>
+                    sudo ufw allow ssh<br><br>
+                    <span class="text-slate-500"># Benarkan port app sahaja</span><br>
+                    sudo ufw allow 8080/tcp<br><br>
+                    <span class="text-slate-500"># Aktifkan Firewall</span><br>
+                    sudo ufw enable
+                </div>
+            </div>
+
+            <!-- SLIDE 22: DOCKER -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-docker text-white mb-4 w-fit">Kontena Aplikasi</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Seterusnya: Docker Container</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Docker membolehkan kita meletakkan aplikasi dalam kontena terasing (container) lengkap bersama dependencies tanpa mengotorkan sistem asas.
+                </p>
+
+                <div class="bg-slate-900 p-4 border border-slate-700 rounded-xl space-y-2 text-center text-xs font-mono">
+                    <div class="p-2 bg-docker/20 text-docker rounded border border-docker/40 font-bold">App Containers (Web, Nginx, DB)</div>
+                    <div class="p-2 bg-slate-800 text-slate-300 rounded border border-slate-700">Docker Engine</div>
+                    <div class="p-2 bg-slate-800 text-slate-400 rounded border border-slate-700">Raspberry Pi OS (Linux Kernel)</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 23: RASPBERRY PI + DOCKER -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-docker text-white mb-4 w-fit">Multi-Service Server</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Raspberry Pi + Docker</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Satu Raspberry Pi boleh menjalankan **pelbagai aplikasi serentak** melalui Docker Containers!
+                </p>
+
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl text-center">
+                        <i class="fa-solid fa-globe text-2xl text-sky-400 mb-2"></i>
+                        <h4 class="font-bold text-xs text-white">Web App</h4>
+                        <span class="text-[10px] text-slate-400">Port 8080</span>
+                    </div>
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl text-center">
+                        <i class="fa-solid fa-code text-2xl text-emerald-400 mb-2"></i>
+                        <h4 class="font-bold text-xs text-white">Backend API</h4>
+                        <span class="text-[10px] text-slate-400">Port 5000</span>
+                    </div>
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl text-center">
+                        <i class="fa-solid fa-database text-2xl text-amber-400 mb-2"></i>
+                        <h4 class="font-bold text-xs text-white">Database</h4>
+                        <span class="text-[10px] text-slate-400">Port 5432</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 24: DOCKER COMPOSE -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-docker text-white mb-4 w-fit">Orchestration</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Konsep Docker Compose</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Docker Compose mentakrifkan keseluruhan stack perkhidmatan dalam satu fail <code>docker-compose.yml</code>.
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs font-mono space-y-1 text-slate-300 mb-4">
+                    <span class="text-indigo-400">services:</span><br>
+                    &nbsp;&nbsp;<span class="text-rose-400">web:</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;image: nginx:alpine<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;ports: ["8080:80"]<br>
+                    &nbsp;&nbsp;<span class="text-amber-400">db:</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;image: postgres:15-alpine
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    Guna perintah <code>docker compose up -d</code> untuk menyalakan semua service serentak di latar belakang.
+                </p>
+            </div>
+
+            <!-- SLIDE 25: CLOUDFLARE TUNNEL -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-cloudflare text-slate-900 mb-4 w-fit font-bold">Public Access</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Sambung Ke Internet: Cloudflare Tunnel</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 bg-rose-950/20 border border-rose-500/30 rounded-xl">
+                        <h4 class="font-bold text-rose-400 text-xs uppercase mb-2">Cara Lama (Port Forwarding)</h4>
+                        <ul class="text-xs space-y-1 text-slate-300">
+                            <li>❌ Perlu Public IP router</li>
+                            <li>❌ Buka Port Router ke internet (Berisiko tinggi)</li>
+                            <li>❌ Terdedah serangan DDoS terus ke rumah</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl">
+                        <h4 class="font-bold text-emerald-400 text-xs uppercase mb-2">Cara Baru (Cloudflare Tunnel)</h4>
+                        <ul class="text-xs space-y-1 text-slate-300">
+                            <li>✓ Hanya perlukan <strong>Outbound Connection</strong></li>
+                            <li>✓ Tiada sebarang Port Forwarding dibuka</li>
+                            <li>✓ Dilindungi oleh Firewall Cloudflare & HTTPS percuma</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 26: DOMAIN -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-cloudflare text-slate-900 mb-4 w-fit font-bold">Custom Domain</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Menghubungkan Domain Utama</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Pengguna boleh mengakses server anda dengan nama domain rasmi dan bukannya IP address:
+                </p>
+
+                <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl flex items-center justify-between text-xs sm:text-sm font-mono mb-6">
+                    <span class="text-slate-300">User Client</span>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <span class="text-amber-400 font-bold">&lt;DOMAIN&gt;</span>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <span class="text-cloudflare font-bold">Cloudflare</span>
+                    <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                    <span class="text-rpi-500 font-bold">Raspberry Pi</span>
+                </div>
+            </div>
+
+            <!-- SLIDE 27: MULTIPLE APPLICATIONS -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-cloudflare text-slate-900 mb-4 w-fit font-bold">Multi-Subdomain</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Pengurusan Pelbagai Subdomain</h2>
+
+                <div class="space-y-3 text-xs sm:text-sm mb-6">
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-lg flex justify-between items-center">
+                        <span class="font-mono text-sky-400">app.&lt;DOMAIN&gt;</span>
+                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                        <span class="font-mono text-slate-300">Raspberry Pi :8080 (Web App)</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-lg flex justify-between items-center">
+                        <span class="font-mono text-emerald-400">api.&lt;DOMAIN&gt;</span>
+                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                        <span class="font-mono text-slate-300">Raspberry Pi :5000 (API Backend)</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-lg flex justify-between items-center">
+                        <span class="font-mono text-purple-400">admin.&lt;DOMAIN&gt;</span>
+                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                        <span class="font-mono text-slate-300">Raspberry Pi :3000 (Dashboard)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 28: HOME SERVER ARCHITECTURE -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 mb-4 w-fit">Arsitektur Asas</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Seni Bina Home Server</h2>
+
+                <div class="bg-slate-900 p-4 border border-slate-700 rounded-xl text-center space-y-2 text-xs font-mono mb-4">
+                    <div class="text-emerald-400 font-bold">INTERNET</div>
+                    <div>↓</div>
+                    <div class="text-amber-400 font-bold">CLOUDFLARE TUNNEL</div>
+                    <div>↓</div>
+                    <div class="text-rpi-500 font-bold">RASPBERRY PI (LAN Host)</div>
+                    <div>↓</div>
+                    <div class="text-blue-400 font-bold">DOCKER ENGINE</div>
+                    <div class="grid grid-cols-3 gap-2 pt-2 text-[10px]">
+                        <div class="p-2 bg-slate-800 rounded border border-slate-700">Web App</div>
+                        <div class="p-2 bg-slate-800 rounded border border-slate-700">API Service</div>
+                        <div class="p-2 bg-slate-800 rounded border border-slate-700">Database</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 29: SSH SECURITY -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Pengukuhan Akses</span>
+                <h2 class="text-3xl font-bold text-white mb-4">SSH Security Best Practices</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-emerald-400">✓ Gunakan SSH Key Authentication</h4>
+                        <p class="text-slate-300">Gantikan kata laluan biasa dengan SSH Public/Private key pair.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-emerald-400">✓ Matikan Password Authentication</h4>
+                        <p class="text-slate-300">Tetapkan <code>PasswordAuthentication no</code> dalam <code>/etc/ssh/sshd_config</code>.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-emerald-400">✓ Nyahaktifkan Login Root Direct</h4>
+                        <p class="text-slate-300">Tetapkan <code>PermitRootLogin no</code>.</p>
+                    </div>
+                    <div class="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-emerald-400">✓ Hadkan Port Pengurusan</h4>
+                        <p class="text-slate-300">Jangan sekali-kali expose port SSH (22) secara terus ke Internet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 30: USER & PERMISSIONS -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Prinsip Keselamatan</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Pengurusan Pengguna & Least Privilege</h2>
+
+                <div class="p-5 bg-slate-900 border border-slate-700 rounded-xl mb-6">
+                    <h3 class="font-bold text-white text-base mb-2">Prinsip Hak Akses Minimum (Least Privilege)</h3>
+                    <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                        Jangan sesekali menjalankan perkhidmatan aplikasi web terus sebagai akaun <code>root</code>. Jika aplikasi tersebut diceroboh, penceroboh akan mendapat kawalan penuh ke atas seluruh OS server!
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                    <div class="p-3 bg-rose-950/20 border border-rose-500/30 rounded-lg text-rose-300">
+                        ❌ Guna root untuk jalankan script/app biasa
+                    </div>
+                    <div class="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-lg text-emerald-300">
+                        ✓ Guna akaun biasa + sudo jika diperlukan
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 31: SECRETS MANAGEMENT -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Pengurusan Maklumat Sulit</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Secrets Management</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div class="p-4 bg-rose-950/20 border border-rose-500/30 rounded-xl">
+                        <h4 class="font-bold text-rose-400 text-xs uppercase mb-3">Dilarang Sama Sekali (DON'T)</h4>
+                        <ul class="text-xs space-y-2 text-slate-300">
+                            <li>❌ Simpan API Key/Password dalam kod source</li>
+                            <li>❌ Commit fail credential ke GitHub Public Repo</li>
+                            <li>❌ Simpan Cloudflare Token dalam fail awam</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl">
+                        <h4 class="font-bold text-emerald-400 text-xs uppercase mb-3">Cara Betul (DO)</h4>
+                        <ul class="text-xs space-y-2 text-slate-300">
+                            <li>✓ Guna <strong>Environment Variables</strong> (fail <code>.env</code>)</li>
+                            <li>✓ Masukkan <code>.env</code> dalam <code>.gitignore</code></li>
+                            <li>✓ Guna Docker Secrets / Encrypted storage</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 32: MONITORING -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Pemantauan Sistem</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Monitoring Asas Home Server</h2>
+
+                <p class="text-slate-300 text-sm mb-4">Perkara wajib yang perlu dipantau secara berkala:</p>
+
+                <!-- Dashboard Metric Cards Simulation -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase">CPU Usage</span>
+                        <span class="text-lg font-bold text-emerald-400 font-mono">14%</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase">RAM Usage</span>
+                        <span class="text-lg font-bold text-sky-400 font-mono">1.2 GB / 4GB</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase">Disk Usage</span>
+                        <span class="text-lg font-bold text-amber-400 font-mono">35%</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 border border-slate-700 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase">Temperature</span>
+                        <span class="text-lg font-bold text-rose-400 font-mono">48°C</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 33: RASPBERRY PI TEMPERATURE -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Suhu Hardware</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Suhu & Throttling Raspberry Pi</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Apabila suhu CPU melebihi **80°C**, Raspberry Pi akan mengalami <em>Thermal Throttling</em> (perlahankan prestasi automatik).
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs sm:text-sm font-mono mb-6">
+                    <span class="text-slate-500"># Semak suhu CPU Raspberry Pi secara terus</span><br>
+                    <span class="text-emerald-400">vcgencmd measure_temp</span><br>
+                    <span class="text-slate-400">temp=46.2'C</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-300">
+                    <strong>Penyelesaian Penjagaan Suhu:</strong> Gunakan casing aluminium dengan passive cooling heatsink atau kipas angin mini (active fan).
+                </div>
+            </div>
+
+            <!-- SLIDE 34: STORAGE MONITORING -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Kapasiti Storage</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Pemantauan Ruang Storage</h2>
+
+                <div class="code-block p-4 rounded-xl text-xs font-mono mb-4 text-slate-300">
+                    <span class="text-emerald-400">$ df -h /</span><br>
+                    Filesystem Size Used Avail Use% Mounted on<br>
+                    /dev/mmcblk0p2 29G 8.5G 19G <span class="text-emerald-400 font-bold">32%</span> /
+                </div>
+
+                <div class="p-4 bg-rose-950/20 border border-rose-500/30 rounded-xl text-xs text-slate-300 space-y-2">
+                    <h4 class="font-bold text-rose-400">⚠️ Risiko Jika Disk Full (100% Used):</h4>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li>Aplikasi & Database gagal menulis data baharu</li>
+                        <li>Docker Container mengalami crash atau restart loop</li>
+                        <li>Sistem Linux gagal boot semula dengan sempurna</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SLIDE 35: LOGGING -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Pengurusan Log</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Log Perkhidmatan & Troubleshooting</h2>
+
+                <div class="code-block p-4 rounded-xl text-xs font-mono space-y-3 mb-4">
+                    <div>
+                        <span class="text-slate-500"># Semak log sistem Linux</span><br>
+                        <span class="text-emerald-400">sudo journalctl -u docker -f</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500"># Semak log kontena Docker tertentu</span><br>
+                        <span class="text-emerald-400">docker logs -f &lt;CONTAINER_NAME&gt;</span>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    Log merupakan alat utama untuk mengenal pasti punca masalah apabila perkhidmatan terhenti.
+                </p>
+            </div>
+
+            <!-- SLIDE 36: BACKUP -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-purple-500/20 text-purple-400 border border-purple-500/30 mb-4 w-fit">Perlindungan Data</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Strategi Backup (3-2-1 Strategy)</h2>
+
+                <p class="text-slate-300 text-sm mb-6">
+                    Home server bukan bermaksud data anda selamat secara automatik tanpa sandaran (backup).
+                </p>
+
+                <div class="grid grid-cols-3 gap-3 mb-6 text-center text-xs">
+                    <div class="p-4 bg-slate-800 border border-slate-700 rounded-xl">
+                        <span class="text-2xl font-bold text-purple-400 block mb-1">3</span>
+                        <span class="text-slate-200">Salinan Data (Copies)</span>
+                    </div>
+                    <div class="p-4 bg-slate-800 border border-slate-700 rounded-xl">
+                        <span class="text-2xl font-bold text-sky-400 block mb-1">2</span>
+                        <span class="text-slate-200">Jenis Media Berbeza</span>
+                    </div>
+                    <div class="p-4 bg-slate-800 border border-slate-700 rounded-xl">
+                        <span class="text-2xl font-bold text-emerald-400 block mb-1">1</span>
+                        <span class="text-slate-200">Simpanan Offsite / Cloud</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 37: RECOVERY TEST -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-purple-500/20 text-purple-400 border border-purple-500/30 mb-4 w-fit">Pemulihan Data</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Ujian Pemulihan (Recovery Test)</h2>
+
+                <div class="p-6 bg-slate-900 border border-slate-700 rounded-xl mb-6 text-center space-y-3">
+                    <div class="flex items-center justify-center space-x-3 text-xs sm:text-sm font-mono text-slate-300">
+                        <span>Backup Data</span>
+                        <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                        <span>Restore Test</span>
+                        <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                        <span>Verify App Integrity</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl">
+                    <p class="text-sm font-bold text-rose-300">
+                        "Backup yang tidak pernah diuji untuk restore belum membuktikan recovery."
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 38: POWER & UPTIME -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Ketersediaan Perkhidmatan</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Power & Realiti Uptime</h2>
+
+                <p class="text-slate-300 text-sm mb-4">Di persekitaran rumah, server anda terdedah kepada:</p>
+
+                <div class="grid grid-cols-2 gap-3 text-xs mb-6">
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700 text-slate-300">⚡ Power Outage (Putus Bekalan Elektrik)</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700 text-slate-300">🌐 Internet ISP Downtime</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700 text-slate-300">🔄 Router Restart / Firmware Update</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700 text-slate-300">🧹 Tersepak kabel / Kucing mengganggu</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 39: INTERNET DEPENDENCY -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Kebergantungan Rangkaian</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Kebergantungan Sambungan Internet</h2>
+
+                <p class="text-slate-300 text-sm mb-6">Apabila talian Internet rumah terputus (Internet Down):</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl">
+                        <h4 class="font-bold text-emerald-400 text-xs mb-2">✅ Local Network (LAN)</h4>
+                        <p class="text-xs text-slate-300">Masih berfungsi! Anda masih boleh akses Raspberry Pi melalui IP Tempatan (192.168.1.50).</p>
+                    </div>
+
+                    <div class="p-4 bg-rose-950/20 border border-rose-500/30 rounded-xl">
+                        <h4 class="font-bold text-rose-400 text-xs mb-2">❌ Public Access (Cloudflare Tunnel)</h4>
+                        <p class="text-xs text-slate-300">Terputus! Akses awam luar tidak boleh sampai ke rumah sehingga Internet pulih.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 40: POWER LOSS SCENARIO -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Senario Gangguan Kuasa</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Senario Terputus Elektrik & Pemulihan</h2>
+
+                <div class="space-y-2 text-xs font-mono mb-6">
+                    <div class="p-2.5 bg-rose-950/30 border border-rose-500/30 rounded text-rose-300">1. Elektrik Terputus -> Raspberry Pi Mati Mendadak</div>
+                    <div class="p-2.5 bg-slate-900 border border-slate-700 rounded text-slate-400">2. Elektrik Pulih -> Raspberry Pi Menyala (Auto Boot)</div>
+                    <div class="p-2.5 bg-sky-950/30 border border-sky-500/30 rounded text-sky-300">3. Docker Service Bermula Automatik (Restart Policy)</div>
+                    <div class="p-2.5 bg-cloudflare/20 border border-cloudflare/40 rounded text-amber-300">4. Cloudflare Tunnel Sambung Semula Outbound</div>
+                    <div class="p-2.5 bg-emerald-950/30 border border-emerald-500/30 rounded text-emerald-300 font-bold">5. Website Kembali Live Ke Seluruh Dunia!</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 41: SELF-HEALING BASICS -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Auto-Recovery</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Self-Healing Basics</h2>
+
+                <p class="text-slate-300 text-sm mb-4">
+                    Pastikan perkhidmatan bangkit semula secara automatik selepas reboot tanpa campur tangan manual:
+                </p>
+
+                <div class="code-block p-4 rounded-xl text-xs font-mono space-y-3 mb-4">
+                    <div>
+                        <span class="text-slate-500"># Gunakan Docker Restart Policy</span><br>
+                        docker run -d <span class="text-emerald-400">--restart always</span> myapp
+                    </div>
+                    <div>
+                        <span class="text-slate-500"># Atau dalam docker-compose.yml</span><br>
+                        <span class="text-sky-400">restart: unless-stopped</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 42: SECURITY CHECKLIST (INTERACTIVE) -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4 w-fit">Interactive Checklist</span>
+                <h2 class="text-3xl font-bold text-white mb-2">Security & Production Readiness Checklist</h2>
+                <p class="text-xs text-slate-400 mb-4">Tanda petak di bawah untuk semak kesediaan server anda:</p>
+
+                <div id="checklist-items" class="space-y-2 text-xs sm:text-sm mb-4">
+                    <label class="flex items-center space-x-3 p-2.5 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/80">
+                        <input type="checkbox" class="chk-item accent-rpi-500 w-4 h-4">
+                        <span class="text-slate-200">Rangkaian: DHCP Reservation / Static IP ditetapkan</span>
+                    </label>
+                    <label class="flex items-center space-x-3 p-2.5 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/80">
+                        <input type="checkbox" class="chk-item accent-rpi-500 w-4 h-4">
+                        <span class="text-slate-200">Firewall: UFW diaktifkan & port terhad</span>
+                    </label>
+                    <label class="flex items-center space-x-3 p-2.5 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/80">
+                        <input type="checkbox" class="chk-item accent-rpi-500 w-4 h-4">
+                        <span class="text-slate-200">SSH: Gunakan Authentication SSH Keys sahaja</span>
+                    </label>
+                    <label class="flex items-center space-x-3 p-2.5 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/80">
+                        <input type="checkbox" class="chk-item accent-rpi-500 w-4 h-4">
+                        <span class="text-slate-200">Cloudflare Tunnel: Tiada port forwarding terbuka ke Internet</span>
+                    </label>
+                    <label class="flex items-center space-x-3 p-2.5 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/80">
+                        <input type="checkbox" class="chk-item accent-rpi-500 w-4 h-4">
+                        <span class="text-slate-200">Backup: Data aplikasi disalin secara berkala</span>
+                    </label>
+                </div>
+
+                <div class="w-full bg-slate-800 rounded-full h-3">
+                    <div id="chk-progress" class="bg-emerald-500 h-3 rounded-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 43: HOME LAB VS PRODUCTION -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Perbandingan Persekitaran</span>
+                <h2 class="text-3xl font-bold text-white mb-6">Home Lab vs Commercial Production</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-5 bg-slate-800/60 border border-slate-700 rounded-xl">
+                        <h3 class="font-bold text-sky-400 text-base mb-3">Home Lab / Personal Server</h3>
+                        <ul class="space-y-2 text-xs text-slate-300">
+                            <li>✓ Utama untuk pembelajaran & eksperimen</li>
+                            <li>✓ Toleransi downtime lebih tinggi</li>
+                            <li>✓ Beban trafik rendah (kegunaan peribadi/keluarga)</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-5 bg-slate-800/60 border border-purple-500/40 rounded-xl">
+                        <h3 class="font-bold text-purple-400 text-base mb-3">Commercial Production</h3>
+                        <ul class="space-y-2 text-xs text-slate-300">
+                            <li>✓ SLA Uptime 99.99% diwajibkan</li>
+                            <li>✓ Redundancy perkakasan & data centre backup</li>
+                            <li>✓ Pasukan sekuriti & monitoring 24/7</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 44: LIMITATIONS RASPBERRY PI -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-4 w-fit">Batasan Perkakasan</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Limitasi Perkakasan Raspberry Pi</h2>
+
+                <div class="grid grid-cols-2 gap-3 text-xs sm:text-sm text-slate-300 mb-4">
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">⚠️ CPU ARM terhad berbanding Server x86</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">⚠️ RAM tidak boleh ditambah (Fixed RAM)</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">⚠️ Ketahanan microSD terhad</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">⚠️ Bandwidth Internet Rumah (Upload Speed ISP)</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 45: BILA RASPBERRY PI SESUAI? -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 w-fit">Penggunaan Ideal</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Bila Raspberry Pi Sangat Sesuai?</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-semibold mb-4">
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Home Automation (Home Assistant)</div>
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Personal Portfolio Website</div>
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Network-wide Ad Blocker (Pi-hole)</div>
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Lightweight REST API</div>
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Telegram/Discord Bots</div>
+                    <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-emerald-300">✓ Learning & Dev Environment</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 46: BILA PERLU SERVER LEBIH BESAR? -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-4 w-fit">Naik Taraf</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Bila Perlu Naik Taraf Server?</h2>
+
+                <p class="text-slate-300 text-sm mb-4">Beralih ke Mini PC (x86), VPS, atau Dedicated Cloud apabila:</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-300">
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-amber-400">Keperluan Workload</h4>
+                        <p>• Memerlukan Machine Learning / AI Processing</p>
+                        <p>• Heavy Transcoding Video (Plex/Jellyfin 4K)</p>
+                        <p>• Database volum tinggi dengan ribuan IOPS</p>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/80 border border-slate-700 rounded-xl space-y-2">
+                        <h4 class="font-bold text-sky-400">Alternatif Perkakasan</h4>
+                        <p>• Used Mini PC (Intel NUC / HP ProDesk / Dell OptiPlex)</p>
+                        <p>• VPS Cloud (DigitalOcean, Hetzner, AWS)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 47: COMPLETE HOME SERVER ARCHITECTURE -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rpi-500/20 text-rpi-500 border border-rpi-500/30 mb-4 w-fit">Cetak Biru Lengkap</span>
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Seni Bina Lengkap Home Server</h2>
+
+                <!-- Full Master Diagram -->
+                <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl font-mono text-[11px] sm:text-xs text-slate-300 space-y-2 text-center overflow-x-auto">
+                    <div class="text-emerald-400 font-bold">CLIENT (Browser / Mobile)</div>
+                    <div>↓ (HTTPS Access)</div>
+                    <div class="text-cloudflare font-bold">CLOUDFLARE WAF & DNS</div>
+                    <div>↓ (Outbound Tunnel Connection)</div>
+                    <div class="text-sky-400 font-bold">HOME ROUTER (LAN)</div>
+                    <div>↓</div>
+                    <div class="p-3 bg-slate-800 rounded-lg border border-rpi-500/40 text-left space-y-1">
+                        <div class="text-rpi-500 font-bold">🍓 RASPBERRY PI OS (Debian Linux)</div>
+                        <div class="pl-4 text-slate-400">├── UFW Firewall (SSH Key Protection)</div>
+                        <div class="pl-4 text-slate-400">├── Docker Engine</div>
+                        <div class="pl-8 text-indigo-300">├── Container 1: Web App (:8080)</div>
+                        <div class="pl-8 text-indigo-300">├── Container 2: REST API (:5000)</div>
+                        <div class="pl-8 text-indigo-300">└── Container 3: Cloudflared Tunnel Service</div>
+                        <div class="pl-4 text-slate-400">└── Automated Daily Backup -> Remote Storage</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 48: PROJECT ROADMAP -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 mb-4 w-fit">Pelan Tindakan</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Pelan Projek Homelab Anda</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-semibold">
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 1<br><span class="text-sky-400">Python Web Server</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 2<br><span class="text-docker">Docker App</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 3<br><span class="text-cloudflare">Cloudflare Tunnel</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 4<br><span class="text-emerald-400">Custom Domain + HTTPS</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 5<br><span class="text-purple-400">Admin Dashboard</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 6<br><span class="text-amber-400">System Monitoring</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 7<br><span class="text-rose-400">Automated Backup</span></div>
+                    <div class="p-3 bg-slate-800/80 border border-slate-700 rounded-lg">PROJEK 8<br><span class="text-rpi-500">Production Home Server</span></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 49: QUIZ (INTERACTIVE) -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-2 w-fit">Ujian Kefahaman</span>
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Kuiz Uji Minda</h2>
+
+                <div id="quiz-container" class="w-full">
+                    <div class="flex justify-between items-center mb-3">
+                        <span id="quiz-question-number" class="text-xs font-mono font-bold text-sky-400">Soalan 1 daripada 5</span>
+                        <span id="quiz-score" class="text-xs font-mono font-bold text-emerald-400">Skor: 0</span>
+                    </div>
+
+                    <div id="quiz-card" class="bg-slate-900 border border-slate-700 p-5 rounded-xl space-y-4">
+                        <p id="quiz-question-text" class="text-sm font-semibold text-white">Soalan loading...</p>
+                        
+                        <div id="quiz-options" class="space-y-2 text-xs">
+                            <!-- Options injected dynamically -->
+                        </div>
+
+                        <div id="quiz-feedback" class="hidden p-3 rounded-lg text-xs font-semibold"></div>
+                    </div>
+
+                    <div class="mt-4 flex justify-end">
+                        <button id="quiz-next-btn" class="hidden px-4 py-2 bg-rpi-500 hover:bg-rpi-600 text-white rounded-lg text-xs font-bold transition">
+                            Soalan Seterusnya <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 50: FINAL SUMMARY -->
+            <div class="slide flex-col justify-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scrollbar">
+                <span class="badge bg-rpi-500/20 text-rpi-500 border border-rpi-500/30 mb-4 w-fit">Rumusan Utama</span>
+                <h2 class="text-3xl font-bold text-white mb-4">Raspberry Pi = Home Server Foundation</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-6">
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">🍓 Hardware</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">🐧 Linux OS</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">🔐 Security & UFW</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">🐳 Docker Containers</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">☁️ Cloudflare Tunnel</div>
+                    <div class="p-3 bg-slate-800/80 rounded border border-slate-700">🌐 Domain & HTTPS</div>
+                </div>
+
+                <div class="p-4 bg-rpi-500/10 border-l-4 border-rpi-500 rounded-r-xl">
+                    <p class="text-sm font-bold text-slate-200">
+                        "Kita bukan sekadar menggunakan Raspberry Pi. Kita sedang membina server architecture yang kukuh di atasnya."
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 51: PENUTUP -->
+            <div class="slide flex-col items-center justify-center text-center w-full h-full max-h-[80vh] glass-card rounded-2xl p-8 sm:p-12 shadow-2xl relative border border-rpi-500/30">
+                <div class="text-5xl mb-6 animate-bounce">🚀</div>
+                
+                <h1 class="text-4xl sm:text-6xl font-black text-white tracking-tight mb-4">
+                    Build Small.<br>
+                    <span class="bg-gradient-to-r from-rpi-500 to-amber-400 bg-clip-text text-transparent">Learn Deep.</span><br>
+                    Scale Later.
+                </h1>
+
+                <p class="text-slate-300 text-base sm:text-lg max-w-xl mb-8">
+                    Mulakan dengan Raspberry Pi. Fahami setiap lapisan teknikal. Kemudian scale bila perkhidmatan anda bersedia.
+                </p>
+
+                <button onclick="goToSlide(0)" class="px-6 py-3 bg-rpi-500 hover:bg-rpi-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-rpi-500/30">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Mula Semula Presentation
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom Controls Footer Bar -->
+    <footer class="w-full px-6 py-4 border-t border-slate-800/60 bg-slate-900/60 backdrop-blur-md flex justify-between items-center z-40">
+        <button id="prev-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-chevron-left"></i>
+            <span>Sebelumnya</span>
+        </button>
+
+        <!-- Keyboard Hint -->
+        <div class="hidden sm:flex items-center space-x-2 text-[11px] text-slate-400 font-mono">
+            <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700">←</span>
+            <span class="px-2 py-1 bg-slate-800 rounded border border-slate-700">→</span>
+            <span>Guna Kekunci Anak Panah</span>
+        </div>
+
+        <button id="next-btn" class="px-4 py-2 bg-rpi-500 hover:bg-rpi-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-rpi-500/20 transition flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed">
+            <span>Seterusnya</span>
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </footer>
+
+    <!-- Modal Table of Contents (TOC Drawer) -->
+    <div id="toc-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl max-h-[80vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                <h3 class="text-base font-bold text-white flex items-center"><i class="fa-solid fa-list-ul mr-2 text-rpi-500"></i> Senarai Slide Presentation</h3>
+                <button id="close-toc-btn" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="toc-list" class="p-4 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <!-- Dynamically Generated Slide List -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const progressBar = document.getElementById('progress-bar');
+        const slideIndicator = document.getElementById('slide-indicator');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const tocBtn = document.getElementById('toc-btn');
+        const tocModal = document.getElementById('toc-modal');
+        const closeTocBtn = document.getElementById('close-toc-btn');
+        const tocList = document.getElementById('toc-list');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        let currentIndex = 0;
+        const totalSlides = slides.length;
+
+        // Slide Title Mapping for TOC
+        const slideTitles = [
+            "1. Tajuk Utama", "2. Refleksi Pembelajaran", "3. Apa itu Raspberry Pi?", "4. Kenapa Guna Raspberry Pi?",
+            "5. Raspberry Pi Bukan Magic", "6. Keperluan Hardware", "7. Storage: microSD vs SSD", "8. Power & System Stability",
+            "9. Raspberry Pi OS", "10. Headless Setup", "11. Langkah Setup & Flashing", "12. First Boot & Cari IP",
+            "13. Sambungan SSH Pertama", "14. Perintah Verifikasi System", "15. Check Network LAN", "16. Static IP vs DHCP Reservation",
+            "17. Kemaskini System (APT)", "18. Cipta Direktori Server", "19. Python Web Server", "20. Ujian Rangkaian Tempatan",
+            "21. Security Sebelum Internet", "22. Kontena Docker", "23. Raspberry Pi + Docker", "24. Docker Compose",
+            "25. Cloudflare Tunnel", "26. Menghubungkan Domain", "27. Subdomain Berganda", "28. Arsitektur Home Server",
+            "29. SSH Security Best Practices", "30. User & Hak Akses", "31. Secrets Management", "32. Pemantauan System",
+            "33. Suhu & Thermal Throttling", "34. Pemantauan Storage Disk", "35. Logging System", "36. Strategi Backup (3-2-1)",
+            "37. Ujian Pemulihan (Recovery)", "38. Realiti Uptime & Power", "39. Kebergantungan Internet", "40. Senario Terputus Elektrik",
+            "41. Self-Healing Basics", "42. Interactive Security Checklist", "43. Home Lab vs Production", "44. Limitasi Hardware",
+            "45. Penggunaan Ideal RPi", "46. Bila Perlu Upgrade Server?", "47. Cetak Biru Lengkap", "48. Pelan Projek Homelab",
+            "49. Kuiz Uji Minda", "50. Rumusan Utama", "51. Penutup & Kata Hikmat"
+        ];
+
+        function updateSlideView() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentIndex) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // Update Header & Progress
+            slideIndicator.innerText = `${currentIndex + 1} / ${totalSlides}`;
+            const progressPercent = ((currentIndex + 1) / totalSlides) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+
+            // Button state
+            prevBtn.disabled = currentIndex === 0;
+            nextBtn.disabled = currentIndex === totalSlides - 1;
+
+            // Scroll active slide content to top
+            if(slides[currentIndex]) {
+                slides[currentIndex].scrollTop = 0;
+            }
+        }
+
+        function goToSlide(index) {
+            if (index >= 0 && index < totalSlides) {
+                currentIndex = index;
+                updateSlideView();
+                tocModal.classList.add('hidden');
+            }
+        }
+
+        function nextSlide() {
+            if (currentIndex < totalSlides - 1) {
+                currentIndex++;
+                updateSlideView();
+            }
+        }
+
+        function prevSlide() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateSlideView();
+            }
+        }
+
+        function generateTOC() {
+            tocList.innerHTML = '';
+            slideTitles.forEach((title, idx) => {
+                const item = document.createElement('button');
+                item.className = `p-2.5 rounded-lg text-left transition text-slate-300 hover:bg-slate-800 ${idx === currentIndex ? 'bg-rpi-500/20 text-rpi-500 font-bold border border-rpi-500/40' : 'bg-slate-900/60 border border-slate-800'}`;
+                item.innerText = title;
+                item.onclick = () => goToSlide(idx);
+                tocList.appendChild(item);
+            });
+        }
+
+        prevBtn.addEventListener('click', prevSlide);
+        nextBtn.addEventListener('click', nextSlide);
+
+        tocBtn.addEventListener('click', () => {
+            generateTOC();
+            tocModal.classList.remove('hidden');
+        });
+
+        closeTocBtn.addEventListener('click', () => {
+            tocModal.classList.add('hidden');
+        });
+
+        // Keyboard Navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space' || e.key === 'PageDown') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                goToSlide(0);
+            } else if (e.key === 'End') {
+                goToSlide(totalSlides - 1);
+            } else if (e.key === 'Escape') {
+                tocModal.classList.add('hidden');
+            }
+        });
+
+        // Fullscreen Toggle
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // Touch Swipe Support for Mobile
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 50) nextSlide();
+            if (touchEndX - touchStartX > 50) prevSlide();
+        });
+
+        const chkItems = document.querySelectorAll('.chk-item');
+        const chkProgress = document.getElementById('chk-progress');
+
+        chkItems.forEach(item => {
+            item.addEventListener('change', () => {
+                const total = chkItems.length;
+                const checked = document.querySelectorAll('.chk-item:checked').length;
+                const pct = (checked / total) * 100;
+                chkProgress.style.width = `${pct}%`;
+            });
+        });
+
+        const quizData = [
+            {
+                q: "1. Apakah definisi sebenar Raspberry Pi?",
+                options: ["Layanan Cloud Server AWS", "Single-Board Computer (SBC)", "Servis Domain DNS", "Firewall Fizikal Enterprise"],
+                answer: 1,
+                explanation: "Raspberry Pi ialah Single-Board Computer (SBC) bersaiz kad kredit."
+            },
+            {
+                q: "2. Apakah kegunaan utama protokol SSH?",
+                options: ["Format hard disk dari jauh", "Pentadbiran & kawalan server secara remote", "Menggantikan peranti Wi-Fi", "Membuat backup imej"],
+                answer: 1,
+                explanation: "SSH membolehkan kita mengurus terminal Linux Raspberry Pi secara remote dari jauh."
+            },
+            {
+                q: "3. Mengapa Cloudflare Tunnel lebih selamat berbanding Port Forwarding?",
+                options: ["Ia tidak memerlukan kabel kuasa", "Ia menggunakan sambungan Outbound tanpa membuka port router ke awam", "Ia menjadikan Raspberry Pi lebih laju", "Ia memadam log secara automatik"],
+                answer: 1,
+                explanation: "Cloudflare Tunnel hanya membuat Outbound Connection, elak router membuka port terbuka ke Internet."
+            },
+            {
+                q: "4. Apakah risiko utama jika storage server penuh (100% Full)?",
+                options: ["Aplikasi gagal menulis data & mengalami crash", "Kelajuan Wi-Fi rumah menjadi perlahan", "Suhu Raspberry Pi terus turun", "IP address akan bertukar"],
+                answer: 0,
+                explanation: "Disk yang penuh menghalang proses penulisan fail, logs & database yang boleh menyebabkan crash."
+            },
+            {
+                q: "5. Apakah kriteria penting bagi strategi backup yang terbukti?",
+                options: ["Disimpan pada microSD card yang sama sahaja", "Hanya dibuat sekali seumur hidup", "Boleh dipulihkan (restore) dan diuji secara berkala", "Tidak memerlukan sebarang encryption"],
+                answer: 2,
+                explanation: "Backup yang sah adalah backup yang pernah diuji proses restorenya."
+            }
+        ];
+
+        let currentQuizIdx = 0;
+        let quizScore = 0;
+
+        const quizQNum = document.getElementById('quiz-question-number');
+        const quizScoreText = document.getElementById('quiz-score');
+        const quizQText = document.getElementById('quiz-question-text');
+        const quizOpts = document.getElementById('quiz-options');
+        const quizFeedback = document.getElementById('quiz-feedback');
+        const quizNextBtn = document.getElementById('quiz-next-btn');
+
+        function loadQuizQuestion() {
+            const q = quizData[currentQuizIdx];
+            quizQNum.innerText = `Soalan ${currentQuizIdx + 1} daripada ${quizData.length}`;
+            quizQText.innerText = q.q;
+            quizOpts.innerHTML = '';
+            quizFeedback.classList.add('hidden');
+            quizNextBtn.classList.add('hidden');
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition flex items-center justify-between";
+                btn.innerHTML = `<span>${opt}</span> <i class="fa-regular fa-circle text-slate-500"></i>`;
+                btn.onclick = () => checkQuizAnswer(idx, btn);
+                quizOpts.appendChild(btn);
+            });
+        }
+
+        function checkQuizAnswer(selectedIdx, btnElement) {
+            const q = quizData[currentQuizIdx];
+            const allOpts = quizOpts.querySelectorAll('button');
+            
+            // Disable all buttons after choice
+            allOpts.forEach(b => b.disabled = true);
+
+            if (selectedIdx === q.answer) {
+                quizScore += 20;
+                quizScoreText.innerText = `Skor: ${quizScore}`;
+                btnElement.classList.add('bg-emerald-950/80', 'border-emerald-500', 'text-emerald-300');
+                btnElement.querySelector('i').className = "fa-solid fa-circle-check text-emerald-400";
+                quizFeedback.className = "p-3 rounded-lg text-xs font-semibold bg-emerald-950/60 border border-emerald-500/40 text-emerald-300";
+                quizFeedback.innerText = "✓ Tepat sekali! " + q.explanation;
+            } else {
+                btnElement.classList.add('bg-rose-950/80', 'border-rose-500', 'text-rose-300');
+                btnElement.querySelector('i').className = "fa-solid fa-circle-xmark text-rose-400";
+                
+                // Highlight correct answer
+                allOpts[q.answer].classList.add('bg-emerald-950/80', 'border-emerald-500', 'text-emerald-300');
+                
+                quizFeedback.className = "p-3 rounded-lg text-xs font-semibold bg-rose-950/60 border border-rose-500/40 text-rose-300";
+                quizFeedback.innerText = "❌ Kurang tepat. " + q.explanation;
+            }
+
+            quizFeedback.classList.remove('hidden');
+
+            if (currentQuizIdx < quizData.length - 1) {
+                quizNextBtn.classList.remove('hidden');
+            } else {
+                quizNextBtn.innerText = "Kuiz Selesai!";
+                quizNextBtn.classList.remove('hidden');
+                quizNextBtn.onclick = () => nextSlide();
+            }
+        }
+
+        quizNextBtn.addEventListener('click', () => {
+            if (currentQuizIdx < quizData.length - 1) {
+                currentQuizIdx++;
+                loadQuizQuestion();
+            }
+        });
+
+        // Initialize quiz on load
+        loadQuizQuestion();
+        updateSlideView();
+    </script>
+</body>
+</html>

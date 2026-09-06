@@ -1,0 +1,2193 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare & Self-Hosting — Dari Asas Ke Production</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cf: {
+                            orange: '#F38020',
+                            amber: '#FAAE40',
+                            dark: '#0B0F19',
+                            card: '#161F30',
+                            border: '#2A364F'
+                        },
+                        cyber: {
+                            cyan: '#06B6D4',
+                            emerald: '#10B981',
+                            rose: '#F43F5E',
+                            purple: '#8B5CF6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'Monaco', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0F19;
+            color: #F3F4F6;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .slide-hidden-left {
+            opacity: 0;
+            transform: translateX(-30px);
+            pointer-events: none;
+            display: none;
+        }
+
+        .slide-hidden-right {
+            opacity: 0;
+            transform: translateX(30px);
+            pointer-events: none;
+            display: none;
+        }
+
+        .slide-active {
+            opacity: 1;
+            transform: translateX(0);
+            display: flex;
+        }
+
+        .glass-panel {
+            background: rgba(22, 31, 48, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .glow-orange {
+            box-shadow: 0 0 25px -5px rgba(243, 128, 32, 0.3);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.3);
+        }
+
+        /* Custom Scrollbar for inner overflow if needed */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B0F19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2A364F;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #F38020;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between select-none overflow-hidden antialiased">
+
+    <header class="w-full h-14 bg-cf-dark/90 border-b border-cf-border/60 px-4 md:px-8 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-cf-orange to-cf-amber flex items-center justify-center font-bold text-slate-900 text-sm shadow-md">
+                CF
+            </div>
+            <span class="font-semibold text-sm md:text-base text-slate-200 tracking-wide truncate max-w-[200px] sm:max-w-md">
+                Cloudflare & Self-Hosting
+            </span>
+            <span class="hidden md:inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-cf-orange/10 text-cf-orange border border-cf-orange/20">
+                Dari Asas Ke Production
+            </span>
+        </div>
+
+        <!-- Progress Counter and Quick Navigation -->
+        <div class="flex items-center gap-2 md:gap-4">
+            <button id="overview-btn" title="Tunjuk Semua Slide (Grid)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1.5 text-xs font-medium border border-slate-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span class="hidden sm:inline">Overview</span>
+            </button>
+
+            <select id="slide-select" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-cf-orange focus:outline-none max-w-[120px] sm:max-w-[200px] cursor-pointer">
+                <!-- Populated via JavaScript -->
+            </select>
+
+            <div class="text-xs font-mono text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
+                <span id="current-slide-num" class="text-cf-orange font-bold">1</span> / <span id="total-slides-num">40</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Progress Bar -->
+    <div class="w-full h-1 bg-slate-900 overflow-hidden relative z-30">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-cf-orange via-cyber-cyan to-cyber-emerald w-0 transition-all duration-300"></div>
+    </div>
+
+    <main class="flex-1 relative w-full overflow-hidden flex items-center justify-center p-3 sm:p-6 md:p-10">
+        
+        <!-- SLIDE 1: TAJUK -->
+        <section class="slide-container slide-active w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800 relative overflow-hidden shadow-2xl" data-slide="1" data-title="Tajuk Utama">
+            <div class="absolute -top-24 -right-24 w-96 h-96 bg-cf-orange/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-cyber-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="space-y-4">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cf-orange/10 border border-cf-orange/30 text-cf-orange text-xs sm:text-sm font-semibold tracking-wide">
+                    🚀 ROADMAP SELEPAS CLOUDFLARE TUNNEL
+                </div>
+                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight">
+                    Cloudflare & <span class="bg-gradient-to-r from-cf-orange via-cf-amber to-yellow-400 bg-clip-text text-transparent">Self-Hosting</span>
+                </h1>
+                <p class="text-lg sm:text-2xl font-medium text-slate-400">
+                    Dari Asas Ke Production
+                </p>
+            </div>
+
+            <!-- Visual Flow Slide 1 -->
+            <div class="my-6 py-6 border-y border-slate-800/80 overflow-x-auto">
+                <div class="flex items-center justify-between min-w-[700px] gap-2 text-xs font-mono">
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-800/80 text-slate-300 border border-slate-700/60 w-24 text-center">
+                        <span class="text-xl">💻</span>
+                        <span class="font-bold text-white">Local Server</span>
+                    </div>
+                    <span class="text-cf-orange">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-cf-orange/10 text-cf-orange border border-cf-orange/30 w-28 text-center">
+                        <span class="text-xl">🛡️</span>
+                        <span class="font-bold">CF Tunnel</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-900 text-cyber-cyan border border-cyber-cyan/30 w-20 text-center">
+                        <span class="text-xl">🌐</span>
+                        <span>DNS</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-900 text-cyber-emerald border border-cyber-emerald/30 w-20 text-center">
+                        <span class="text-xl">🔒</span>
+                        <span>HTTPS</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-900 text-purple-400 border border-purple-500/30 w-22 text-center">
+                        <span class="text-xl">🛡️</span>
+                        <span>Security</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-900 text-yellow-400 border border-yellow-500/30 w-24 text-center">
+                        <span class="text-xl">🔀</span>
+                        <span>Multi-Apps</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-slate-900 text-red-400 border border-red-500/30 w-20 text-center">
+                        <span class="text-xl">🍓</span>
+                        <span>RasPi</span>
+                    </div>
+                    <span class="text-slate-500">➔</span>
+                    <div class="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 w-24 text-center font-bold">
+                        <span class="text-xl">🚀</span>
+                        <span>Production</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center text-xs text-slate-500 font-mono">
+                <span>Panduan Komprehensif Self-Hosting</span>
+                <span>Guna kekunci panah ➔ untuk ke slide seterusnya</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: KITA DAH SAMPAI MANA? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="2" data-title="Pencapaian Asas">
+            <div>
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">REKAPITULASI</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Kita Dah Sampai Mana?</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <h3 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                            <span>✓</span> Modul Yang Telah Selesai
+                        </h3>
+                        <ul class="space-y-2 text-sm text-slate-300 font-mono">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Python Web Server (Flask/FastAPI)</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Localhost (127.0.0.1:8080)</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Private IP (192.168.x.x)</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Public IP & Dynamic DNS</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Port Forwarding Konsep</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> ngrok (Testing Sementara)</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Cloudflare Tunnel (cloudflared)</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-cf-orange uppercase tracking-wider mb-3">
+                                Aliran Semasa Anda
+                            </h3>
+                            <div class="flex items-center justify-center gap-3 py-4 bg-slate-900/80 rounded-lg border border-slate-800 text-xs font-mono">
+                                <span class="px-3 py-2 bg-slate-800 text-slate-200 rounded">Python</span>
+                                <span class="text-cf-orange">➔</span>
+                                <span class="px-3 py-2 bg-cf-orange/20 text-cf-orange rounded font-bold">Cloudflare Tunnel</span>
+                                <span class="text-slate-500">➔</span>
+                                <span class="px-3 py-2 bg-slate-800 text-emerald-400 rounded">Internet</span>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-lg bg-cf-orange/10 border border-cf-orange/30 text-slate-200 text-sm mt-4">
+                            <p class="font-medium text-cf-orange mb-1">💡 Persoalan Penting:</p>
+                            "Sekarang kita sudah boleh expose aplikasi local ke internet. Tetapi, <strong>apa langkah seterusnya</strong> untuk menjadikannya selamat & bersedia untuk skala sebenar?"
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 02 dari 40</span>
+                <span>Asas ➔ Production</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: ROADMAP BESAR -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="3" data-title="Roadmap Besar">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">OVERVIEW PEMBELAJARAN</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Roadmap 9 Fasa Utama</h2>
+                <p class="text-slate-400 text-sm mb-6">Peta jalan lengkap untuk membawa pelayan dari laptop tempatan ke infrastruktur production yang kukuh.</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- Phase 1 - 3 -->
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-cyber-cyan space-y-2">
+                        <span class="text-xs font-mono text-cyber-cyan font-bold">PHASE 1</span>
+                        <h4 class="text-base font-bold text-white">Cloudflare DNS</h4>
+                        <p class="text-xs text-slate-400">Pemetaan domain utama & rekod DNS (A, CNAME).</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-cyber-emerald space-y-2">
+                        <span class="text-xs font-mono text-cyber-emerald font-bold">PHASE 2</span>
+                        <h4 class="text-base font-bold text-white">SSL/TLS Security</h4>
+                        <p class="text-xs text-slate-400">Enkripsi sambungan HTTPS & Edge Certificates.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-cf-orange space-y-2">
+                        <span class="text-xs font-mono text-cf-orange font-bold">PHASE 3</span>
+                        <h4 class="text-base font-bold text-white">Cloudflare Access</h4>
+                        <p class="text-xs text-slate-400">Authentication layer sebelum sampai ke app.</p>
+                    </div>
+
+                    <!-- Phase 4 - 6 -->
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-purple-500 space-y-2">
+                        <span class="text-xs font-mono text-purple-400 font-bold">PHASE 4</span>
+                        <h4 class="text-base font-bold text-white">Zero Trust Architecture</h4>
+                        <p class="text-xs text-slate-400">Prinsip "Never trust, always verify" peranti & user.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-rose-500 space-y-2">
+                        <span class="text-xs font-mono text-rose-400 font-bold">PHASE 5</span>
+                        <h4 class="text-base font-bold text-white">Web Application Firewall</h4>
+                        <p class="text-xs text-slate-400">WAF menapis trafik mencurigakan di Edge.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-yellow-500 space-y-2">
+                        <span class="text-xs font-mono text-yellow-400 font-bold">PHASE 6</span>
+                        <h4 class="text-base font-bold text-white">Security Rules</h4>
+                        <p class="text-xs text-slate-400">Kawalan Allow, Block, Challenge & Filtering.</p>
+                    </div>
+
+                    <!-- Phase 7 - 9 -->
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-blue-500 space-y-2">
+                        <span class="text-xs font-mono text-blue-400 font-bold">PHASE 7</span>
+                        <h4 class="text-base font-bold text-white">Multiple Applications</h4>
+                        <p class="text-xs text-slate-400">Satu tunnel untuk pelbagai local port / subdomain.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-red-500 space-y-2">
+                        <span class="text-xs font-mono text-red-400 font-bold">PHASE 8</span>
+                        <h4 class="text-base font-bold text-white">Raspberry Pi Server</h4>
+                        <p class="text-xs text-slate-400">Migrasi dari laptop ke mini dedicated home server.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-l-4 border-l-emerald-400 space-y-2">
+                        <span class="text-xs font-mono text-emerald-400 font-bold">PHASE 9</span>
+                        <h4 class="text-base font-bold text-white">Production Deployment</h4>
+                        <p class="text-xs text-slate-400">Monitoring, Backup, Secrets & Hardening.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 03 dari 40</span>
+                <span>Perjalanan Berperingkat</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: CLOUDFLARE DNS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="4" data-title="1. Cloudflare DNS">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">FASA 1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">1. Cloudflare DNS</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-cyber-cyan mb-2">Apa Benda Ini?</h3>
+                            <p class="text-sm text-slate-300">
+                                <strong>DNS (Domain Name System)</strong> ialah "buku telefon internet" yang menukar nama domain manusia mudah ingat kepada destinasi IP / Hostname server.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-cf-orange mb-2">Konsep Asas Utama</h3>
+                            <ul class="text-xs text-slate-300 space-y-2 font-mono">
+                                <li class="flex items-start gap-2"><span class="text-cf-orange">•</span> <strong>A Record:</strong> Peta Domain ➔ IPv4 Server</li>
+                                <li class="flex items-start gap-2"><span class="text-cf-orange">•</span> <strong>CNAME:</strong> Alias Domain ➔ Hostname lain (Tunnel)</li>
+                                <li class="flex items-start gap-2"><span class="text-cf-orange">•</span> <strong>Propagation:</strong> Masa untuk kemaskini DNS tersebar global</li>
+                                <li class="flex items-start gap-2"><span class="text-cf-orange">•</span> <strong>Proxied (Awan Jingga):</strong> Trafik lalu Cloudflare (Lebih selamat)</li>
+                                <li class="flex items-start gap-2"><span class="text-cf-orange">•</span> <strong>DNS-only (Awan Kelabu):</strong> Trafik terus ke server asal</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Diagram Flow -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center space-y-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Aliran Pemetaan DNS</span>
+                        <div class="w-full space-y-3 font-mono text-xs">
+                            <div class="p-3 bg-slate-900 rounded-lg text-center border border-slate-800 text-slate-200">
+                                <span class="text-cf-orange font-bold">app.domainbos.com</span>
+                            </div>
+                            <div class="text-center text-cyber-cyan font-bold">↓ (Meminta Resolusi DNS)</div>
+                            <div class="p-3 bg-cyber-cyan/10 border border-cyber-cyan/30 rounded-lg text-center text-cyber-cyan font-semibold">
+                                Cloudflare Global DNS Anycast Network
+                            </div>
+                            <div class="text-center text-cyber-cyan font-bold">↓ (Hala Ke Tunnel Hostname)</div>
+                            <div class="p-3 bg-cf-orange/10 border border-cf-orange/30 rounded-lg text-center text-cf-orange font-semibold">
+                                &lt;TUNNEL_ID&gt;.cfargotunnel.com ➔ Server Anda
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 04 dari 40</span>
+                <span>Asas Identiti Domain</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: KENAPA DNS PENTING? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="5" data-title="Kenapa DNS Penting?">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">FASA 1 — CLOUDFLARE DNS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Kenapa DNS Penting Untuk Self-Hosting?</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-5 rounded-xl bg-red-950/20 border border-red-800/40 space-y-3">
+                        <div class="flex items-center gap-2 text-rose-400 font-bold">
+                            <span class="text-xl">❌</span> Tanpa Custom Domain
+                        </div>
+                        <p class="text-xs font-mono text-slate-300 bg-slate-900 p-3 rounded border border-slate-800 break-all">
+                            https://a1b2c3d4-random-address.example.net
+                        </p>
+                        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+                            <li>Sukar diingati oleh pengguna/rakan.</li>
+                            <li>Alamat bertukar setiap kali tunnel diwujudkan semula.</li>
+                            <li>Kelihatan tidak profesional dan sukar untuk SSL persendirian.</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 space-y-3">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                            <span class="text-xl">✅</span> Dengan Cloudflare DNS & Domain
+                        </div>
+                        <p class="text-xs font-mono text-emerald-300 bg-slate-900 p-3 rounded border border-slate-800">
+                            https://app.domainbos.com
+                        </p>
+                        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+                            <li>Mudah diingati dan konsisten selamanya.</li>
+                            <li>Boleh dibuat pelbagai subdomain (api., admin., dev.).</li>
+                            <li>Perlindungan DDoS dan caching automatik di Edge.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Simple Flow Diagram -->
+                <div class="mt-8 p-4 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-around font-mono text-xs">
+                    <span class="text-slate-300">Pengguna</span>
+                    <span class="text-cyber-cyan">➔</span>
+                    <span class="text-cf-orange font-bold">app.domainbos.com</span>
+                    <span class="text-cyber-cyan">➔</span>
+                    <span class="text-blue-400">Cloudflare DNS</span>
+                    <span class="text-cyber-cyan">➔</span>
+                    <span class="text-emerald-400">Local Server</span>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 05 dari 40</span>
+                <span>Pengurusan Nama & Identiti</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: DNS RECORDS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="6" data-title="DNS Records">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">FASA 1 — CLOUDFLARE DNS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Perbandingan Rekod DNS Utama</h2>
+                <p class="text-slate-400 text-sm mb-6">Jenis-jenis rekod yang biasa dikendalikan dalam dashboard Cloudflare DNS.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-card p-4 rounded-xl border border-cf-orange/40 bg-cf-orange/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-cf-orange">A RECORD</span>
+                            <span class="text-xs bg-cf-orange/20 text-cf-orange px-2 py-0.5 rounded font-mono">IPv4 Direct</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Menghala nama domain terus ke alamat IP public IPv4 (Contoh: <code>203.0.113.195</code>).</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-cyber-cyan/40 bg-cyber-cyan/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-cyber-cyan">CNAME RECORD</span>
+                            <span class="text-xs bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded font-mono">Alias Hostname</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Menghala domain ke domain/hostname lain. <strong>Digunakan secara meluas oleh Cloudflare Tunnel</strong>.</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-slate-300">AAAA RECORD</span>
+                            <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">IPv6 Direct</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Menghala nama domain terus ke alamat IPv6 128-bit.</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono font-bold text-slate-300">TXT / MX RECORD</span>
+                            <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">Info / Mail</span>
+                        </div>
+                        <p class="text-xs text-slate-400"><strong>MX:</strong> Hala trafik email. <strong>TXT:</strong> Pengesahan kepemilikan domain & sekuriti SPF/DKIM.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 font-mono">
+                    <span class="text-cf-orange font-bold">Nota Self-Host:</span> Fokus utama kita dalam Cloudflare Tunnel ialah <strong>CNAME Record</strong> kerana Tunnel menguruskan routing secara automatik tanpa pendedahan IP Public.
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 06 dari 40</span>
+                <span>Jenis Rekod DNS</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: SSL/TLS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="7" data-title="2. SSL/TLS">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-emerald tracking-widest uppercase">FASA 2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">2. SSL/TLS (Encryption Layer)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-500/5">
+                            <h3 class="text-sm font-bold text-rose-400 mb-1 flex items-center gap-2">
+                                <span>⚠️</span> HTTP (Tidak Selamat)
+                            </h3>
+                            <p class="text-xs font-mono text-rose-200 bg-slate-900 p-2 rounded border border-rose-900/40">http://domainbos.com</p>
+                            <p class="text-xs text-slate-400">Data dihantar dalam bentuk teks biasa (plaintext). Boleh diintip (eavesdropping) di rangkaian awam.</p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                            <h3 class="text-sm font-bold text-emerald-400 mb-1 flex items-center gap-2">
+                                <span>🔒</span> HTTPS (Selamat & Encrypted)
+                            </h3>
+                            <p class="text-xs font-mono text-emerald-300 bg-slate-900 p-2 rounded border border-emerald-900/40">https://domainbos.com</p>
+                            <p class="text-xs text-slate-400">Trafik dienkrip menggunakan protokol TLS (Transport Layer Security). Data disulitkan antara pelayar & pelayan.</p>
+                        </div>
+                    </div>
+
+                    <!-- Visual Encryption Diagram -->
+                    <div class="glass-card p-6 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center text-center space-y-4">
+                        <div class="w-16 h-16 rounded-full bg-cyber-emerald/10 border border-cyber-emerald/40 flex items-center justify-center text-3xl text-cyber-emerald shadow-lg">
+                            🔒
+                        </div>
+                        <h4 class="text-base font-bold text-white">Aliran Sambungan HTTPS</h4>
+                        <div class="w-full space-y-2 text-xs font-mono">
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">Browser / Klien</div>
+                            <div class="text-cyber-emerald">⬇ Saluran Terenkrip (TLS Tunnel)</div>
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-slate-300">Server / Cloudflare Edge</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 07 dari 40</span>
+                <span>Keselamatan Sambungan</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: APA YANG TLS BUAT? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="8" data-title="Fungsi Utama TLS">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-emerald tracking-widest uppercase">FASA 2 — SSL/TLS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">3 Teras Utama Perlindungan TLS</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <div class="w-10 h-10 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/30 flex items-center justify-center text-cyber-cyan font-bold text-xl">
+                            1
+                        </div>
+                        <h3 class="text-base font-bold text-white">Encryption</h3>
+                        <p class="text-xs text-slate-300">
+                            Menyulitkan data yang dihantar supaya mana-mana pihak ketiga di tengah rangkaian (ISP, Public Wi-Fi) tidak dapat membaca isi kandungan.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <div class="w-10 h-10 rounded-lg bg-cyber-emerald/10 border border-cyber-emerald/30 flex items-center justify-center text-cyber-emerald font-bold text-xl">
+                            2
+                        </div>
+                        <h3 class="text-base font-bold text-white">Authentication</h3>
+                        <p class="text-xs text-slate-300">
+                            Mengesahkan bahawa pengguna benar-benar berhubung dengan pelayan sasaran yang sah menerusi <em>Sijil Digital (Digital Certificate)</em>.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xl">
+                            3
+                        </div>
+                        <h3 class="text-base font-bold text-white">Integrity</h3>
+                        <p class="text-xs text-slate-300">
+                            Memastikan data tidak boleh diubah atau diubah suai semasa dalam perjalanan dari browser ke server tanpa dikesan.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-200 flex items-start gap-3">
+                    <span class="text-lg">⚠️</span>
+                    <div>
+                        <strong class="font-bold">Peringatan Penting Untuk Beginner:</strong>
+                        HTTPS hanya melindungi <em>perjalanan data dalam rangkaian (Data in Transit)</em>. Ia TIDAK bermaksud aplikasi anda automatik selamat daripada bug koding, SQL Injection, atau kata laluan lemah!
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 08 dari 40</span>
+                <span>Teras Keselamatan TLS</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: CLOUDFLARE SSL/TLS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="9" data-title="Cloudflare SSL/TLS">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-emerald tracking-widest uppercase">FASA 2 — SSL/TLS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Bagaimana Cloudflare Menguruskan SSL/TLS?</h2>
+                <p class="text-slate-400 text-sm mb-6">Cloudflare menyediakan Edge Certificate secara automatik tanpa perlu menguruskan Certbot / Let's Encrypt secara manual di server local.</p>
+
+                <!-- Flow Diagram -->
+                <div class="p-6 bg-slate-900/90 rounded-xl border border-slate-800 space-y-6">
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-4 font-mono text-xs">
+                        <div class="p-4 bg-slate-800 rounded-lg text-center w-full md:w-1/4 border border-slate-700">
+                            <span class="text-slate-400 block mb-1">Pengguna / Browser</span>
+                            <span class="text-emerald-400 font-bold">🔒 HTTPS (Edge Cert)</span>
+                        </div>
+                        <span class="text-cf-orange text-lg">➔</span>
+                        <div class="p-4 bg-cf-orange/10 border border-cf-orange/40 rounded-lg text-center w-full md:w-1/3 text-cf-orange">
+                            <span class="font-bold block mb-1">Cloudflare Edge Network</span>
+                            <span class="text-[10px] text-slate-300">Menyediakan SSL Automatic, SSL Modes (Flexible / Full / Strict)</span>
+                        </div>
+                        <span class="text-cf-orange text-lg">➔</span>
+                        <div class="p-4 bg-slate-800 rounded-lg text-center w-full md:w-1/4 border border-slate-700">
+                            <span class="text-slate-400 block mb-1">Encrypted Tunnel</span>
+                            <span class="text-cyber-cyan font-bold">🔒 Origin Server</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+                        <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                            <span class="font-bold text-cf-orange block mb-1">Edge Certificate</span>
+                            <span class="text-slate-400">Sijil SSL percuma dikeluarkan oleh Cloudflare untuk domain anda.</span>
+                        </div>
+                        <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                            <span class="font-bold text-cyber-cyan block mb-1">Tunnel Connection</span>
+                            <span class="text-slate-400">Sambungan out-bound terenkrip dari server tempatan ke Cloudflare.</span>
+                        </div>
+                        <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700/60">
+                            <span class="font-bold text-emerald-400 block mb-1">Zero Origin Config</span>
+                            <span class="text-slate-400">Anda tidak perlu install SSL cert dalam Python / Nginx local anda.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 09 dari 40</span>
+                <span>Pengurusan Sijil SSL</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: CLOUDFLARE ACCESS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="10" data-title="3. Cloudflare Access">
+            <div>
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">FASA 3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">3. Cloudflare Access (Authentication Layer)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                            <h3 class="text-sm font-bold text-cf-orange mb-2">Soalan Penting:</h3>
+                            <blockquote class="text-lg italic text-slate-200 border-l-2 border-cf-orange pl-3">
+                                "Macam mana kalau kita tak mahu semua orang di internet boleh buka server kita?"
+                            </blockquote>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-white mb-2">Apa Itu Cloudflare Access?</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Cloudflare Access bertindak sebagai **dinding keselamatan (Identity Barrier)** di hadapan aplikasi anda. Sebelum trafik sempat menyentuh server tempatan anda, pengguna mesti mengesahkan identiti mereka.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Visual Flow -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-center space-y-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-center text-slate-300">
+                            1. Pengguna Buka Website
+                        </div>
+                        <div class="text-center text-cf-orange font-bold">↓</div>
+                        <div class="p-3 bg-cf-orange/10 border border-cf-orange/30 rounded text-center text-cf-orange font-bold">
+                            2. Cloudflare Access Screen (Login OTP / Google / GitHub)
+                        </div>
+                        <div class="text-center text-cf-orange font-bold">↓</div>
+                        <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded text-center text-emerald-400 font-bold">
+                            3. Sah Identiti ➔ Baru Capai Aplikasi Local
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 10 dari 40</span>
+                <span>Kawalan Akses Pengguna</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 11: CONTOH ACCESS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="11" data-title="Contoh Penggunaan Access">
+            <div>
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">FASA 3 — CLOUDFLARE ACCESS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Contoh Senario Cloudflare Access</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Flow Box -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3 font-mono text-xs">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Contoh Subdomain Admin</span>
+                        <div class="p-2.5 bg-slate-900 rounded text-cf-orange">admin.domainbos.com</div>
+                        <div class="text-slate-500 text-center">↓ Pengguna Mengakses</div>
+                        <div class="p-3 bg-purple-500/10 border border-purple-500/30 text-purple-300 rounded">
+                            Semak Emel: hanya `@domainbos.com` dibenarkan.
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center pt-2">
+                            <div class="p-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded">
+                                ✅ Ya ➔ Benarkan
+                            </div>
+                            <div class="p-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded">
+                                ❌ Tidak ➔ Block (403)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Use Cases List -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <h3 class="text-sm font-bold text-white mb-2">Penggunaan Popular:</h3>
+                        <ul class="text-xs text-slate-300 space-y-2.5">
+                            <li class="flex items-start gap-2">
+                                <span class="text-cf-orange font-bold">🔹</span>
+                                <div><strong>Admin Panel:</strong> Mengunci dashboard pentadbir tanpa membuat sistem login koding sendiri.</div>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-cf-orange font-bold">🔹</span>
+                                <div><strong>Internal Tools:</strong> Melindungi aplikasi seperti Portainer, Home Assistant, atau Grafana.</div>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-cf-orange font-bold">🔹</span>
+                                <div><strong>Staging / Dev:</strong> Melindungi persekitaran ujian daripada dikesan umum atau bot.</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 11 dari 40</span>
+                <span>Aplikasi Kawalan Akses</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 12: ZERO TRUST -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="12" data-title="4. Zero Trust">
+            <div>
+                <span class="text-xs font-mono font-bold text-purple-400 tracking-widest uppercase">FASA 4</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">4. Zero Trust Architecture</h2>
+                
+                <div class="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-200 text-sm font-semibold mb-6">
+                    💡 Prinsip Teras: "Jangan percaya secara automatik. Sentiasa sahkan (Never Trust, Always Verify)."
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Model Lama -->
+                    <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Model Tradisional (Perimeter)</h3>
+                        <div class="p-3 bg-red-950/30 border border-red-800/40 rounded text-xs text-slate-300">
+                            "Sesiapa berada dalam rangkaian LAN/VPN dianggap SELAMAT dan dipercayai sepenuhnya."
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            Jika penceroboh berjaya tembus ke dalam router tempatan, semua server tempatan terdedah.
+                        </p>
+                    </div>
+
+                    <!-- Model Zero Trust -->
+                    <div class="p-5 rounded-xl bg-slate-900 border border-purple-500/40 space-y-3">
+                        <h3 class="text-sm font-bold text-purple-400 uppercase tracking-wider">Model Zero Trust</h3>
+                        <div class="p-3 bg-purple-950/30 border border-purple-800/40 rounded text-xs text-slate-200">
+                            "Setiap permintaan disemak secara individu: Identiti + Peranti + Konteks Keselamatan."
+                        </div>
+                        <p class="text-xs text-slate-400">
+                            Walaupun berada dalam rangkaian tempatan yang sama, akses tetap disemak berasaskan polisi ketat.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 12 dari 40</span>
+                <span>Paradigma Keselamatan Moden</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 13: ZERO TRUST FLOW -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="13" data-title="Zero Trust Flow">
+            <div>
+                <span class="text-xs font-mono font-bold text-purple-400 tracking-widest uppercase">FASA 4 — ZERO TRUST</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Aliran Pengesahan Zero Trust</h2>
+                <p class="text-slate-400 text-sm mb-6">Zero Trust bukan satu perisian tunggal, tetapi pendekatan komprehensif keselamatan.</p>
+
+                <!-- Flow Process -->
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-center font-mono text-xs">
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col items-center justify-center gap-1">
+                        <span class="text-lg">👤</span>
+                        <span class="text-slate-300 font-bold">1. User</span>
+                        <span class="text-[10px] text-slate-500">Mula Akses</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col items-center justify-center gap-1">
+                        <span class="text-lg">🆔</span>
+                        <span class="text-cyber-cyan font-bold">2. Identity</span>
+                        <span class="text-[10px] text-slate-500">Semak Auth/SSO</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col items-center justify-center gap-1">
+                        <span class="text-lg">💻</span>
+                        <span class="text-cf-orange font-bold">3. Device</span>
+                        <span class="text-[10px] text-slate-500">Status Peranti</span>
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col items-center justify-center gap-1">
+                        <span class="text-lg">📋</span>
+                        <span class="text-purple-400 font-bold">4. Policy</span>
+                        <span class="text-[10px] text-slate-500">Kebenaran IP/Negara</span>
+                    </div>
+                    <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-lg flex flex-col items-center justify-center gap-1">
+                        <span class="text-lg">🚀</span>
+                        <span class="text-emerald-400 font-bold">5. Application</span>
+                        <span class="text-[10px] text-emerald-300">Akses Dibenarkan</span>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                    Ekosistem **Cloudflare Zero Trust** menggabungkan Cloudflare Access, Gateway, WARP, dan Tunnel untuk memberikan perlindungan menyeluruh tanpa perlu menguruskan infrastruktur VPN yang kompleks.
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 13 dari 40</span>
+                <span>Proses Keselamatan Zero Trust</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 14: WAF -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="14" data-title="5. WAF">
+            <div>
+                <span class="text-xs font-mono font-bold text-rose-400 tracking-widest uppercase">FASA 5</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">5. Web Application Firewall (WAF)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                            <h3 class="text-sm font-bold text-rose-400 mb-2">Apa Itu WAF?</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                **WAF (Web Application Firewall)** ialah penapis trafik Layer 7 (HTTP/HTTPS) yang memeriksa setiap permintaan (request) dari Internet sebelum sampai ke aplikasi web anda.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-white mb-2">Tujuan Utama WAF</h3>
+                            <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                                <li>Menyekat serangan eksploitasi perisian popular.</li>
+                                <li>Menghentikan bot berbahaya dan penapis trafik automatik.</li>
+                                <li>Melindungi pelayan daripada beban luar biasa.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Visual Diagram -->
+                    <div class="glass-card p-6 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center space-y-4 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded w-full text-center text-slate-300">🌐 Internet (Trafik Awam)</div>
+                        <div class="text-rose-400 font-bold">↓ Send Request</div>
+                        <div class="p-4 bg-rose-500/10 border border-rose-500/40 text-rose-300 rounded-lg w-full text-center font-bold">
+                            🛡️ Cloudflare WAF (Pemeriksaan Corak Serangan)
+                        </div>
+                        <div class="flex justify-between w-full gap-2 pt-1 text-[11px]">
+                            <span class="text-rose-400 font-bold">❌ Block (Boleh Bahaya)</span>
+                            <span class="text-emerald-400 font-bold">✅ Pass ➔ Server Local</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 14 dari 40</span>
+                <span>Penapisan Trafik Aplikasi</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 15: CONTOH SERANGAN WAF -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="15" data-title="Contoh Serangan WAF">
+            <div>
+                <span class="text-xs font-mono font-bold text-rose-400 tracking-widest uppercase">FASA 5 — WAF</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Ancaman Yang Ditangani Oleh WAF</h2>
+                <p class="text-slate-400 text-sm mb-6">WAF memfokuskan kepada perlindungan defensif terhadap corak serangan umum (OWASP Top 10).</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <span class="text-xs font-mono text-rose-400 font-bold">1. SQL Injection (SQLi)</span>
+                        <p class="text-xs text-slate-300">Percubaan menyuntik kod SQL pada borang input untuk mencuri atau memadam pangkalan data.</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <span class="text-xs font-mono text-rose-400 font-bold">2. Cross-Site Scripting (XSS)</span>
+                        <p class="text-xs text-slate-300">Suntikan skrip berbahaya yang bertujuan mencuri sesi pengguna lain.</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <span class="text-xs font-mono text-rose-400 font-bold">3. Bad Bots & Scrapers</span>
+                        <p class="text-xs text-slate-300">Bot automatik yang mengimbas kelemahan pelayan atau menyalin kandungan secara pukat tunda.</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <span class="text-xs font-mono text-rose-400 font-bold">4. Path Traversal</span>
+                        <p class="text-xs text-slate-300">Percubaan membaca fail sistem pelayan (Contoh: <code>../../etc/passwd</code>).</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-3 rounded-lg bg-rose-950/20 border border-rose-800/40 text-xs text-rose-300 font-mono">
+                    🛡️ <strong>Defensive Focus:</strong> WAF Cloudflare mempunyai rule-set terkemaskini secara automatik tanpa perlu anda menulis ribuan skrip sekuriti di backend.
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 15 dari 40</span>
+                <span>Perlindungan Defensif</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 16: WAF DALAM CLOUDFLARE -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="16" data-title="Kedudukan WAF">
+            <div>
+                <span class="text-xs font-mono font-bold text-rose-400 tracking-widest uppercase">FASA 5 — WAF</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Kedudukan WAF Dalam Infrastruktur</h2>
+
+                <div class="p-6 bg-slate-900 rounded-xl border border-slate-800 space-y-4">
+                    <div class="text-xs font-mono text-slate-400 text-center uppercase tracking-wider">Aliran Kedudukan Keselamatan Cloudflare</div>
+                    
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-2 font-mono text-xs">
+                        <div class="p-3 bg-slate-800 rounded text-center w-full">Pengguna</div>
+                        <span class="text-slate-500">➔</span>
+                        <div class="p-3 bg-cf-orange/10 text-cf-orange border border-cf-orange/30 rounded text-center w-full font-bold">Cloudflare Edge</div>
+                        <span class="text-slate-500">➔</span>
+                        <div class="p-3 bg-rose-500/10 text-rose-400 border border-rose-500/40 rounded text-center w-full font-bold">WAF Filtering</div>
+                        <span class="text-slate-500">➔</span>
+                        <div class="p-3 bg-yellow-500/10 text-yellow-300 border border-yellow-500/30 rounded text-center w-full font-bold">Security Rules</div>
+                        <span class="text-slate-500">➔</span>
+                        <div class="p-3 bg-blue-500/10 text-blue-300 border border-blue-500/30 rounded text-center w-full font-bold">CF Tunnel</div>
+                        <span class="text-slate-500">➔</span>
+                        <div class="p-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/40 rounded text-center w-full font-bold">Application</div>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/60 rounded-lg text-xs text-slate-300 space-y-2">
+                        <p class="font-bold text-white">Kenapa Arsitektur Ini Sangat Berkuasa?</p>
+                        <p>Semua serangan disekat di <strong>Cloudflare Edge Server (Cloud Global)</strong>. Beban pemprosesan atau beban trafik jahat tidak akan pernah menyentuh bandwidth rumah atau CPU server tempatan anda!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 16 dari 40</span>
+                <span>Arsitektur Penapisan Edge</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 17: SECURITY RULES -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="17" data-title="6. Security Rules">
+            <div>
+                <span class="text-xs font-mono font-bold text-yellow-400 tracking-widest uppercase">FASA 6</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">6. Security Rules Custom</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-yellow-500/30">
+                            <h3 class="text-sm font-bold text-yellow-400 mb-2">Apa Itu Security Rules?</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Rule tersendiri yang membolehkan anda menetapkan syarat logik khusus untuk menentukan tindakan ke atas trafik masuk.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-white mb-2">Tindakan Utama (Actions):</h3>
+                            <ul class="text-xs text-slate-300 space-y-2 font-mono">
+                                <li><strong class="text-emerald-400">ALLOW:</strong> Membenarkan trafik tanpa sekatan.</li>
+                                <li><strong class="text-rose-400">BLOCK:</strong> Menyemak & memotong sambungan terus (403).</li>
+                                <li><strong class="text-yellow-400">CHALLENGE:</strong> Paparkan Turnstile / CAPTCHA interaktif.</li>
+                                <li><strong class="text-purple-400">JS CHALLENGE:</strong> Semakan integriti pelayar di latar belakang.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Examples Cards -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 space-y-3">
+                        <h3 class="text-sm font-bold text-white mb-2">Contoh Senario Rule:</h3>
+                        
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-xs space-y-1">
+                            <span class="text-yellow-400 font-mono font-bold">Sekatan Berasaskan Negara</span>
+                            <p class="text-slate-400">"Jika trafik bukan dari Malaysia/Singapura ➔ CHALLENGE"</p>
+                        </div>
+
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-xs space-y-1">
+                            <span class="text-yellow-400 font-mono font-bold">Sekatan Reputasi IP</span>
+                            <p class="text-slate-400">"Jika Threat Score IP &gt; 20 ➔ BLOCK"</p>
+                        </div>
+
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-xs space-y-1">
+                            <span class="text-yellow-400 font-mono font-bold">Perlindungan Laluan Sensitif</span>
+                            <p class="text-slate-400">"Jika URI Path mengandungi <code>/wp-admin</code> ➔ ACCESS POLICY"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 17 dari 40</span>
+                <span>Kawalan Peraturan Trafik</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 18: CONTOH SECURITY RULE -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="18" data-title="Pseudocode Security Rule">
+            <div>
+                <span class="text-xs font-mono font-bold text-yellow-400 tracking-widest uppercase">FASA 6 — SECURITY RULES</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Logik Peraturan (Pseudocode)</h2>
+                <p class="text-slate-400 text-sm mb-6">Contoh bagaimana peraturan dibina secara konseptual dalam dashboard keselamatan.</p>
+
+                <!-- Code Block -->
+                <div class="glass-card p-5 rounded-xl border border-slate-700/60 relative font-mono text-xs text-slate-200">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-700">
+                        <span class="text-cf-orange font-bold">custom_security_rule.rules</span>
+                        <button onclick="copyCode(this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-[11px] text-slate-300 border border-slate-700 transition-colors">
+                            Copy Code
+                        </button>
+                    </div>
+                    <pre class="overflow-x-auto p-2"><code><span class="text-purple-400">IF</span> (http.request.uri.path <span class="text-cyber-cyan">eq</span> <span class="text-emerald-300">"/admin"</span>) 
+   <span class="text-purple-400">AND</span> (ip.geoip.country <span class="text-cyber-cyan">ne</span> <span class="text-emerald-300">"MY"</span>)
+<span class="text-purple-400">THEN</span>
+   <span class="text-rose-400 font-bold">ACTION: BLOCK</span>
+   <span class="text-slate-500">// Mesej: Akses Laluan Admin Hanya Dibenarkan Dari Malaysia</span>
+
+<span class="text-purple-400">IF</span> (http.request.uri.path <span class="text-cyber-cyan">contains</span> <span class="text-emerald-300">"/api/v1/login"</span>) 
+   <span class="text-purple-400">AND</span> (cf.threat_score <span class="text-cyber-cyan">gt</span> <span class="text-amber-400">15</span>)
+<span class="text-purple-400">THEN</span>
+   <span class="text-yellow-400 font-bold">ACTION: MANAGED_CHALLENGE</span></code></pre>
+                </div>
+
+                <div class="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400">
+                    💡 <strong>Prinsip Penting:</strong> Jangan terlalu bergantung pada susunan UI spesifik kerana antara muka Cloudflare sentiasa dikemas kini. Fahamkan **konsep logik bertulis** di atas.
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 18 dari 40</span>
+                <span>Logik Peraturan Pelayan</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 19: MULTIPLE APPLICATIONS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="19" data-title="7. Multiple Applications">
+            <div>
+                <span class="text-xs font-mono font-bold text-blue-400 tracking-widest uppercase">FASA 7</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">7. Mengendalikan Pelbagai Aplikasi</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-blue-400 mb-2">Satu Server, Banyak Port</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Dalam realiti self-hosting, kita tidak menjalankan satu laman web sahaja. Server anda mungkin menjalankan pelbagai servis pada port tempatan yang berbeza.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60 text-xs font-mono space-y-2">
+                            <span class="text-slate-400 font-bold">Contoh Servis Tempatan:</span>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">app.domainbos.com ➔ localhost:8080</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">api.domainbos.com ➔ localhost:5000</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">admin.domainbos.com ➔ localhost:3000</div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Router Diagram -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center space-y-3 font-mono text-xs">
+                        <div class="p-2.5 bg-cf-orange/10 border border-cf-orange/30 text-cf-orange rounded font-bold w-full text-center">
+                            Cloudflare Tunnel Router
+                        </div>
+                        <div class="text-slate-500">↙ ⬇ ↘</div>
+                        <div class="grid grid-cols-3 gap-2 w-full text-[10px] text-center">
+                            <div class="p-2 bg-slate-900 border border-slate-800 rounded">
+                                <span class="text-cyber-cyan block font-bold">Web App</span>
+                                <span class="text-slate-400">:8080</span>
+                            </div>
+                            <div class="p-2 bg-slate-900 border border-slate-800 rounded">
+                                <span class="text-emerald-400 block font-bold">REST API</span>
+                                <span class="text-slate-400">:5000</span>
+                            </div>
+                            <div class="p-2 bg-slate-900 border border-slate-800 rounded">
+                                <span class="text-purple-400 block font-bold">Admin</span>
+                                <span class="text-slate-400">:3000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 19 dari 40</span>
+                <span>Subdomain & Port Routing</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 20: SATU TUNNEL, BANYAK SERVICE -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="20" data-title="Konfigurasi Routing Tunnel">
+            <div>
+                <span class="text-xs font-mono font-bold text-blue-400 tracking-widest uppercase">FASA 7 — MULTIPLE APPS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Satu Tunnel Daemon, Pelbagai Hostname</h2>
+                <p class="text-slate-400 text-sm mb-4">Anda TIDAK perlu memasang banyak proses Tunnel. Cuma perlu konfigurasi Ingress Rules.</p>
+
+                <div class="glass-card p-5 rounded-xl border border-slate-700/60 font-mono text-xs relative">
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
+                        <span class="text-cyber-cyan font-bold">config.yml (cloudflared Ingress Rules)</span>
+                        <button onclick="copyCode(this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-[11px] text-slate-300 border border-slate-700">Copy Code</button>
+                    </div>
+                    <pre class="overflow-x-auto text-slate-300 p-2"><code>tunnel: &lt;TUNNEL_ID&gt;
+credentials-file: /root/.cloudflared/&lt;TUNNEL_ID&gt;.json
+
+ingress:
+  - hostname: <span class="text-emerald-300">app.domainbos.com</span>
+    service: <span class="text-cyber-cyan">http://localhost:8080</span>
+  - hostname: <span class="text-emerald-300">api.domainbos.com</span>
+    service: <span class="text-cyber-cyan">http://localhost:5000</span>
+  - hostname: <span class="text-emerald-300">admin.domainbos.com</span>
+    service: <span class="text-cyber-cyan">http://localhost:3000</span>
+  - service: <span class="text-rose-400">http_status:404</span></code></pre>
+                </div>
+
+                <div class="mt-4 p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400">
+                    💡 **Integriti Routing:** Pengurus Tunnel mengarahkan trafik domain ke port tempatan yang betul secara automatik berpandukan jadual di atas.
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 20 dari 40</span>
+                <span>Ingress Configuration</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 21: KENAPA MULTIPLE APPS PENTING? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="21" data-title="Kepentingan Multiple Apps">
+            <div>
+                <span class="text-xs font-mono font-bold text-blue-400 tracking-widest uppercase">FASA 7 — MULTIPLE APPS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Ekosistem Server Rumah Lengkap</h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-xl">🌐</div>
+                        <h4 class="text-sm font-bold text-white">Main Website</h4>
+                        <p class="text-xs font-mono text-cyber-cyan">domainbos.com</p>
+                        <p class="text-xs text-slate-400">Laman web awam (Port 8080)</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-xl">⚙️</div>
+                        <h4 class="text-sm font-bold text-white">Backend API</h4>
+                        <p class="text-xs font-mono text-emerald-400">api.domainbos.com</p>
+                        <p class="text-xs text-slate-400">API mikro-servis (Port 5000)</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-xl">📊</div>
+                        <h4 class="text-sm font-bold text-white">Home Dashboard</h4>
+                        <p class="text-xs font-mono text-purple-400">dash.domainbos.com</p>
+                        <p class="text-xs text-slate-400">Homer / Heimdall (Port 80)</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-xl">📈</div>
+                        <h4 class="text-sm font-bold text-white">Monitoring Tool</h4>
+                        <p class="text-xs font-mono text-yellow-400">status.domainbos.com</p>
+                        <p class="text-xs text-slate-400">Uptime Kuma (Port 3001)</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-xl">🔐</div>
+                        <h4 class="text-sm font-bold text-white">Admin Management</h4>
+                        <p class="text-xs font-mono text-rose-400">admin.domainbos.com</p>
+                        <p class="text-xs text-slate-400">Portainer / Cockpit (Port 9000)</p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-cf-orange/40 bg-cf-orange/5 space-y-2 flex flex-col justify-center items-center text-center">
+                        <span class="text-xs text-cf-orange font-bold font-mono">1 SINGLE SERVER</span>
+                        <span class="text-xs text-slate-300">Semua servis ini boleh beroperasi serentak dalam satu mesin tempatan!</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 21 dari 40</span>
+                <span>Pengurusan Pelbagai Laman</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 22: RASPBERRY PI -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="22" data-title="8. Raspberry Pi">
+            <div>
+                <span class="text-xs font-mono font-bold text-red-400 tracking-widest uppercase">FASA 8</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">8. Raspberry Pi Sebagai Home Server</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-red-500/30">
+                            <h3 class="text-sm font-bold text-red-400 mb-2 flex items-center gap-2">
+                                🍓 Apa Itu Raspberry Pi?
+                            </h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Komputer papan tunggal (Single Board Computer) bersaiz kad kredit yang sangat sesuai dijadikan pelayan rumah 24/7 tanpa menggunakan tenaga elektrik yang besar.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-white mb-2">Peranan Dalam Roadmap</h3>
+                            <p class="text-xs text-slate-300">
+                                Memindahkan server dari **laptop peribadi** (yang perlu ditutup apabila selesai kerja) ke **mesin khas (Dedicated Home Server)** yang sentiasa aktif 24 jam.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Diagram Flow -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center space-y-3 font-mono text-xs">
+                        <span class="text-slate-400 uppercase text-[10px]">Aliran Home Server Dedicated</span>
+                        <div class="p-2.5 bg-slate-900 rounded w-full text-center text-slate-300">Internet / Pengguna</div>
+                        <div class="text-cf-orange font-bold">↓ Cloudflare Edge</div>
+                        <div class="p-2.5 bg-cf-orange/10 border border-cf-orange/30 text-cf-orange rounded w-full text-center font-bold">Cloudflare Tunnel</div>
+                        <div class="text-red-400 font-bold">↓ Outbound Connection</div>
+                        <div class="p-3 bg-red-950/40 border border-red-500/40 text-red-300 rounded-lg w-full text-center font-bold">
+                            🍓 Raspberry Pi (Home Server 24/7)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 22 dari 40</span>
+                <span>Perkakasan Server Rumah</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 23: KENAPA RASPBERRY PI? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="23" data-title="Kelebihan & Amaran Pi">
+            <div>
+                <span class="text-xs font-mono font-bold text-red-400 tracking-widest uppercase">FASA 8 — RASPBERRY PI</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Kelebihan & Batasan Raspberry Pi</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Kelebihan -->
+                    <div class="p-5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 space-y-3">
+                        <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                            <span>✅</span> Kelebihan Utama
+                        </h3>
+                        <ul class="text-xs text-slate-300 space-y-2">
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Saiz Sangat Kecil:</strong> Boleh diletakkan di sebelah router.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Penggunaan Tenaga Rendah:</strong> Hanya 5W–15W sahaja.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Boleh Hidup Lama:</strong> Stabil berjalan berbulan-bulan tanpa reboot.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Murah Berbanding PC:</strong> Penjimatan kos elektrik bulanan yang ketara.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Tempat Belajar Linux Terbaik:</strong> Belajar SSH, Docker & systemd.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Amaran / Batasan -->
+                    <div class="p-5 rounded-xl bg-yellow-950/20 border border-yellow-800/40 space-y-3">
+                        <h3 class="text-sm font-bold text-yellow-400 flex items-center gap-2">
+                            <span>⚠️</span> Batasan & Peringatan
+                        </h3>
+                        <ul class="text-xs text-slate-300 space-y-2">
+                            <li class="flex items-start gap-2"><span class="text-yellow-400">⚠️</span> <strong>Prestasi CPU/RAM Terhad:</strong> Kurang sesuai untuk pemprosesan video berat.</li>
+                            <li class="flex items-start gap-2"><span class="text-yellow-400">⚠️</span> <strong>Kad MicroSD Boleh Rosak:</strong> Disyorkan guna USB SSD / NVMe.</li>
+                            <li class="flex items-start gap-2"><span class="text-yellow-400">⚠️</span> <strong>Bukan Untuk Enterprise High-Traffic:</strong> Sesuai untuk projek persendirian / kecil.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 23 dari 40</span>
+                <span>Pertimbangan Perkakasan</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 24: WINDOWS VS RASPBERRY PI -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="24" data-title="Windows vs Raspberry Pi">
+            <div>
+                <span class="text-xs font-mono font-bold text-red-400 tracking-widest uppercase">FASA 8 — RASPBERRY PI</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Windows Laptop vs Raspberry Pi Linux</h2>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left font-mono">
+                        <thead class="bg-slate-900 text-slate-400 uppercase border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Ciri-Ciri</th>
+                                <th class="p-3 text-cyan-400">Windows Laptop (Dev)</th>
+                                <th class="p-3 text-red-400">Raspberry Pi Linux (Home Server)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                            <tr>
+                                <td class="p-3 font-bold text-white">Antaramuka (UI)</td>
+                                <td class="p-3">Graphical User Interface (GUI)</td>
+                                <td class="p-3">Headless / Terminal SSH (CLI)</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Operasi 24/7</td>
+                                <td class="p-3">Sukar (Laptop panas / Sleep)</td>
+                                <td class="p-3">Sangat Sesuai (Reka bentuk 24/7)</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Pengurusan Service</td>
+                                <td class="p-3">Buka CMD / Manual Executable</td>
+                                <td class="p-3 text-emerald-400">systemd background daemon / Docker</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Penggunaan Tenaga</td>
+                                <td class="p-3">Tinggi (45W - 150W+)</td>
+                                <td class="p-3 text-emerald-400">Sangat Rendah (5W - 12W)</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Tujuan Utama</td>
+                                <td class="p-3">Pembangunan Kod (Development)</td>
+                                <td class="p-3">Penyediaan Servis (Production / Staging)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 24 dari 40</span>
+                <span>Perbandingan Platform</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 25: PINDAHKAN APP KE RASPBERRY PI -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="25" data-title="Migrasi Ke Raspberry Pi">
+            <div>
+                <span class="text-xs font-mono font-bold text-red-400 tracking-widest uppercase">FASA 8 — RASPBERRY PI</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Proses Migrasi Aplikasi Ke Raspberry Pi</h2>
+
+                <div class="p-5 bg-slate-900 rounded-xl border border-slate-800 space-y-4 font-mono text-xs">
+                    <div class="text-slate-400 font-bold text-center">Aliran Pindahan Aplikasi:</div>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-center">
+                        <div class="p-3 bg-slate-800 rounded border border-slate-700 w-full">
+                            <span class="text-xs text-slate-400 block">Langkah 1</span>
+                            <span class="text-white font-bold">Python App</span>
+                        </div>
+                        <span class="text-cf-orange">➔</span>
+                        <div class="p-3 bg-red-950/40 border border-red-500/40 text-red-300 rounded w-full">
+                            <span class="text-xs text-slate-400 block">Langkah 2</span>
+                            <span class="font-bold">Raspberry Pi OS</span>
+                        </div>
+                        <span class="text-cf-orange">➔</span>
+                        <div class="p-3 bg-slate-800 rounded border border-slate-700 w-full">
+                            <span class="text-xs text-slate-400 block">Langkah 3</span>
+                            <span class="text-cf-orange font-bold">cloudflared Service</span>
+                        </div>
+                        <span class="text-cf-orange">➔</span>
+                        <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 text-emerald-400 rounded w-full">
+                            <span class="text-xs text-slate-400 block">Langkah 4</span>
+                            <span class="font-bold">Live Domain</span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-800/60 rounded-lg text-slate-300 font-sans text-xs space-y-2">
+                        <p class="font-bold text-white">Prinsip Penting:</p>
+                        <p>Konsep Cloudflare Tunnel adalah <strong>100% SAMA</strong> tidak kira ia berjalan di Windows Laptop mahupun Raspberry Pi. Yang berubah hanyalah **mesin hos** yang melayan permintaan tersebut.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 25 dari 40</span>
+                <span>Proses Migrasi Servis</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 26: PRODUCTION DEPLOYMENT -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="26" data-title="9. Production Deployment">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">9. Production Deployment Mindset</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Dev Mode -->
+                    <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                        <span class="text-xs font-mono text-cyan-400 font-bold uppercase">DEVELOPMENT ENVIRONMENT</span>
+                        <div class="p-3 bg-slate-800 rounded text-xs font-mono text-slate-300 space-y-1">
+                            <div>Laptop Peribadi</div>
+                            <div>Flask/FastAPI Debug Mode = True</div>
+                            <div>ngrok / Tunnel Sementara</div>
+                            <div>Data Ujian Dummy</div>
+                        </div>
+                        <p class="text-xs text-slate-400">Fokus utama: Kepantasan menulis kod & eksperimen.</p>
+                    </div>
+
+                    <!-- Prod Mode -->
+                    <div class="p-5 rounded-xl bg-emerald-950/20 border border-emerald-500/40 space-y-3">
+                        <span class="text-xs font-mono text-emerald-400 font-bold uppercase">PRODUCTION ENVIRONMENT</span>
+                        <div class="p-3 bg-slate-900 rounded text-xs font-mono text-emerald-300 space-y-1 border border-emerald-900/40">
+                            <div>Dedicated Server (RasPi / VPS)</div>
+                            <div>WSGI/ASGI Server (Gunicorn/Uvicorn)</div>
+                            <div>Security + Access Policies</div>
+                            <div>Monitoring + Automatic Backups</div>
+                        </div>
+                        <p class="text-xs text-slate-300">Fokus utama: Kestabilan, Keselamatan & Ketersediaan 24/7.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 26 dari 40</span>
+                <span>Persekitaran Production</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 27: DEVELOPMENT VS PRODUCTION -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="27" data-title="Dev vs Production">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9 — PRODUCTION</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Perbandingan Kriteria Dev vs Production</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-2">
+                        <div class="text-slate-400 font-bold border-b border-slate-700 pb-1">DEVELOPMENT</div>
+                        <ul class="space-y-1.5 text-slate-300">
+                            <li>❌ Debugger Aktif (Pendedahan Stacktrace)</li>
+                            <li>❌ Tiada Had Kadar Akses (No Rate Limiting)</li>
+                            <li>❌ Kata Laluan / API Keys Dalam Kod</li>
+                            <li>❌ Restart Manual Jika Crash</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                        <div class="text-emerald-400 font-bold border-b border-slate-700 pb-1">PRODUCTION</div>
+                        <ul class="space-y-1.5 text-slate-200">
+                            <li>✅ Environment Variables Untuk Secrets</li>
+                            <li>✅ Process Manager (systemd / Docker Restart)</li>
+                            <li>✅ Logging & Error Monitoring (Sentry/Grafana)</li>
+                            <li>✅ Backup Pangkalan Data Berjadual</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 27 dari 40</span>
+                <span>Matrik Kriteria Pelayan</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 28: PRODUCTION SECURITY -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="28" data-title="Production Security">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9 — PRODUCTION</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Checklist Keselamatan Production</h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Strong Authentication (MFA / Passkeys)
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Least Privilege Access (No Root Run)
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Secrets Management (.env)
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> System Updates / Patches Berjadual
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Firewall Tempatan (ufw / iptables)
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Strict Access Policy (Cloudflare Access)
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> HTTPS Direct Enforced
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-emerald-400 font-bold">✓</span> Centralized Application Logging
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 rounded-xl bg-slate-900 border border-cf-orange/40 text-center text-sm font-semibold text-cf-orange">
+                    "Production bukan sekadar laman web boleh dibuka... Ia tentang memastikan ia kekal dibuka, selamat, dan berdaya tahan!"
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 28 dari 40</span>
+                <span>Checklist Hardening</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 29: MONITORING -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="29" data-title="Monitoring">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9 — PRODUCTION</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Monitoring & Telemetri Pelayan</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-cyber-cyan mb-2">Soalan Asas Monitoring:</h3>
+                            <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                                <li>Adakah server saya masih HIDUP atau MATI?</li>
+                                <li>Adakah aplikasi mengalami ralat (Internal Server Error 500)?</li>
+                                <li>Adakah penggunaan RAM / CPU melepasi had kritikal?</li>
+                                <li>Adakah sambungan Cloudflare Tunnel terputus?</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 font-mono text-xs space-y-3">
+                        <span class="text-slate-400 font-bold uppercase text-[10px]">Metrik Utama Yang Perlu Dipantau</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-center">
+                                <span class="text-cyber-cyan font-bold block">CPU Usage</span>
+                                <span class="text-slate-400">% Load</span>
+                            </div>
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-center">
+                                <span class="text-emerald-400 font-bold block">RAM Memory</span>
+                                <span class="text-slate-400">MB / GB</span>
+                            </div>
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-center">
+                                <span class="text-yellow-400 font-bold block">Disk Space</span>
+                                <span class="text-slate-400">Storage Remaining</span>
+                            </div>
+                            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-center">
+                                <span class="text-purple-400 font-bold block">Network IO</span>
+                                <span class="text-slate-400">Traffic In/Out</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 29 dari 40</span>
+                <span>Pemantauan Kesihatan Pelayan</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 30: BACKUP -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="30" data-title="Strategi Backup">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9 — PRODUCTION</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Strategi Backup & Pemulihan</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="glass-card p-4 rounded-xl border border-slate-700/60">
+                            <h3 class="text-sm font-bold text-white mb-2">Kenapa Perlu Backup?</h3>
+                            <p class="text-xs text-slate-300">
+                                Kad MicroSD boleh rosak, bekalan elektrik terputus secara mengejut, atau fail terpadam secara tidak sengaja. Tanpa backup, data anda hilang selamanya.
+                            </p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-500/5">
+                            <h3 class="text-sm font-bold text-rose-400 mb-1 flex items-center gap-2">
+                                <span>⚠️</span> Peraturan Emas:
+                            </h3>
+                            <p class="text-xs font-mono text-rose-200">"RAID BUKAN BACKUP. SYNC BUKAN BACKUP."</p>
+                            <p class="text-[11px] text-slate-400 mt-1">Backup sebenar mesti disimpan di lokasi terpisah (Off-site / External Cloud Storage).</p>
+                        </div>
+                    </div>
+
+                    <!-- Flow Diagram -->
+                    <div class="glass-card p-5 rounded-xl border border-slate-700/60 flex flex-col justify-center items-center space-y-3 font-mono text-xs">
+                        <span class="text-slate-400 uppercase text-[10px]">Aliran Backup Automatik</span>
+                        <div class="p-2.5 bg-slate-900 rounded w-full text-center text-slate-200">Application Data / Database</div>
+                        <div class="text-cyber-emerald font-bold">↓ Automated Cron / Restic Script</div>
+                        <div class="p-2.5 bg-cyber-emerald/10 border border-cyber-emerald/30 text-cyber-emerald rounded w-full text-center font-bold">Encrypted Compressed Snapshot</div>
+                        <div class="text-cyber-emerald font-bold">↓ Push Remote</div>
+                        <div class="p-2.5 bg-slate-900 rounded w-full text-center text-slate-200">External Harddrive / Cloud Storage</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 30 dari 40</span>
+                <span>Penyimpanan Backup</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 31: SECRETS -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="31" data-title="Secrets Management">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">FASA 9 — PRODUCTION</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Pengurusan Secrets & Kunci Keselamatan</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-5 rounded-xl bg-red-950/20 border border-red-800/40 space-y-3">
+                        <h3 class="text-sm font-bold text-rose-400">❌ JANGAN SESEKALI COMMIT PUBLIC:</h3>
+                        <ul class="text-xs font-mono text-slate-300 space-y-1.5">
+                            <li class="flex items-center gap-2"><span class="text-rose-400">✖</span> API Keys / Service Tokens</li>
+                            <li class="flex items-center gap-2"><span class="text-rose-400">✖</span> Database Passwords</li>
+                            <li class="flex items-center gap-2"><span class="text-rose-400">✖</span> Cloudflare Tunnel Tokens</li>
+                            <li class="flex items-center gap-2"><span class="text-rose-400">✖</span> Private SSH Keys</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 space-y-3">
+                        <h3 class="text-sm font-bold text-emerald-400">✅ GUNAKAN KAEDAH INI:</h3>
+                        <ul class="text-xs text-slate-300 space-y-2">
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Environment Variables (.env):</strong> Simpan konfigurasi secara berasingan daripada repositori kod.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>.gitignore:</strong> Pastikan fail <code>.env</code> dimasukkan dalam `.gitignore`.</li>
+                            <li class="flex items-start gap-2"><span class="text-emerald-400">✓</span> <strong>Secret Managers:</strong> Gunakan Docker Secrets atau Vault jika berskala besar.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 31 dari 40</span>
+                <span>Kerahsiaan Maklumat Sensitif</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 32: PRODUCTION ARCHITECTURE -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="32" data-title="Production Architecture">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">ARSITEKTUR LENGKAP</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Arsitektur Pelayan Production End-to-End</h2>
+
+                <!-- Full ASCII / HTML Architecture Diagram -->
+                <div class="glass-card p-5 rounded-xl border border-slate-700/60 font-mono text-xs overflow-x-auto">
+                    <div class="min-w-[650px] space-y-2 text-center">
+                        <div class="p-2 bg-slate-900 border border-slate-800 rounded text-slate-300 font-bold">
+                            🌐 INTERNET (Pengguna / Klien Awam)
+                        </div>
+                        <div class="text-cyber-cyan">↓</div>
+                        <div class="p-2 bg-cf-orange/10 border border-cf-orange/40 rounded text-cf-orange font-bold">
+                            ☁️ CLOUDFLARE EDGE (DNS + SSL Edge Certificate)
+                        </div>
+                        <div class="text-cyber-cyan">↓</div>
+                        <div class="p-2 bg-rose-500/10 border border-rose-500/40 rounded text-rose-300 font-bold">
+                            🛡️ WAF & SECURITY RULES (Penapisan Corak Serangan)
+                        </div>
+                        <div class="text-cyber-cyan">↓</div>
+                        <div class="p-2 bg-purple-500/10 border border-purple-500/40 rounded text-purple-300 font-bold">
+                            🔐 CLOUDFLARE ACCESS (Polisi Identiti & Zero Trust)
+                        </div>
+                        <div class="text-cyber-cyan">↓</div>
+                        <div class="p-2 bg-blue-500/10 border border-blue-500/40 rounded text-blue-300 font-bold">
+                            🔒 CLOUDFLARE TUNNEL (Sambungan Outbound Selamat)
+                        </div>
+                        <div class="text-cyber-cyan">↓</div>
+                        <div class="p-3 bg-red-950/30 border border-red-500/40 rounded-lg text-red-300 font-bold">
+                            🍓 RASPBERRY PI (HOME SERVER)
+                            <div class="grid grid-cols-3 gap-2 mt-2 font-normal text-[11px]">
+                                <div class="p-1.5 bg-slate-900 rounded border border-slate-800 text-cyber-cyan">Web (:8080)</div>
+                                <div class="p-1.5 bg-slate-900 rounded border border-slate-800 text-emerald-400">API (:5000)</div>
+                                <div class="p-1.5 bg-slate-900 rounded border border-slate-800 text-yellow-300">Admin (:3000)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-2">
+                <span>Modul 32 dari 40</span>
+                <span>Diagram Infrastruktur Penuh</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 33: ROADMAP PEMBELAJARAN -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="33" data-title="11 Level Progress">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">RINGKASAN LENGKAP</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">11 Aras Pembelajaran Self-Hosting</h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-xs font-mono">
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800">
+                        <span class="text-[10px] text-slate-500 block">LVL 1</span>
+                        <span class="text-slate-300 font-bold">Networking Basics</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800">
+                        <span class="text-[10px] text-slate-500 block">LVL 2</span>
+                        <span class="text-slate-300 font-bold">Python Server</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800">
+                        <span class="text-[10px] text-slate-500 block">LVL 3</span>
+                        <span class="text-slate-300 font-bold">Public IP / Port Fwd</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800">
+                        <span class="text-[10px] text-slate-500 block">LVL 4</span>
+                        <span class="text-slate-300 font-bold">ngrok Tunnel</span>
+                    </div>
+                    <div class="p-2.5 bg-cf-orange/10 border border-cf-orange/30 rounded">
+                        <span class="text-[10px] text-cf-orange block font-bold">LVL 5</span>
+                        <span class="text-cf-orange font-bold">CF Tunnel</span>
+                    </div>
+                    <div class="p-2.5 bg-cyber-cyan/10 border border-cyber-cyan/30 rounded">
+                        <span class="text-[10px] text-cyber-cyan block font-bold">LVL 6</span>
+                        <span class="text-cyber-cyan font-bold">DNS + HTTPS</span>
+                    </div>
+                    <div class="p-2.5 bg-purple-500/10 border border-purple-500/30 rounded">
+                        <span class="text-[10px] text-purple-400 block font-bold">LVL 7</span>
+                        <span class="text-purple-300 font-bold">Access & Zero Trust</span>
+                    </div>
+                    <div class="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded">
+                        <span class="text-[10px] text-rose-400 block font-bold">LVL 8</span>
+                        <span class="text-rose-300 font-bold">WAF & Rules</span>
+                    </div>
+                    <div class="p-2.5 bg-blue-500/10 border border-blue-500/30 rounded">
+                        <span class="text-[10px] text-blue-400 block font-bold">LVL 9</span>
+                        <span class="text-blue-300 font-bold">Multiple Apps</span>
+                    </div>
+                    <div class="p-2.5 bg-red-950/40 border border-red-500/40 rounded">
+                        <span class="text-[10px] text-red-400 block font-bold">LVL 10</span>
+                        <span class="text-red-300 font-bold">Raspberry Pi</span>
+                    </div>
+                    <div class="p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded col-span-2">
+                        <span class="text-[10px] text-emerald-400 block font-bold">LVL 11</span>
+                        <span class="text-emerald-300 font-bold">Production Deployment</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 33 dari 40</span>
+                <span>Tangga Kemahiran</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 34: APA YANG PATUT DIPELAJARI DAHULU? -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="34" data-title="Keutamaan Pembelajaran">
+            <div>
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">STRATEGI FOKUS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-6">Apa Yang Patut Dipelajari Dahulu?</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- High Priority -->
+                    <div class="glass-card p-5 rounded-xl border border-rose-500/40 bg-rose-500/5 space-y-3">
+                        <div class="flex items-center gap-2 text-rose-400 font-bold text-sm">
+                            <span>🔥</span> PRIORITI TINGGI
+                        </div>
+                        <ol class="text-xs text-slate-300 space-y-2 font-mono list-decimal list-inside">
+                            <li>Cloudflare DNS</li>
+                            <li>SSL/TLS Enforce</li>
+                            <li>Cloudflare Access</li>
+                            <li>Multiple Apps Routing</li>
+                        </ol>
+                    </div>
+
+                    <!-- Medium Priority -->
+                    <div class="glass-card p-5 rounded-xl border border-yellow-500/40 bg-yellow-500/5 space-y-3">
+                        <div class="flex items-center gap-2 text-yellow-400 font-bold text-sm">
+                            <span>⭐</span> SELEPAS ITU
+                        </div>
+                        <ol class="text-xs text-slate-300 space-y-2 font-mono list-decimal list-inside start-5" start="5">
+                            <li>Zero Trust Rules</li>
+                            <li>WAF Configurations</li>
+                            <li>Custom Security Rules</li>
+                        </ol>
+                    </div>
+
+                    <!-- Advanced -->
+                    <div class="glass-card p-5 rounded-xl border border-emerald-500/40 bg-emerald-500/5 space-y-3">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                            <span>🚀</span> ADVANCED
+                        </div>
+                        <ol class="text-xs text-slate-300 space-y-2 font-mono list-decimal list-inside start-8" start="8">
+                            <li>Raspberry Pi Hardware Setup</li>
+                            <li>Production Hardening & Backup</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between pt-4">
+                <span>Modul 34 dari 40</span>
+                <span>Prioriti Pembelajaran</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 35: PROJECT 1 -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="35" data-title="Project 1: Publish Website">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">PROJEK AMALI 1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-2">Publish Python Website</h2>
+                <p class="text-slate-400 text-sm mb-6">Menerbitkan laman web Python local dengan domain persendirian & HTTPS.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-3">
+                        <h3 class="text-sm font-bold text-cyber-cyan">🎯 Matlamat Projek:</h3>
+                        <p class="text-xs text-slate-300">
+                            Website yang dibina di komputer anda boleh dibuka dari mana-mana tempat di dunia menggunakan nama domain anda sendiri (cth: <code>app.domainbos.com</code>).
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 font-mono text-xs space-y-2">
+                        <span class="text-slate-400 font-bold">Aliran Bina:</span>
+                        <div class="p-2 bg-slate-900 rounded text-slate-300">Python Server (Port 8080)</div>
+                        <div class="text-center text-cf-orange">↓</div>
+                        <div class="p-2 bg-slate-900 rounded text-cf-orange">Cloudflare Tunnel</div>
+                        <div class="text-center text-cyber-cyan">↓</div>
+                        <div class="p-2 bg-slate-900 rounded text-cyber-cyan">DNS Record (CNAME) ➔ HTTPS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 35 dari 40</span>
+                <span>Projek Amali Asas</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 36: PROJECT 2 -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="36" data-title="Project 2: Secure Admin">
+            <div>
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">PROJEK AMALI 2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-2">Secure Admin Dashboard</h2>
+                <p class="text-slate-400 text-sm mb-6">Melindungi panel pentadbir sensitif menggunakan Cloudflare Access.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 space-y-3">
+                        <h3 class="text-sm font-bold text-cf-orange">🎯 Matlamat Projek:</h3>
+                        <p class="text-xs text-slate-300">
+                            Dashboard tidak boleh dibuka terus oleh orang awam. Hanya pengguna yang mempunyai akses emel yang disahkan sahaja boleh melepasi skrin pengesahan.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-slate-700/60 font-mono text-xs space-y-2">
+                        <span class="text-slate-400 font-bold">Aliran Sekuriti:</span>
+                        <div class="p-2 bg-slate-900 rounded text-slate-300">User Akses admin.domainbos.com</div>
+                        <div class="text-center text-cf-orange">↓</div>
+                        <div class="p-2 bg-cf-orange/10 border border-cf-orange/30 text-cf-orange rounded">Cloudflare Access (Login Pin OTP)</div>
+                        <div class="text-center text-emerald-400">↓ (Lulus)</div>
+                        <div class="p-2 bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 rounded">Admin Dashboard Local</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 36 dari 40</span>
+                <span>Projek Akses Terkawal</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 37: PROJECT 3 -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="37" data-title="Project 3: Home Server Pi">
+            <div>
+                <span class="text-xs font-mono font-bold text-red-400 tracking-widest uppercase">PROJEK AMALI 3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-2">Home Server Raspberry Pi</h2>
+                <p class="text-slate-400 text-sm mb-4">Membina pelayan rumah dedicated yang mengendalikan pelbagai aplikasi.</p>
+
+                <div class="glass-card p-5 rounded-xl border border-slate-700/60 font-mono text-xs space-y-3">
+                    <div class="text-slate-300 font-bold border-b border-slate-700 pb-2 flex justify-between">
+                        <span>🍓 Raspberry Pi Internal Routing</span>
+                        <span class="text-red-400">24/7 Server</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                            <span class="text-cyber-cyan font-bold block">Web</span>
+                            <span class="text-[10px] text-slate-400">:8080</span>
+                        </div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                            <span class="text-emerald-400 font-bold block">API</span>
+                            <span class="text-[10px] text-slate-400">:5000</span>
+                        </div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                            <span class="text-purple-400 font-bold block">Monitor</span>
+                            <span class="text-[10px] text-slate-400">:3001</span>
+                        </div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">
+                            <span class="text-yellow-400 font-bold block">Admin</span>
+                            <span class="text-[10px] text-slate-400">:9000</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 text-center text-cf-orange font-bold">
+                        ↓ Sambungan Ke Cloudflare Tunnel Daemon
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 37 dari 40</span>
+                <span>Projek Home Server Dedicated</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 38: PROJECT 4 -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="38" data-title="Project 4: Production Server">
+            <div>
+                <span class="text-xs font-mono font-bold text-emerald-400 tracking-widest uppercase">PROJEK AMALI 4</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-2">Production-Like Home Server</h2>
+                <p class="text-slate-400 text-sm mb-4">Menggabungkan keseluruhan lapisan keselamatan & infrastruktur.</p>
+
+                <div class="glass-card p-5 rounded-xl border border-slate-700/60 font-mono text-xs space-y-3">
+                    <span class="text-emerald-400 font-bold">Checklist Penggabungan Projek 4:</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">WAF Active</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Security Rules</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Access Policies</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Multi-Hostname</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Raspberry Pi</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">System Monitoring</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Auto Backups</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300">Secrets Managed</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 38 dari 40</span>
+                <span>Projek Kemuncak Production</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 39: FINAL CHECKLIST -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800" data-slide="39" data-title="Final Checklist">
+            <div>
+                <span class="text-xs font-mono font-bold text-cyber-cyan tracking-widest uppercase">CHECKLIST AKHIR</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1 mb-4">Checklist Kefahaman Anda</h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 1. DNS Management
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 2. SSL/TLS Encryption
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 3. Cloudflare Access
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 4. Zero Trust Concept
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 5. WAF Defense
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 6. Security Rules
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 7. Multiple Applications
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 8. Raspberry Pi Server
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-2">
+                        <span class="text-cyber-cyan font-bold">☑</span> 9. Production Deployment
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-slate-500 font-mono flex justify-between">
+                <span>Modul 39 dari 40</span>
+                <span>Semakan Akhir</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 40: PENUTUP -->
+        <section class="slide-container slide-hidden-right w-full max-w-5xl h-full flex-col justify-between glass-panel rounded-2xl p-6 sm:p-10 border border-slate-800 relative overflow-hidden" data-slide="40" data-title="Penutup & Kata Nasihat">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cf-orange/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="space-y-4">
+                <span class="text-xs font-mono font-bold text-cf-orange tracking-widest uppercase">KESIMPULAN</span>
+                <h2 class="text-2xl sm:text-4xl font-extrabold text-white">
+                    Daripada Server Local ➔ Home Server ➔ Production
+                </h2>
+
+                <div class="py-4 border-y border-slate-800/80">
+                    <div class="flex items-center justify-around font-mono text-sm max-w-xl mx-auto">
+                        <span>💻 Localhost</span>
+                        <span class="text-cf-orange">➔</span>
+                        <span>🌐 Tunnel</span>
+                        <span class="text-cf-orange">➔</span>
+                        <span>🔐 Security</span>
+                        <span class="text-cf-orange">➔</span>
+                        <span>🍓 RasPi</span>
+                        <span class="text-cf-orange">➔</span>
+                        <span class="text-emerald-400 font-bold">🚀 Production</span>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-gradient-to-r from-cf-orange/20 via-slate-900 to-cyber-cyan/20 border border-cf-orange/30 text-center space-y-3">
+                    <p class="text-base sm:text-xl font-bold text-white italic">
+                        "Jangan kejar command dulu. Faham arsitektur. Kemudian baru kita bina satu per satu."
+                    </p>
+                    <p class="text-xs text-slate-400 font-mono">
+                        Selamat Membina & Menerokai Dunia Self-Hosting!
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center text-xs text-slate-500 font-mono">
+                <span>Tamat Presentation Slide Deck</span>
+                <span>Terima Kasih!</span>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="w-full h-16 bg-cf-dark/95 border-t border-cf-border/60 px-4 sm:px-8 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center gap-2 text-xs text-slate-400 font-mono hidden sm:flex">
+            <kbd class="px-2 py-1 bg-slate-800 rounded border border-slate-700">◄</kbd>
+            <kbd class="px-2 py-1 bg-slate-800 rounded border border-slate-700">►</kbd>
+            <span>Navigasi Papan Kekunci</span>
+        </div>
+
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <button id="prev-btn" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <span>◄</span> Sebelumnya
+            </button>
+            <button id="next-btn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cf-orange to-cf-amber hover:brightness-110 text-slate-950 font-bold text-xs transition-all flex items-center gap-2 shadow-lg shadow-cf-orange/20">
+                Seterusnya <span>►</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Overview Grid Modal -->
+    <div id="overview-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex-col p-6 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6 max-w-7xl mx-auto w-full">
+            <h3 class="text-xl font-bold text-white">Ringkasan Semua Slide (40 Slide)</h3>
+            <button id="close-overview" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono border border-slate-700">
+                Tutup (ESC)
+            </button>
+        </div>
+        <div id="grid-container" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3 max-w-7xl mx-auto w-full">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = Array.from(document.querySelectorAll('.slide-container'));
+            const totalSlides = slides.length;
+            let currentSlideIndex = 0;
+
+            const currentSlideNumEl = document.getElementById('current-slide-num');
+            const totalSlidesNumEl = document.getElementById('total-slides-num');
+            const progressBar = document.getElementById('progress-bar');
+            const slideSelect = document.getElementById('slide-select');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const overviewBtn = document.getElementById('overview-btn');
+            const overviewModal = document.getElementById('overview-modal');
+            const closeOverviewBtn = document.getElementById('close-overview');
+            const gridContainer = document.getElementById('grid-container');
+
+            totalSlidesNumEl.textContent = totalSlides;
+
+            // Populate Dropdown & Grid Overview
+            slides.forEach((slide, index) => {
+                const slideNum = index + 1;
+                const title = slide.getAttribute('data-title') || `Slide ${slideNum}`;
+
+                // Dropdown Option
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${slideNum}. ${title}`;
+                slideSelect.appendChild(option);
+
+                // Grid Thumbnail Card
+                const card = document.createElement('button');
+                card.className = `p-3 rounded-lg border text-left flex flex-col justify-between transition-all font-mono text-xs ${
+                    index === currentSlideIndex 
+                    ? 'bg-cf-orange/20 border-cf-orange text-white' 
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                }`;
+                card.innerHTML = `
+                    <span class="text-[10px] text-cf-orange font-bold">SLIDE ${slideNum}</span>
+                    <span class="font-semibold text-slate-200 truncate w-full mt-1">${title}</span>
+                `;
+                card.addEventListener('click', () => {
+                    goToSlide(index);
+                    toggleOverview(false);
+                });
+                gridContainer.appendChild(card);
+            });
+
+            function updateSlideView(direction = 'next') {
+                slides.forEach((slide, idx) => {
+                    slide.classList.remove('slide-active', 'slide-hidden-left', 'slide-hidden-right');
+                    if (idx === currentSlideIndex) {
+                        slide.classList.add('slide-active');
+                    } else if (idx < currentSlideIndex) {
+                        slide.classList.add('slide-hidden-left');
+                    } else {
+                        slide.classList.add('slide-hidden-right');
+                    }
+                });
+
+                // Update UI Counters & Bars
+                currentSlideNumEl.textContent = currentSlideIndex + 1;
+                slideSelect.value = currentSlideIndex;
+
+                const progressPercent = ((currentSlideIndex + 1) / totalSlides) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+
+                // Update Button Disabled states
+                prevBtn.disabled = currentSlideIndex === 0;
+                nextBtn.disabled = currentSlideIndex === totalSlides - 1;
+
+                // Update Overview Grid selection
+                Array.from(gridContainer.children).forEach((card, i) => {
+                    if (i === currentSlideIndex) {
+                        card.className = "p-3 rounded-lg border text-left flex flex-col justify-between transition-all font-mono text-xs bg-cf-orange/20 border-cf-orange text-white ring-1 ring-cf-orange";
+                    } else {
+                        card.className = "p-3 rounded-lg border text-left flex flex-col justify-between transition-all font-mono text-xs bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200";
+                    }
+                });
+            }
+
+            function goToSlide(index) {
+                if (index >= 0 && index < totalSlides) {
+                    currentSlideIndex = index;
+                    updateSlideView();
+                }
+            }
+
+            function nextSlide() {
+                if (currentSlideIndex < totalSlides - 1) {
+                    currentSlideIndex++;
+                    updateSlideView('next');
+                }
+            }
+
+            function prevSlide() {
+                if (currentSlideIndex > 0) {
+                    currentSlideIndex--;
+                    updateSlideView('prev');
+                }
+            }
+
+            function toggleOverview(show) {
+                if (show !== undefined) {
+                    overviewModal.classList.toggle('hidden', !show);
+                    overviewModal.classList.toggle('flex', show);
+                } else {
+                    overviewModal.classList.toggle('hidden');
+                    overviewModal.classList.toggle('flex');
+                }
+            }
+
+            // Event Listeners
+            prevBtn.addEventListener('click', prevSlide);
+            nextBtn.addEventListener('click', nextSlide);
+
+            slideSelect.addEventListener('change', (e) => {
+                goToSlide(parseInt(e.target.value, 10));
+            });
+
+            overviewBtn.addEventListener('click', () => toggleOverview(true));
+            closeOverviewBtn.addEventListener('click', () => toggleOverview(false));
+
+            // Keyboard Navigation
+            document.addEventListener('keydown', (e) => {
+                if (overviewModal.classList.contains('flex')) {
+                    if (e.key === 'Escape') toggleOverview(false);
+                    return;
+                }
+
+                if (e.key === 'ArrowRight' || e.key === 'Space') {
+                    e.preventDefault();
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    prevSlide();
+                } else if (e.key === 'Escape') {
+                    toggleOverview(true);
+                }
+            });
+
+            // Initial view
+            updateSlideView();
+        });
+
+        // Copy Code Snippet Helper Function
+        function copyCode(btn) {
+            const pre = btn.parentElement.nextElementSibling;
+            const codeText = pre.textContent;
+            
+            // Clipboard copy fallbacks
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(codeText);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = codeText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            const originalText = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.classList.add('bg-emerald-600', 'text-white');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('bg-emerald-600', 'text-white');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

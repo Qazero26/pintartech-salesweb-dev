@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Proxy & Web Architecture</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            internet: '#a855f7', // Purple
+                            cloudflare: '#f97316', // Orange
+                            proxy: '#3b82f6', // Blue
+                            backend: '#22c55e', // Green
+                            docker: '#06b6d4', // Cyan
+                            db: '#14b8a6', // Teal
+                            security: '#ef4444', // Red
+                            warning: '#f59e0b', // Amber
+                            dark: '#0f172a',
+                            card: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f8fafc;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .slide-container {
+            min-height: calc(100vh - 5rem);
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .slide.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Pedagogy badge styling */
+        .pedagogy-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Code highlight */
+        pre code {
+            font-family: 'Fira Code', monospace;
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-100 flex flex-col justify-between min-h-screen">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600/20 text-blue-400 p-2 rounded-lg border border-blue-500/30">
+                    <i class="fa-solid fa-[#fa-network-wired] fa-network-wired text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold text-white tracking-wide">REVERSE PROXY & WEB ARCHITECTURE</h1>
+                    <p class="text-xs text-slate-400">Sambungan daripada: <span class="text-blue-400">Networking Deep Dive</span></p>
+                </div>
+            </div>
+
+            <!-- Slide Counter & Controls -->
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleOverviewModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition flex items-center space-x-2 border border-slate-700">
+                    <i class="fa-solid fa-th-large"></i>
+                    <span class="hidden sm:inline">Overview</span>
+                </button>
+                
+                <div class="text-xs font-mono bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300">
+                    Slide <span id="current-slide-num" class="text-blue-400 font-bold">1</span> / <span id="total-slides-num">71</span>
+                </div>
+
+                <div class="flex items-center space-x-1">
+                    <button onclick="prevSlide()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700 disabled:opacity-40" id="prev-btn">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <button onclick="nextSlide()" class="p-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition border border-blue-400/30 disabled:opacity-40" id="next-btn">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-900 h-1.5 absolute bottom-0 left-0">
+            <div id="progress-bar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 h-full w-0 transition-all duration-300"></div>
+        </div>
+    </header>
+
+    <!-- MAIN SLIDE CONTAINER -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-8 slide-container">
+        <div class="max-w-6xl w-full mx-auto">
+
+            <!-- SLIDE 1: Title -->
+            <section class="slide active" id="slide-1">
+                <div class="text-center space-y-8 py-8">
+                    <div class="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-mono uppercase tracking-widest">
+                        <i class="fa-solid fa-server"></i> Self-Hosting & Web Infrastructure
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
+                            Reverse Proxy & <br>
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-300">Web Architecture</span>
+                        </h1>
+                        <p class="text-lg sm:text-2xl text-slate-300 font-light max-w-3xl mx-auto">
+                            "Bagaimana Satu Server Boleh Menjalankan Banyak Website Dengan Selamat"
+                        </p>
+                    </div>
+
+                    <!-- Visual Diagram -->
+                    <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto border border-slate-700/50">
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs">
+                            <div class="px-4 py-3 rounded-xl bg-purple-950/60 border border-purple-500/40 text-purple-300 flex items-center space-x-2">
+                                <i class="fa-solid fa-globe text-base"></i>
+                                <span>Internet</span>
+                            </div>
+                            <i class="fa-solid fa-arrow-down sm:fa-arrow-right text-blue-400 text-lg"></i>
+                            <div class="px-5 py-3 rounded-xl bg-blue-950/80 border border-blue-400 text-blue-300 font-bold shadow-lg shadow-blue-500/20 flex items-center space-x-2">
+                                <i class="fa-solid fa-route text-base"></i>
+                                <span>Reverse Proxy</span>
+                            </div>
+                            <i class="fa-solid fa-arrow-down sm:fa-arrow-right text-green-400 text-lg"></i>
+                            <div class="space-y-2 text-left w-full sm:w-auto">
+                                <div class="px-3 py-1.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">├── Website 1</div>
+                                <div class="px-3 py-1.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">├── Website 2</div>
+                                <div class="px-3 py-1.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">└── Website 3</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 text-slate-400 font-mono text-sm">
+                        <p class="text-blue-400 font-semibold">"One server. Multiple applications. One controlled entry point."</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: Masalah Yang Kita Nak Selesaikan -->
+            <section class="slide" id="slide-2">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Cabaran Real-World</span>
+                        <h2 class="text-3xl font-bold text-white">Masalah Yang Kita Nak Selesaikan</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4">
+                            <div class="glass-panel p-5 rounded-xl border border-amber-500/20 space-y-2">
+                                <h3 class="font-bold text-amber-400 flex items-center space-x-2">
+                                    <i class="fa-solid fa-microchip"></i>
+                                    <span>Senario Server Tunggal</span>
+                                </h3>
+                                <p class="text-sm text-slate-300">Kita mempunyai <strong>satu Raspberry Pi / Server</strong> sahaja di rumah atau cloud. Tetapi kita mahu menjalankan 5 servis serentak:</p>
+                                <ul class="text-xs font-mono space-y-1 pl-4 text-slate-400 list-disc">
+                                    <li>app1 (Port 8001)</li>
+                                    <li>app2 (Port 8002)</li>
+                                    <li>blog (Port 8003)</li>
+                                    <li>dashboard (Port 8004)</li>
+                                    <li>api (Port 5000)</li>
+                                </ul>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-red-950/40 border border-red-500/30 text-red-200 space-y-2 text-sm">
+                                <p class="font-bold flex items-center space-x-2">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <span>Persoalan Utama:</span>
+                                </p>
+                                <p class="text-xs text-slate-300">Semua application berkongsi 1 IP address server yang sama. Bagaimana user atau pelayar web tahu request mereka patut pergi ke application mana?</p>
+                            </div>
+                        </div>
+
+                        <!-- Visual Diagram -->
+                        <div class="glass-panel p-6 rounded-xl text-center space-y-4 font-mono text-sm">
+                            <div class="inline-block px-4 py-2 bg-purple-900/50 border border-purple-500/40 rounded-lg text-purple-300">
+                                <i class="fa-solid fa-globe"></i> Internet Request
+                            </div>
+                            <div><i class="fa-solid fa-arrow-down text-slate-500"></i></div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-slate-200">
+                                <div class="font-bold text-cyan-400 border-b border-slate-800 pb-2 mb-3">
+                                    <i class="fa-solid fa-cube"></i> Raspberry Pi (IP: 192.168.1.50)
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="p-2 bg-slate-800 rounded border border-slate-700">App 1</div>
+                                    <div class="p-2 bg-slate-800 rounded border border-slate-700">App 2</div>
+                                    <div class="p-2 bg-slate-800 rounded border border-slate-700">App 3</div>
+                                    <div class="p-2 bg-slate-800 rounded border border-slate-700">App 4</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Cara Paling Asas -->
+            <section class="slide" id="slide-3">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Metodologi Tradisional</span>
+                        <h2 class="text-3xl font-bold text-white">Cara Paling Asas (Tanpa Reverse Proxy)</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="space-y-3 font-mono text-sm">
+                            <div class="p-4 rounded-xl bg-slate-900 border border-slate-700 space-y-1">
+                                <div class="text-slate-400 text-xs">Akses App 1:</div>
+                                <div class="text-blue-400 font-bold">http://192.168.1.50:8001</div>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-900 border border-slate-700 space-y-1">
+                                <div class="text-slate-400 text-xs">Akses App 2:</div>
+                                <div class="text-blue-400 font-bold">http://192.168.1.50:8002</div>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-900 border border-slate-700 space-y-1">
+                                <div class="text-slate-400 text-xs">Akses App 3:</div>
+                                <div class="text-blue-400 font-bold">http://192.168.1.50:8003</div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel p-6 rounded-xl border border-red-500/20 space-y-4">
+                            <h3 class="text-lg font-bold text-red-400 flex items-center space-x-2">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                                <span>Kekurangan Cara Ini</span>
+                            </h3>
+                            <ul class="space-y-3 text-sm text-slate-300">
+                                <li class="flex items-start space-x-2">
+                                    <i class="fa-solid fa-xmark text-red-400 mt-1"></i>
+                                    <span><strong>Pengguna perlu ingat Nombor Port:</strong> Sangat mesra pengguna yang lemah.</span>
+                                </li>
+                                <li class="flex items-start space-x-2">
+                                    <i class="fa-solid fa-xmark text-red-400 mt-1"></i>
+                                    <span><strong>URL Tidak Buruk/Cantik:</strong> Penggunaan nombor port merosakkan branding URL.</span>
+                                </li>
+                                <li class="flex items-start space-x-2">
+                                    <i class="fa-solid fa-xmark text-red-400 mt-1"></i>
+                                    <span><strong>HTTPS Rumit:</strong> Setiap nombor port perlu sijil SSL/TLS secara berasingan.</span>
+                                </li>
+                                <li class="flex items-start space-x-2">
+                                    <i class="fa-solid fa-xmark text-red-400 mt-1"></i>
+                                    <span><strong>Risiko Keselamatan:</strong> Membuka banyak port terus ke Internet awam.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Masuk Reverse Proxy -->
+            <section class="slide" id="slide-4">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Solusi Web Architecture</span>
+                        <h2 class="text-3xl font-bold text-white">Solusi: Memasukkan Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4">
+                            <p class="text-slate-300 text-sm leading-relaxed">
+                                Daripada menyuruh pengguna menghafal nombor port (cth: `:8001`), kita meletakkan <strong>Reverse Proxy</strong> di hadapan port awam standard (Port `80` untuk HTTP dan `443` untuk HTTPS).
+                            </p>
+
+                            <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 space-y-2 font-mono text-xs">
+                                <div class="font-bold text-sm text-emerald-400">User Hanya Perlu Mengingati Domain:</div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-check text-emerald-400"></i>
+                                    <span>app1.example.com</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-check text-emerald-400"></i>
+                                    <span>app2.example.com</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-check text-emerald-400"></i>
+                                    <span>app3.example.com</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel p-6 rounded-xl border border-blue-500/30 font-mono text-xs space-y-3">
+                            <div class="text-center text-purple-300 bg-purple-900/40 p-2 rounded">
+                                User Request (Port 80/443)
+                            </div>
+                            <div class="text-center"><i class="fa-solid fa-arrow-down text-blue-400"></i></div>
+                            <div class="text-center text-blue-200 bg-blue-900/70 p-3 rounded font-bold border border-blue-400">
+                                Reverse Proxy (Port 80/443)
+                            </div>
+                            <div class="text-center"><i class="fa-solid fa-arrow-down text-slate-500"></i></div>
+                            <div class="grid grid-cols-3 gap-2 text-center text-slate-300">
+                                <div class="p-2 bg-slate-800 rounded">App 1<br><span class="text-slate-500 font-mono">:8001</span></div>
+                                <div class="p-2 bg-slate-800 rounded">App 2<br><span class="text-slate-500 font-mono">:8002</span></div>
+                                <div class="p-2 bg-slate-800 rounded">App 3<br><span class="text-slate-500 font-mono">:8003</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Apa Itu Reverse Proxy? -->
+            <section class="slide" id="slide-5">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Definisi Utama</span>
+                        <h2 class="text-3xl font-bold text-white">Apa itu Reverse Proxy?</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border-l-4 border-blue-500 space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="pedagogy-badge bg-blue-500/20 text-blue-300">WHAT</span>
+                            <h3 class="text-xl font-bold text-white">Definisi Mudah</h3>
+                        </div>
+                        <blockquote class="text-lg text-slate-200 italic font-light">
+                            "Reverse proxy ialah server perantara yang menerima incoming request daripada client di Internet dan meneruskannya (forward) kepada backend server yang sesuai di dalam rangkaian dalaman."
+                        </blockquote>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div class="glass-card p-4 rounded-xl space-y-2">
+                            <div class="text-blue-400 font-bold flex items-center space-x-2">
+                                <i class="fa-solid fa-door-open"></i>
+                                <span>"Front Door"</span>
+                            </div>
+                            <p class="text-xs text-slate-300">Bertindak sebagai pintu masuk utama yang mengurus semua lalulintas masuk bagi pihak application.</p>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl space-y-2">
+                            <div class="text-cyan-400 font-bold flex items-center space-x-2">
+                                <i class="fa-solid fa-user-shield"></i>
+                                <span>Pelindung Backend</span>
+                            </div>
+                            <p class="text-xs text-slate-300">Client luar tidak pernah berhubung secara terus dengan backend application sebenar.</p>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl space-y-2">
+                            <div class="text-emerald-400 font-bold flex items-center space-x-2">
+                                <i class="fa-solid fa-traffic-light"></i>
+                                <span>Penyusun Lalu Lintas</span>
+                            </div>
+                            <p class="text-xs text-slate-300">Menentukan hala tuju paket berdasarkan maklumat domain, path, atau header.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 6: Kenapa Nama "Reverse"? -->
+            <section class="slide" id="slide-6">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-indigo-400 uppercase tracking-wider">Etimologi Rangkaian</span>
+                        <h2 class="text-3xl font-bold text-white">Kenapa Nama "Reverse"?</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Forward Proxy Concept -->
+                        <div class="glass-panel p-5 rounded-xl border border-indigo-500/30 space-y-3">
+                            <h3 class="font-bold text-indigo-300 flex items-center space-x-2">
+                                <i class="fa-solid fa-arrow-right-to-city"></i>
+                                <span>Forward Proxy (Standard Proxy)</span>
+                            </h3>
+                            <p class="text-xs text-slate-300">Bertindak bagi pihak <strong>CLIENT</strong> (Pengguna).</p>
+                            <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-center space-y-2">
+                                <div>Client (Laptop Anda)</div>
+                                <div>↓</div>
+                                <div class="text-indigo-400 font-bold">[ Forward Proxy ]</div>
+                                <div>↓</div>
+                                <div>Internet / Server Luar</div>
+                            </div>
+                            <p class="text-xs text-slate-400">Server luar tidak tahu IP sebenar Client.</p>
+                        </div>
+
+                        <!-- Reverse Proxy Concept -->
+                        <div class="glass-panel p-5 rounded-xl border border-blue-500/30 space-y-3">
+                            <h3 class="font-bold text-blue-300 flex items-center space-x-2">
+                                <i class="fa-solid fa-arrow-left-to-line"></i>
+                                <span>Reverse Proxy</span>
+                            </h3>
+                            <p class="text-xs text-slate-300">Bertindak di hadapan <strong>SERVER</strong> (Backend).</p>
+                            <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-center space-y-2">
+                                <div>Client (Awam)</div>
+                                <div>↓</div>
+                                <div class="text-blue-400 font-bold">[ Reverse Proxy ]</div>
+                                <div>↓</div>
+                                <div>Backend Application Internal</div>
+                            </div>
+                            <p class="text-xs text-slate-400">Client tidak tahu IP / Port sebenar Backend Server.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 7: Forward Proxy vs Reverse Proxy -->
+            <section class="slide" id="slide-7">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Perbandingan Matrik</span>
+                        <h2 class="text-3xl font-bold text-white">Forward Proxy vs Reverse Proxy</h2>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="bg-slate-900 text-xs text-slate-400 uppercase font-mono">
+                                <tr>
+                                    <th class="p-3 border-b border-slate-800">Ciri-Ciri</th>
+                                    <th class="p-3 border-b border-slate-800 text-indigo-400">Forward Proxy</th>
+                                    <th class="p-3 border-b border-slate-800 text-blue-400">Reverse Proxy</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr>
+                                    <td class="p-3 font-semibold text-white">Mewakili Siapa?</td>
+                                    <td class="p-3">Client (Pengguna Dalaman)</td>
+                                    <td class="p-3">Server (Backend Infrastructure)</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-semibold text-white">Kedudukan</td>
+                                    <td class="p-3">Di hadapan Client</td>
+                                    <td class="p-3">Di hadapan Server</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-semibold text-white">Tujuan Utama</td>
+                                    <td class="p-3">Bypass firewall, Privacy client, Content filtering corporate</td>
+                                    <td class="p-3">Routing hostname, TLS termination, Load balancing, Security</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-semibold text-white">Siapa Tahu Kewujudannya?</td>
+                                    <td class="p-3">Client tahu (perlu setup proxy setting)</td>
+                                    <td class="p-3">Client <strong>TIDAK TAHU</strong> (Lutsinar / Transparent)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 8: Reverse Proxy Sebagai Front Door -->
+            <section class="slide" id="slide-8">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Seni Bina Keselamatan</span>
+                        <h2 class="text-3xl font-bold text-white">Reverse Proxy Sebagai Front Door</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-slate-300 text-sm">
+                            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                                <h4 class="font-bold text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-shield-halved text-blue-400"></i>
+                                    <span>Single Entry Point (Satu Pintu Utama)</span>
+                                </h4>
+                                <p class="text-xs">Daripada membiarkan App 1, App 2, dan App 3 membuka port terus ke firewall internet, hanya <strong>Reverse Proxy sahaja</strong> yang mendedahkan Port 80 / 443.</p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                                <h4 class="font-bold text-white flex items-center space-x-2">
+                                    <i class="fa-solid fa-lock text-emerald-400"></i>
+                                    <span>Pencegahan Attack Surface</span>
+                                </h4>
+                                <p class="text-xs">Port internal backend (cth: :8080, :3000) tersembunyi di dalam private network / local loopback (`127.0.0.1`).</p>
+                            </div>
+                        </div>
+
+                        <!-- Diagram Visual -->
+                        <div class="glass-panel p-6 rounded-xl font-mono text-xs text-center space-y-3">
+                            <div class="text-purple-400 font-bold">INTERNET</div>
+                            <div>↓</div>
+                            <div class="bg-blue-600/30 border border-blue-400 p-3 rounded-lg text-blue-200 font-bold">
+                                REVERSE PROXY (Port 80/443)
+                            </div>
+                            <div class="flex justify-center space-x-4 text-slate-500">
+                                <div>│</div><div>│</div><div>│</div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="bg-emerald-950/80 p-2 rounded border border-emerald-500/40 text-emerald-300">APP 1<br>(Internal)</div>
+                                <div class="bg-emerald-950/80 p-2 rounded border border-emerald-500/40 text-emerald-300">APP 2<br>(Internal)</div>
+                                <div class="bg-emerald-950/80 p-2 rounded border border-emerald-500/40 text-emerald-300">APP 3<br>(Internal)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 9: Hostname Routing -->
+            <section class="slide" id="slide-9">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Konsep Utama Routing</span>
+                        <h2 class="text-3xl font-bold text-white">Hostname Routing</h2>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-cyan-200 text-sm">
+                        <p><strong>Hostname Routing</strong> ialah kebolehan Reverse Proxy membaca nama domain yang diminta oleh pelayar web (cth: `app1.example.com`) dan menghantarnya ke lokasi backend yang khusus.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 font-mono text-xs">
+                        <div class="glass-card p-4 rounded-xl space-y-2 border-l-4 border-blue-500">
+                            <div class="text-slate-400">Request A:</div>
+                            <div class="text-blue-400 font-bold text-sm">app1.example.com</div>
+                            <div class="text-slate-500">↓ Proxy Decision</div>
+                            <div class="text-emerald-400 font-bold">Forward to http://127.0.0.1:8001</div>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-xl space-y-2 border-l-4 border-indigo-500">
+                            <div class="text-slate-400">Request B:</div>
+                            <div class="text-indigo-400 font-bold text-sm">app2.example.com</div>
+                            <div class="text-slate-500">↓ Proxy Decision</div>
+                            <div class="text-emerald-400 font-bold">Forward to http://127.0.0.1:8002</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 10: Hostname Routing Logic -->
+            <section class="slide" id="slide-10">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Logik Keputusan</span>
+                        <h2 class="text-3xl font-bold text-white">Hostname Routing Logic</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <div class="text-xs font-mono text-slate-400 uppercase">Pseudocode Keputusan Proxy:</div>
+                        
+                        <pre class="bg-slate-900 p-4 rounded-xl text-xs font-mono text-emerald-400 border border-slate-800 leading-relaxed overflow-x-auto">
+IF Request.Host == "app1.example.com" THEN
+    Proxy_Pass → http://localhost:8081
+
+ELSE IF Request.Host == "app2.example.com" THEN
+    Proxy_Pass → http://localhost:8082
+
+ELSE IF Request.Host == "api.example.com" THEN
+    Proxy_Pass → http://localhost:5000
+
+ELSE
+    Return HTTP 404 (Not Found) / Default Page
+END IF</pre>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                        <span class="font-bold text-blue-400">Nota Kunci:</span> Reverse Proxy mengetahui domain mana yang diminta dengan memeriksa <strong>HTTP Host Header</strong> dalam paket data TCP HTTP.
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 11: Path Routing -->
+            <section class="slide" id="slide-11">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-purple-400 uppercase tracking-wider">Routing Sub-path</span>
+                        <h2 class="text-3xl font-bold text-white">Path Routing</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Selain menggunakan subdomain yang berbeza, Reverse Proxy juga boleh membuat routing berdasarkan <strong>URL Path (Subpath)</strong> pada domain yang sama.</p>
+
+                    <div class="grid md:grid-cols-3 gap-4 font-mono text-xs">
+                        <div class="glass-panel p-4 rounded-xl border border-purple-500/30 text-center space-y-2">
+                            <div class="text-purple-300 font-bold">example.com/app1</div>
+                            <div class="text-slate-500">↓</div>
+                            <div class="text-emerald-400">App 1 (:8081)</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border border-purple-500/30 text-center space-y-2">
+                            <div class="text-purple-300 font-bold">example.com/app2</div>
+                            <div class="text-slate-500">↓</div>
+                            <div class="text-emerald-400">App 2 (:8082)</div>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border border-purple-500/30 text-center space-y-2">
+                            <div class="text-purple-300 font-bold">example.com/api</div>
+                            <div class="text-slate-500">↓</div>
+                            <div class="text-emerald-400">API (:5000)</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 12: Hostname vs Path Routing -->
+            <section class="slide" id="slide-12">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Perbandingan</span>
+                        <h2 class="text-3xl font-bold text-white">Hostname Routing vs Path Routing</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="glass-panel p-5 rounded-xl border border-blue-500/30 space-y-3">
+                            <h3 class="font-bold text-blue-400">HOSTNAME ROUTING</h3>
+                            <div class="text-xs font-mono text-slate-300">app1.example.com, app2.example.com</div>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc pl-4">
+                                <li class="text-emerald-400"><strong>Kelebihan:</strong> Pengasingan bersih, aplikasi tidak perlu konfigurasi base path khusus.</li>
+                                <li class="text-emerald-400">Sangat sesuai untuk pelbagai aplikasi berbeza.</li>
+                                <li class="text-amber-400">Memerlukan pengurusan DNS A/CNAME/Wildcard record.</li>
+                            </ul>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl border border-purple-500/30 space-y-3">
+                            <h3 class="font-bold text-purple-400">PATH ROUTING</h3>
+                            <div class="text-xs font-mono text-slate-300">example.com/app1, example.com/app2</div>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc pl-4">
+                                <li class="text-emerald-400"><strong>Kelebihan:</strong> Cuma perlu 1 nama domain & 1 rekod DNS.</li>
+                                <li class="text-red-400"><strong>Cabaran:</strong> Aset HTML/JS/CSS dalam aplikasi (relative URL) kerap rosak jika app tidak menyokong subpath base URL.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 13: Port Mapping -->
+            <section class="slide" id="slide-13">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Transformasi Port</span>
+                        <h2 class="text-3xl font-bold text-white">Port Mapping</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4 text-sm text-slate-300">
+                            <p>Reverse Proxy membolehkan pemetaan daripada port luaran standard (`443` HTTPS) kepada mana-mana port dalaman rawak (`8080`, `3000`, `9000`).</p>
+
+                            <div class="glass-card p-4 rounded-xl border border-slate-700 space-y-2 font-mono text-xs">
+                                <div>Public Access: <span class="text-emerald-400">https://app.example.com</span> (Implicit Port 443)</div>
+                                <div class="text-slate-500">↓ Reverse Proxy Maps To</div>
+                                <div>Internal Backend: <span class="text-cyan-400">http://127.0.0.1:8080</span></div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel p-6 rounded-xl font-mono text-xs space-y-3 text-center">
+                            <div class="p-3 bg-purple-900/40 rounded border border-purple-500/40 text-purple-300">
+                                Public Client Browser<br>Port 443
+                            </div>
+                            <i class="fa-solid fa-arrow-down text-blue-400"></i>
+                            <div class="p-3 bg-blue-900/60 rounded border border-blue-400 text-blue-200 font-bold">
+                                Reverse Proxy Engine
+                            </div>
+                            <i class="fa-solid fa-arrow-down text-emerald-400"></i>
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">
+                                Backend Container / App<br>Port 8080
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 14: Web Server vs Reverse Proxy -->
+            <section class="slide" id="slide-14">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Perbezaan Peranan</span>
+                        <h2 class="text-3xl font-bold text-white">Web Server vs Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="glass-panel p-5 rounded-xl border border-slate-700 space-y-3">
+                            <h3 class="font-bold text-cyan-400 flex items-center space-x-2">
+                                <i class="fa-solid fa-file-code"></i>
+                                <span>WEB SERVER</span>
+                            </h3>
+                            <p class="text-xs text-slate-300">Menyajikan fail fizikal terus dari storan server (Disk Storage).</p>
+                            <div class="text-xs font-mono bg-slate-900 p-2 rounded text-slate-400">HTML, CSS, JS, Gambar, Video</div>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl border border-slate-700 space-y-3">
+                            <h3 class="font-bold text-blue-400 flex items-center space-x-2">
+                                <i class="fa-solid fa-network-wired"></i>
+                                <span>REVERSE PROXY</span>
+                            </h3>
+                            <p class="text-xs text-slate-300">Menerima request dan meneruskannya (forward) kepada proses / server lain.</p>
+                            <div class="text-xs font-mono bg-slate-900 p-2 rounded text-slate-400">Node.js, Python Flask, Java Spring</div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs">
+                        <strong class="text-amber-400">PENTING:</strong> Perisian modern seperti NGINX dan Caddy boleh menjalankan <strong>kedua-dua peranan ini serentak</strong> dalam satu perisian!
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 15: NGINX -->
+            <section class="slide" id="slide-15">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Perisian Popular</span>
+                        <h2 class="text-3xl font-bold text-white">NGINX</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4">
+                            <p class="text-slate-300 text-sm leading-relaxed">
+                                <strong>NGINX</strong> (sebutan: "Engine-X") ialah web server dan reverse proxy berprestasi tinggi yang memproses peratusan besar trafik web dunia.
+                            </p>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc pl-4">
+                                <li>Sangat pantas dan menggunakan RAM rendah.</li>
+                                <li>Menyokong Caching, Load Balancing & TLS Termination.</li>
+                                <li>Standard industri untuk production deployment.</li>
+                            </ul>
+                        </div>
+                        <div class="glass-panel p-6 rounded-xl text-center space-y-3 font-mono text-xs">
+                            <i class="fa-solid fa-server text-4xl text-emerald-400"></i>
+                            <div class="font-bold text-white">NGINX Architecture</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-400">Worker Processes (Asynchronous Event-Driven)</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 16: NGINX Concept -->
+            <section class="slide" id="slide-16">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Contoh Konfigurasi</span>
+                        <h2 class="text-3xl font-bold text-white">NGINX Configuration Concept</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between text-xs font-mono text-slate-400">
+                            <span>nginx.conf (Contoh Pembelajaran)</span>
+                            <button onclick="copyCode(this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300">Copy</button>
+                        </div>
+                        <pre class="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-200 overflow-x-auto border border-slate-800">
+<span class="text-purple-400">server</span> {
+    <span class="text-blue-400">listen</span> 80;
+    <span class="text-blue-400">server_name</span> app.example.com;
+
+    <span class="text-purple-400">location</span> / {
+        <span class="text-emerald-400">proxy_pass</span> http://127.0.0.1:8080;
+        <span class="text-cyan-400">proxy_set_header</span> Host $host;
+    }
+}</pre>
+                    </div>
+
+                    <div class="text-xs text-slate-400 space-y-1 pl-2 border-l-2 border-emerald-500">
+                        <p><code class="text-blue-400">listen 80</code>: Mendengar trafik pada Port HTTP 80.</p>
+                        <p><code class="text-blue-400">server_name</code>: Memadankan HTTP Host header `app.example.com`.</p>
+                        <p><code class="text-emerald-400">proxy_pass</code>: Meneruskan paket ke server internal `:8080`.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 17: Caddy -->
+            <section class="slide" id="slide-17">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Perisian Moden</span>
+                        <h2 class="text-3xl font-bold text-white">Caddy Server</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4">
+                            <p class="text-slate-300 text-sm">
+                                <strong>Caddy</strong> ialah web server / reverse proxy generasi moden yang ditulis dalam bahasa Go. Ciri paling popularnya ialah <strong>Automatic HTTPS</strong> secara binaan (built-in Let's Encrypt).
+                            </p>
+
+                            <div class="glass-panel p-4 rounded-xl space-y-2 font-mono text-xs border border-cyan-500/30">
+                                <div class="text-cyan-400 font-bold">Caddyfile (Simple & Clean):</div>
+                                <pre class="text-slate-200">
+app.example.com {
+    reverse_proxy localhost:8080
+}</pre>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel p-6 rounded-xl space-y-3 text-xs text-slate-300">
+                            <h4 class="font-bold text-white">Kelebihan Caddy:</h4>
+                            <ul class="space-y-2 list-disc pl-4">
+                                <li class="text-emerald-400">Automatik HTTPS tanpa perlu install Certbot terpisah.</li>
+                                <li class="text-cyan-400">Sintaks konfigurasi mudah difahami beginner.</li>
+                                <li class="text-indigo-400">Memproses SSL renewal di background secara automatik.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 18: NGINX vs Caddy -->
+            <section class="slide" id="slide-18">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Analisis Pemilihan</span>
+                        <h2 class="text-3xl font-bold text-white">NGINX vs Caddy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="glass-panel p-5 rounded-xl border border-emerald-500/30 space-y-3">
+                            <h3 class="font-bold text-emerald-400">NGINX</h3>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc pl-4">
+                                <li>Sangat matang & diuji dalam persekitaran Enterprise.</li>
+                                <li>Ekosistem komuniti terbesar.</li>
+                                <li>Sangat Fleksibel & High Performance.</li>
+                                <li>Perlu persediaan Certbot/SSL manual.</li>
+                            </ul>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl border border-cyan-500/30 space-y-3">
+                            <h3 class="font-bold text-cyan-400">CADDY</h3>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc pl-4">
+                                <li>Sintaks konfigurasi minimalis.</li>
+                                <li>Automatic HTTPS out-of-the-box.</li>
+                                <li>Mesra pengguna Self-Hosting / Home Server.</li>
+                                <li>Prestasi cemerlang untuk kebanyakan kegunaan.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-slate-900 text-center text-sm font-semibold text-blue-400 border border-slate-800">
+                        "Tiada satu pilihan yang sentiasa terbaik — pilih mengikut keperluan dan kompleksiti seni bina anda."
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 19: Request Flow -->
+            <section class="slide" id="slide-19">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Aliran Komunikasi</span>
+                        <h2 class="text-3xl font-bold text-white">Full Request & Response Flow</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-4">
+                        <div class="text-slate-400 font-bold">FORWARD FLOW (INBOUND):</div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-center">
+                            <div class="p-2 bg-purple-950 rounded border border-purple-500/40 text-purple-300">Browser</div>
+                            <div>→</div>
+                            <div class="p-2 bg-indigo-950 rounded border border-indigo-500/40 text-indigo-300">DNS</div>
+                            <div>→</div>
+                            <div class="p-2 bg-orange-950 rounded border border-orange-500/40 text-orange-300">Cloudflare</div>
+                            <div>→</div>
+                            <div class="p-2 bg-blue-950 rounded border border-blue-500/40 text-blue-300 font-bold">Reverse Proxy</div>
+                            <div>→</div>
+                            <div class="p-2 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">Backend App</div>
+                        </div>
+
+                        <div class="text-slate-400 font-bold pt-4">REVERSE FLOW (OUTBOUND RESPONSE):</div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-center text-slate-400">
+                            <div class="p-2 bg-emerald-950/40 rounded border border-emerald-500/20 text-emerald-400">Backend App</div>
+                            <div>→</div>
+                            <div class="p-2 bg-blue-950/40 rounded border border-blue-500/20 text-blue-400">Reverse Proxy</div>
+                            <div>→</div>
+                            <div class="p-2 bg-purple-950/40 rounded border border-purple-500/20 text-purple-400">Browser Client</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 20: HTTP Host Header -->
+            <section class="slide" id="slide-20">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Mekanisme Dalaman</span>
+                        <h2 class="text-3xl font-bold text-white">HTTP Host Header</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4 text-sm text-slate-300">
+                            <p>Apabila pelayar web membuat request HTTP, ia menyertakan maklumat domain dalam HTTP Header bernama <strong>Host</strong>.</p>
+
+                            <div class="glass-panel p-4 rounded-xl border border-slate-700 font-mono text-xs space-y-2">
+                                <div class="text-blue-400">GET /index.html HTTP/1.1</div>
+                                <div class="text-emerald-400 font-bold">Host: app.example.com</div>
+                                <div class="text-slate-500">User-Agent: Mozilla/5.0...</div>
+                            </div>
+                        </div>
+
+                        <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-3">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                                <span>Bukan "Magic"!</span>
+                            </h4>
+                            <p>Reverse Proxy membaca baris <code class="text-emerald-400">Host: app.example.com</code> ini untuk memadankan lokasi backend yang betul.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 21: HTTP Headers -->
+            <section class="slide" id="slide-21">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Pemeliharaan Konteks</span>
+                        <h2 class="text-3xl font-bold text-white">HTTP Headers Forwarding</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Apabila Reverse Proxy meneruskan request ke backend, backend secara lalai hanya nampak IP Reverse Proxy. Untuk mengekalkan data asal pengguna, header khas dihantar:</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 font-mono text-xs">
+                        <div class="glass-card p-4 rounded-xl space-y-1 border-l-4 border-blue-500">
+                            <div class="text-blue-400 font-bold">Host</div>
+                            <div class="text-slate-300">Domain asal yang di-request oleh client.</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl space-y-1 border-l-4 border-emerald-500">
+                            <div class="text-emerald-400 font-bold">X-Forwarded-For</div>
+                            <div class="text-slate-300">IP Address asal pengguna (Client IP).</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl space-y-1 border-l-4 border-purple-500">
+                            <div class="text-purple-400 font-bold">X-Forwarded-Proto</div>
+                            <div class="text-slate-300">Protokol asal (http atau https).</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl space-y-1 border-l-4 border-cyan-500">
+                            <div class="text-cyan-400 font-bold">X-Real-IP</div>
+                            <div class="text-slate-300">IP sebenar client tanpa rantai proxy.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 22: X-Forwarded-For -->
+            <section class="slide" id="slide-22">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Identiti Pengguna</span>
+                        <h2 class="text-3xl font-bold text-white">X-Forwarded-For Header</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4 font-mono text-xs">
+                        <div class="flex justify-between items-center text-slate-300">
+                            <div>Client IP: <span class="text-purple-400 font-bold">203.0.113.50</span></div>
+                            <div>→</div>
+                            <div>Proxy IP: <span class="text-blue-400 font-bold">192.168.1.50</span></div>
+                            <div>→</div>
+                            <div>Backend App</div>
+                        </div>
+
+                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-emerald-400">
+                            X-Forwarded-For: 203.0.113.50
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-red-950/40 border border-red-500/30 text-red-200 text-xs space-y-1">
+                        <div class="font-bold flex items-center space-x-2">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>AMARAN KESELAMATAN:</span>
+                        </div>
+                        <p>Jangan mempercayai header <code class="text-red-300">X-Forwarded-For</code> secara membuta tuli dari Internet awam jika Reverse Proxy anda tidak dikonfigurasi untuk membuang header palsu yang disuntik penggodam!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 23: X-Forwarded-Proto -->
+            <section class="slide" id="slide-23">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-purple-400 uppercase tracking-wider">Kesedaran Protokol</span>
+                        <h2 class="text-3xl font-bold text-white">X-Forwarded-Proto Header</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-sm text-slate-300">
+                            <p>Client berkomunikasi dengan Reverse Proxy menggunakan <strong>HTTPS</strong>. Namun Reverse Proxy berkomunikasi dengan backend menggunakan <strong>HTTP</strong> biasa.</p>
+                            <p>Backend memerlukan header ini untuk:</p>
+                            <ul class="text-xs space-y-1 list-disc pl-4 text-slate-400">
+                                <li>Menjana URL redirect selamat (`https://`).</li>
+                                <li>Menaikkan `Secure` flag pada Cookie pengguna.</li>
+                            </ul>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-3">
+                            <div class="text-purple-400">Client ↔ Proxy: HTTPS</div>
+                            <div class="text-blue-400">Proxy ↔ Backend: HTTP</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800 text-emerald-400">
+                                X-Forwarded-Proto: https
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 24: TLS Termination -->
+            <section class="slide" id="slide-24">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Penyahkodan SSL</span>
+                        <h2 class="text-3xl font-bold text-white">TLS Termination</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border-l-4 border-blue-500 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="pedagogy-badge bg-blue-500/20 text-blue-300">WHAT</span>
+                            <h3 class="font-bold text-white">Apa itu TLS Termination?</h3>
+                        </div>
+                        <p class="text-sm text-slate-300">Proses di mana enkripsi SSL/TLS dinyahkodkan (decrypt) di tahap Reverse Proxy, membolehkan trafik ke backend dijalankan secara HTTP biasa dalam internal network yang selamat.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div class="glass-card p-4 rounded-xl border border-emerald-500/30 text-emerald-300">
+                            <div class="font-bold mb-1">Encrypted (HTTPS)</div>
+                            <div>Internet ──► Reverse Proxy</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 text-slate-400">
+                            <div class="font-bold mb-1">Plaintext (HTTP)</div>
+                            <div>Reverse Proxy ──► Backend App</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 25: HTTPS Dengan Reverse Proxy -->
+            <section class="slide" id="slide-25">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Pengurusan Terpusat</span>
+                        <h2 class="text-3xl font-bold text-white">HTTPS Dengan Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="glass-panel p-5 rounded-xl border border-red-500/20 space-y-2 text-xs">
+                            <h4 class="font-bold text-red-400">Tanpa Reverse Proxy:</h4>
+                            <p class="text-slate-300">Setiap 10 aplikasi berbeza wajib dipasang sijil SSL masing-masing, dikemas kini manual, dan menguruskan key berasingan.</p>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl border border-emerald-500/30 space-y-2 text-xs">
+                            <h4 class="font-bold text-emerald-400">Dengan Reverse Proxy:</h4>
+                            <p class="text-slate-300">Semua sijil SSL dikelolakan secara <strong>terpusat (centralized)</strong> pada Reverse Proxy sahaja. Backend apps langsung tidak perlu menguruskan fail sijil SSL!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 26: Certificate Management -->
+            <section class="slide" id="slide-26">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Automasi Sijil SSL</span>
+                        <h2 class="text-3xl font-bold text-white">Certificate Management</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-4">
+                        <div class="text-cyan-400 font-bold">ALUR AUTOMATIK ACME (Let's Encrypt / ZeroSSL):</div>
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-center">
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800">Domain DNS Record</div>
+                            <i class="fa-solid fa-arrow-right text-cyan-400"></i>
+                            <div class="p-3 bg-blue-950 rounded border border-blue-500/40 text-blue-300">Reverse Proxy ACME Client</div>
+                            <i class="fa-solid fa-arrow-right text-cyan-400"></i>
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">TLS Certificate Validated</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400">Automasi pembaharuan sijil (renewal) memastikan website anda tidak mengalami downtime disebabkan sijil SSL expired.</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 27: Cloudflare + Reverse Proxy -->
+            <section class="slide" id="slide-27">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-orange-400 uppercase tracking-wider">Integrasi Cloud</span>
+                        <h2 class="text-3xl font-bold text-white">Cloudflare + Reverse Proxy</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-4 text-center">
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                            <div class="p-3 bg-purple-950 rounded border border-purple-500/30 text-purple-300">User</div>
+                            <div class="p-3 bg-orange-950 rounded border border-orange-500/40 text-orange-300">Cloudflare (CDN/WAF)</div>
+                            <div class="p-3 bg-blue-950 rounded border border-blue-500/40 text-blue-300">Caddy / Nginx Proxy</div>
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">Docker App</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">Cloudflare bertindak sebagai <strong>Edge Reverse Proxy</strong> global (DDoS protection, DNS), manakala Nginx/Caddy bertindak sebagai <strong>Local Reverse Proxy</strong> pada server anda.</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 28: Cloudflare Tunnel + Reverse Proxy -->
+            <section class="slide" id="slide-28">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-orange-400 uppercase tracking-wider">Sambungan Selamat Tanpa Port Forward</span>
+                        <h2 class="text-3xl font-bold text-white">Cloudflare Tunnel + Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-sm text-slate-300">
+                            <p><strong>Cloudflare Tunnel</strong> mewujudkan sambungan outbound terenkripsi dari server rumah ke Cloudflare Edge tanpa perlu membuka port router (No Port Forwarding!).</p>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-2 border border-orange-500/30">
+                            <div class="text-orange-400 font-bold">Tunnel Flow:</div>
+                            <div class="text-slate-300">Cloudflare Edge ──(Encrypted Tunnel)──► cloudflared daemon ──► Local Reverse Proxy ──► Apps</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 29: Cloudflare vs Reverse Proxy -->
+            <section class="slide" id="slide-29">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Perbandingan Peranan</span>
+                        <h2 class="text-3xl font-bold text-white">Cloudflare vs Local Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 text-xs">
+                        <div class="glass-panel p-5 rounded-xl border border-orange-500/30 space-y-2">
+                            <h4 class="font-bold text-orange-400">CLOUDFLARE (Edge Proxy)</h4>
+                            <p class="text-slate-300">Menguruskan DNS, perlindungan DDoS, Anycast Routing, dan caching global di seluruh dunia.</p>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl border border-blue-500/30 space-y-2">
+                            <h4 class="font-bold text-blue-400">LOCAL REVERSE PROXY (Nginx/Caddy)</h4>
+                            <p class="text-slate-300">Menguruskan routing lalulintas dalaman server, port mapping container local, dan internal application rules.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 30: Docker + Reverse Proxy -->
+            <section class="slide" id="slide-30">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Container Infrastructure</span>
+                        <h2 class="text-3xl font-bold text-white">Docker + Reverse Proxy</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-sm text-slate-300">
+                            <p>Dalam ekosistem Docker, Reverse Proxy biasanya dijalankan sebagai satu Container khas yang disambungkan ke <strong>Docker Bridge Network</strong> yang sama dengan container-container aplikasi lain.</p>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-2 text-center border border-cyan-500/30">
+                            <div class="text-cyan-400 font-bold">Docker Network (Internal)</div>
+                            <div class="p-2 bg-slate-900 rounded">Proxy Container</div>
+                            <div class="flex justify-center space-x-2 text-slate-500"><span>│</span><span>│</span><span>│</span></div>
+                            <div class="grid grid-cols-3 gap-1">
+                                <div class="bg-slate-800 p-1 rounded">App1</div>
+                                <div class="bg-slate-800 p-1 rounded">App2</div>
+                                <div class="bg-slate-800 p-1 rounded">App3</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 31: Docker Network -->
+            <section class="slide" id="slide-31">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">DNS Dalaman Docker</span>
+                        <h2 class="text-3xl font-bold text-white">Docker Internal Networking</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Di dalam Docker Network, Reverse Proxy tidak perlu mengingati IP Container yang berubah-ubah. Sebaliknya, ia boleh memanggil nama perkhidmatan (Container Service Name) secara terus!</p>
+
+                    <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-2 text-emerald-400 border border-slate-700">
+                        <div>// Contoh Konfigurasi Proxy dalam Docker:</div>
+                        <div>proxy_pass http://<span class="text-white font-bold">app1_container</span>:8080;</div>
+                        <div>proxy_pass http://<span class="text-white font-bold">blog_container</span>:3000;</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 32: Docker Compose Architecture -->
+            <section class="slide" id="slide-32">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Deklarasi Stack</span>
+                        <h2 class="text-3xl font-bold text-white">Docker Compose Architecture</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-3">
+                        <div class="text-xs font-mono text-slate-400">docker-compose.yml</div>
+                        <pre class="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-200 overflow-x-auto border border-slate-800">
+<span class="text-blue-400">services:</span>
+  <span class="text-purple-400">reverse-proxy:</span>
+    <span class="text-cyan-400">image:</span> caddy:latest
+    <span class="text-cyan-400">ports:</span>
+      - "80:80"
+      - "443:443"
+    <span class="text-cyan-400">networks:</span> [web-net]
+
+  <span class="text-purple-400">app1:</span>
+    <span class="text-cyan-400">image:</span> my-web-app:1.0
+    <span class="text-cyan-400">networks:</span> [web-net]
+
+<span class="text-blue-400">networks:</span>
+  <span class="text-purple-400">web-net:</span></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 33: Multiple Applications -->
+            <section class="slide" id="slide-33">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Senario Home Server</span>
+                        <h2 class="text-3xl font-bold text-white">Multiple Applications (Home Server)</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 font-mono text-xs">
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 space-y-1">
+                            <div class="text-blue-400 font-bold">app.example.com</div>
+                            <div class="text-slate-400">→ Home Assistant (:8123)</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 space-y-1">
+                            <div class="text-emerald-400 font-bold">blog.example.com</div>
+                            <div class="text-slate-400">→ WordPress / Ghost (:2368)</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 space-y-1">
+                            <div class="text-purple-400 font-bold">dashboard.example.com</div>
+                            <div class="text-slate-400">→ Grafana (:3000)</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 space-y-1">
+                            <div class="text-orange-400 font-bold">api.example.com</div>
+                            <div class="text-slate-400">→ FastAPI Backend (:8000)</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 34: Multiple Application Architecture Diagram -->
+            <section class="slide" id="slide-34">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Diagram Visual</span>
+                        <h2 class="text-3xl font-bold text-white">Pelbagai Aplikasi Belakang Satu Proxy</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs text-center space-y-4">
+                        <div class="text-purple-400 font-bold">INTERNET CLIENTS</div>
+                        <div>↓ (HTTPS :443)</div>
+                        <div class="p-3 bg-blue-900/60 border border-blue-400 rounded-xl text-blue-200 font-bold">
+                            REVERSE PROXY (NGINX / CADDY)
+                        </div>
+                        <div class="grid grid-cols-3 gap-3 pt-2">
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                                <div class="text-emerald-400 font-bold">APP 1</div>
+                                <div class="text-slate-500">:8080</div>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                                <div class="text-emerald-400 font-bold">BLOG</div>
+                                <div class="text-slate-500">:3000</div>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                                <div class="text-emerald-400 font-bold">API</div>
+                                <div class="text-slate-500">:5000</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 35: Default Route -->
+            <section class="slide" id="slide-35">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Fallback Route</span>
+                        <h2 class="text-3xl font-bold text-white">Default Route / Fallback</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Jika pengguna mengakses hostname yang tidak didaftarkan dalam Reverse Proxy (cth: `unknown.example.com`), Reverse Proxy mesti mempunyai logik <strong>Default Route</strong>.</p>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div class="glass-card p-4 rounded-xl border border-red-500/30 text-red-300">
+                            <div class="font-bold mb-1">Option A: Return 404 / 444</div>
+                            <div>Menolak sambungan terus (Paling Selamat).</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700 text-slate-300">
+                            <div class="font-bold mb-1">Option B: Catch-all Page</div>
+                            <div>Memaparkan laman landing umum server.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 36: Access Control -->
+            <section class="slide" id="slide-36">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Kawalan Capaian</span>
+                        <h2 class="text-3xl font-bold text-white">Access Control Di Proxy Level</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs">
+                        <div class="glass-panel p-4 rounded-xl border border-slate-700 space-y-2">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-user-lock text-red-400"></i>
+                                <span>Basic Authentication</span>
+                            </h4>
+                            <p class="text-slate-300">Meminta username & password sebelum request sempat menyentuh backend application.</p>
+                        </div>
+                        <div class="glass-panel p-4 rounded-xl border border-slate-700 space-y-2">
+                            <h4 class="font-bold text-white flex items-center space-x-2">
+                                <i class="fa-solid fa-list-check text-blue-400"></i>
+                                <span>IP Allowlisting</span>
+                            </h4>
+                            <p class="text-slate-300">Hanya membenarkan IP tertentu sahaja (cth: IP Pejabat/Home VPN) untuk mengakses URL `/admin`.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 37: Reverse Proxy Security -->
+            <section class="slide" id="slide-37">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Senarai Semak Keselamatan</span>
+                        <h2 class="text-3xl font-bold text-white">Reverse Proxy Security Checklist</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center space-x-2 text-emerald-400">
+                            <i class="fa-solid fa-square-check"></i>
+                            <span>Wajib Paksa HTTPS (HTTP to HTTPS Redirect)</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center space-x-2 text-emerald-400">
+                            <i class="fa-solid fa-square-check"></i>
+                            <span>Tutup pendedahan port backend terus ke Internet</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center space-x-2 text-emerald-400">
+                            <i class="fa-solid fa-square-check"></i>
+                            <span>Gunakan Security Headers yang ketat</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center space-x-2 text-emerald-400">
+                            <i class="fa-solid fa-square-check"></i>
+                            <span>Aktifkan Rate Limiting untuk halang Brute Force</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 38: Security Headers -->
+            <section class="slide" id="slide-38">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Header Protection</span>
+                        <h2 class="text-3xl font-bold text-white">Security Headers</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="glass-card p-3 rounded-lg border-l-4 border-red-500">
+                            <div class="text-red-400 font-bold">Strict-Transport-Security (HSTS)</div>
+                            <div class="text-slate-300">Memaksa pelayar web sentiasa mengaplikasikan HTTPS untuk domain tersebut.</div>
+                        </div>
+                        <div class="glass-card p-3 rounded-lg border-l-4 border-amber-500">
+                            <div class="text-amber-400 font-bold">X-Content-Type-Options: nosniff</div>
+                            <div class="text-slate-300">Menegah pelayar web daripada "sniffing" MIME-type fail.</div>
+                        </div>
+                        <div class="glass-card p-3 rounded-lg border-l-4 border-blue-500">
+                            <div class="text-blue-400 font-bold">Content-Security-Policy (CSP)</div>
+                            <div class="text-slate-300">Mengawal punca skrip JS dan aset yang boleh dimuat turun.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 39: Rate Limiting -->
+            <section class="slide" id="slide-39">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Perlindungan Trafik</span>
+                        <h2 class="text-3xl font-bold text-white">Rate Limiting</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-sm text-slate-300">
+                            <p>Reverse proxy mengehadkan bilangan request yang boleh dihantar oleh 1 IP Address dalam tempoh masa tertentu untuk mengelakkan serangan denial-of-service atau bot spam.</p>
+                        </div>
+
+                        <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-2 border border-amber-500/30">
+                            <div class="text-amber-400 font-bold">Contoh Had:</div>
+                            <div class="text-slate-200">limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;</div>
+                            <div class="text-slate-400 text-xs">Mengehadkan maksimum 10 request / saat bagi setiap IP.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 40: Load Balancing -->
+            <section class="slide" id="slide-40">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Skala Aplikasi</span>
+                        <h2 class="text-3xl font-bold text-white">Load Balancing</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs text-center space-y-4">
+                        <div class="text-blue-400 font-bold">Reverse Proxy / Load Balancer</div>
+                        <div class="flex justify-between items-center max-w-md mx-auto">
+                            <div>↙ Request 1</div>
+                            <div>↓ Request 2</div>
+                            <div>↘ Request 3</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">Server App 1</div>
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">Server App 2</div>
+                            <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-300">Server App 3</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 41: Health Check -->
+            <section class="slide" id="slide-41">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Keketahanan Perkhidmatan</span>
+                        <h2 class="text-3xl font-bold text-white">Backend Health Check</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Reverse Proxy sentiasa memeriksa endpoint <code class="text-emerald-400">/health</code> pada backend server. Jika mana-mana backend terpadam (down), Reverse Proxy secara automatik menghentikan penghantaran trafik ke server terbabit!</p>
+
+                    <div class="grid grid-cols-2 gap-4 font-mono text-xs">
+                        <div class="p-4 bg-emerald-950/60 rounded-xl border border-emerald-500/40 text-emerald-300">
+                            App 1: Status 200 OK (Terus Terima Trafik)
+                        </div>
+                        <div class="p-4 bg-red-950/60 rounded-xl border border-red-500/40 text-red-300">
+                            App 2: Connection Refused (Dilencongkan Out of Rotation)
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 42: Caching -->
+            <section class="slide" id="slide-42">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Optimasi Prestasi</span>
+                        <h2 class="text-3xl font-bold text-white">Proxy Caching</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-3">
+                        <div class="text-cyan-400 font-bold">Client ──► Reverse Proxy [ CACHE HIT ] ──► Return File Immediately</div>
+                        <p class="text-slate-400 font-sans text-xs">Backend App & Database tidak perlu dipanggil berulang kali untuk bahan statik yang sama, mengurangkan beban CPU server secara mendadak.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 43: Static Files -->
+            <section class="slide" id="slide-43">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Pengasingan Beban</span>
+                        <h2 class="text-3xl font-bold text-white">Static Files Serving</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-sm text-slate-300">
+                            <p>Reverse Proxy (cth: Nginx) sangat efisien membaca fail terus dari storage berbanding runtime aplikasi (Python/Node.js).</p>
+                        </div>
+                        <div class="glass-panel p-5 rounded-xl font-mono text-xs space-y-2 border border-slate-700">
+                            <div class="text-blue-400">/static/* ──► Served Directly by Nginx (Disk)</div>
+                            <div class="text-emerald-400">/api/* ──► Forwarded to Python Flask App</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 44: Web Architecture -->
+            <section class="slide" id="slide-44">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Evolusi Seni Bina</span>
+                        <h2 class="text-3xl font-bold text-white">Tahap Web Architecture</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-slate-500">SIMPLE:</span> Browser ──► App (Python Single Process)
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-blue-400">INTERMEDIATE:</span> Browser ──► Reverse Proxy ──► App
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-emerald-400">ADVANCED:</span> Browser ──► Cloudflare ──► Reverse Proxy ──► Docker Apps ──► DB
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 45: Production Architecture -->
+            <section class="slide" id="slide-45">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Standard Industri</span>
+                        <h2 class="text-3xl font-bold text-white">Production Web Architecture</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs text-center space-y-3">
+                        <div class="text-orange-400">CLOUDFLARE (Edge / DDoS / DNS)</div>
+                        <div>↓</div>
+                        <div class="text-blue-400 font-bold">REVERSE PROXY (Nginx/Caddy)</div>
+                        <div>↓</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="bg-slate-900 p-2 rounded border border-slate-800 text-emerald-300">Web Frontend</div>
+                            <div class="bg-slate-900 p-2 rounded border border-slate-800 text-emerald-300">REST API</div>
+                            <div class="bg-slate-900 p-2 rounded border border-slate-800 text-emerald-300">Dashboard</div>
+                        </div>
+                        <div>↓</div>
+                        <div class="text-teal-400">DATABASE (PostgreSQL / Redis)</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 46: Reverse Proxy dalam Home Server -->
+            <section class="slide" id="slide-46">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-purple-400 uppercase tracking-wider">Aplikasi Praktikal</span>
+                        <h2 class="text-3xl font-bold text-white">Reverse Proxy Dalam Home Server</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-3">
+                        <div class="text-purple-300 font-bold">Raspberry Pi 4 / Mini PC Stack:</div>
+                        <p class="text-slate-300 font-sans text-xs">Satu papan perkakasan kecil di rumah menjalankan Home Assistant, Nextcloud, Plex, dan Jellyfin yang kesemuanya disalurkan keluar melalui sambungan Caddy / Cloudflare Tunnel yang selamat.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 47: Troubleshooting Flow -->
+            <section class="slide" id="slide-47">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Diagnostik Masalah</span>
+                        <h2 class="text-3xl font-bold text-white">Troubleshooting Flow</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-2">
+                        <div class="text-amber-400 font-bold">Langkah-Langkah Mengesan Kerosakan:</div>
+                        <ol class="space-y-2 text-slate-300 list-decimal pl-4">
+                            <li><span class="text-white font-bold">STEP 1: DNS</span> - Adakah domain resolve ke IP betul? (<code class="text-cyan-400">dig domain.com</code>)</li>
+                            <li><span class="text-white font-bold">STEP 2: PORT LISTENING</span> - Adakah Reverse Proxy hidup pada port 80/443? (<code class="text-cyan-400">ss -tulpn</code>)</li>
+                            <li><span class="text-white font-bold">STEP 3: BACKEND PORT</span> - Adakah backend container hidup pada port internalnya?</li>
+                            <li><span class="text-white font-bold">STEP 4: LOGS</span> - Semak fail error log Reverse Proxy.</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 48: Troubleshooting DNS -->
+            <section class="slide" id="slide-48">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Langkah 1</span>
+                        <h2 class="text-3xl font-bold text-white">Troubleshooting DNS</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <div class="text-slate-400">Command Semakan:</div>
+                            <div class="text-cyan-400 font-bold">dig app.example.com</div>
+                            <div class="text-slate-400">atau</div>
+                            <div class="text-cyan-400 font-bold">nslookup app.example.com</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 49: Troubleshooting Port -->
+            <section class="slide" id="slide-49">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Langkah 2</span>
+                        <h2 class="text-3xl font-bold text-white">Troubleshooting Port Listener</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <div class="text-slate-400">Semak Port Listening Dalam Linux:</div>
+                            <div class="text-cyan-400 font-bold">sudo ss -tulpn | grep -E ':80|:443|:8080'</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 50: Troubleshooting cURL -->
+            <section class="slide" id="slide-50">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Langkah 3</span>
+                        <h2 class="text-3xl font-bold text-white">Troubleshooting Dengan cURL</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <div class="text-slate-400">// Test terus ke Backend Local:</div>
+                            <div class="text-emerald-400 font-bold">curl -I http://127.0.0.1:8080</div>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <div class="text-slate-400">// Test melalui Reverse Proxy:</div>
+                            <div class="text-blue-400 font-bold">curl -I https://app.example.com</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 51: Common Error: 502 -->
+            <section class="slide" id="slide-51">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Ralat Popular</span>
+                        <h2 class="text-3xl font-bold text-white">502 Bad Gateway</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border-l-4 border-red-500 space-y-3">
+                        <h3 class="font-bold text-red-400 text-lg">Maksud 502 Bad Gateway:</h3>
+                        <p class="text-sm text-slate-300">Reverse Proxy berjaya menerima request daripada pelayar, TETAPI <strong>gagal berhubung dengan Backend Upstream</strong> (Connection Refused / Off).</p>
+                    </div>
+
+                    <div class="text-xs space-y-1 text-slate-400">
+                        <p><strong>Punca Utama:</strong> App backend belum dipasang (down), nombor port backend dalam proxy config tersilap, atau container terasing dari Docker network.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 52: Common Error: 404 -->
+            <section class="slide" id="slide-52">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Ralat Laluan</span>
+                        <h2 class="text-3xl font-bold text-white">404 Not Found</h2>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div class="glass-card p-4 rounded-xl border border-amber-500/30">
+                            <div class="text-amber-400 font-bold">Proxy 404:</div>
+                            <div class="text-slate-300">Reverse Proxy tidak mempunyai rule <code class="text-white">server_name</code> atau location path bagi URL tersebut.</div>
+                        </div>
+                        <div class="glass-card p-4 rounded-xl border border-slate-700">
+                            <div class="text-slate-300 font-bold">Application 404:</div>
+                            <div class="text-slate-400">Proxy berjaya meneruskan request, tetapi routing di dalam perisian backend yang memulangkan 404.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 53: Common Error: 403 -->
+            <section class="slide" id="slide-53">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Ralat Halangan</span>
+                        <h2 class="text-3xl font-bold text-white">403 Forbidden</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Berlaku apabila kebenaran capaian ditolak (Access Control block, IP allowlist block, atau kebenaran kebenaran fail fail statik rosak).</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 54: Common Error: 525 / TLS -->
+            <section class="slide" id="slide-54">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-orange-400 uppercase tracking-wider">Ralat Enkripsi</span>
+                        <h2 class="text-3xl font-bold text-white">Cloudflare Error 525 / SSL Handshake Failed</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Tidak wujud ketidakpadanan mod SSL antara Cloudflare (Full/Strict) dengan sijil SSL pada Origin Reverse Proxy anda.</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 55: Logs -->
+            <section class="slide" id="slide-55">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Pemeriksaan Fail Log</span>
+                        <h2 class="text-3xl font-bold text-white">Reverse Proxy Logs</h2>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">
+                            <div class="text-blue-400 font-bold">Access Log:</div>
+                            <div>Siapa request apa, bila, dan apakah status code (200, 404, 502).</div>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">
+                            <div class="text-red-400 font-bold">Error Log:</div>
+                            <div>Kenapa request gagal dan masalah sambungan ke socket backend.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 56: Observability -->
+            <section class="slide" id="slide-56">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Pemantauan Metrik</span>
+                        <h2 class="text-3xl font-bold text-white">Observability & Metrics</h2>
+                    </div>
+
+                    <p class="text-slate-300 text-sm">Menghubungkan Nginx/Caddy Prometheus Exporter ke Grafana untuk memantau trafik latency, ralat 5xx, dan bilangan bandwidth secara real-time.</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 57: Reverse Proxy Checklist -->
+            <section class="slide" id="slide-57">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Persediaan Production</span>
+                        <h2 class="text-3xl font-bold text-white">Pre-Production Checklist</h2>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">□ DNS Rekod Dipasang</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">□ Sijil SSL Sah</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">□ Backend Port Sentiasa Up</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">□ Security Headers Dihantar</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 58: Common Mistakes -->
+            <section class="slide" id="slide-58">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-red-400 uppercase tracking-wider">Kesilapan Lazim</span>
+                        <h2 class="text-3xl font-bold text-white">Kesilapan Lazim Beginner</h2>
+                    </div>
+
+                    <div class="space-y-2 text-xs font-mono text-red-300">
+                        <div class="p-2 bg-red-950/40 rounded border border-red-500/20">❌ Membuka port backend (8080) terus pada firewall awam.</div>
+                        <div class="p-2 bg-red-950/40 rounded border border-red-500/20">❌ Mengabaikan amaran fail log ralat.</div>
+                        <div class="p-2 bg-red-950/40 rounded border border-red-500/20">❌ Menganggap Reverse Proxy menyelesaikannya semua isu keselamatan aplikasi.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 59: Architecture Evolution -->
+            <section class="slide" id="slide-59">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-purple-400 uppercase tracking-wider">Perjalanan Pengalaman</span>
+                        <h2 class="text-3xl font-bold text-white">Architecture Evolution</h2>
+                    </div>
+
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded">LEVEL 1: Standard Server Native</div>
+                        <div class="p-3 bg-slate-900 rounded text-blue-400">LEVEL 2: Reverse Proxy Added</div>
+                        <div class="p-3 bg-slate-900 rounded text-cyan-400">LEVEL 3: Dockerized Microservices Stack</div>
+                        <div class="p-3 bg-slate-900 rounded text-emerald-400">LEVEL 4: Cloudflare + Tunnel + High Availability Proxy</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 60: Final Architecture -->
+            <section class="slide" id="slide-60">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Seni Bina Matlamat</span>
+                        <h2 class="text-3xl font-bold text-white">Final Complete Architecture</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs text-center space-y-3 border border-emerald-500/30">
+                        <div class="text-purple-400">🌐 INTERNET CLIENTS</div>
+                        <div>↓</div>
+                        <div class="text-orange-400">☁️ CLOUDFLARE WAF / TUNNEL</div>
+                        <div>↓</div>
+                        <div class="text-blue-400 font-bold bg-blue-950/80 p-3 rounded-lg border border-blue-400">🔀 REVERSE PROXY (CADDY / NGINX)</div>
+                        <div>↓</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="bg-slate-900 p-2 rounded text-emerald-300">🐳 App Container 1</div>
+                            <div class="bg-slate-900 p-2 rounded text-emerald-300">🐳 App Container 2</div>
+                            <div class="bg-slate-900 p-2 rounded text-emerald-300">🐳 API Container</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 61: Interactive Routing Demo -->
+            <section class="slide" id="slide-61">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-blue-400 uppercase tracking-wider">Demo Interaktif</span>
+                        <h2 class="text-3xl font-bold text-white">Interactive Hostname Routing Simulator</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-mono text-slate-300">Masukkan Hostname Request:</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="sim-hostname" value="app1.example.com" class="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl text-sm font-mono text-blue-400 w-full focus:outline-none focus:border-blue-500">
+                                <button onclick="runRoutingSim()" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold font-mono transition">TEST ROUTE</button>
+                            </div>
+                        </div>
+
+                        <!-- Routing Visual Result -->
+                        <div class="p-6 bg-slate-900 rounded-xl border border-slate-800 space-y-4 font-mono text-xs">
+                            <div class="flex justify-between items-center text-slate-400">
+                                <span>Incoming HTTP Host Header:</span>
+                                <span id="sim-input-display" class="text-blue-400 font-bold">app1.example.com</span>
+                            </div>
+                            <div class="text-center text-slate-500"><i class="fa-solid fa-arrow-down"></i> Evaluated by Proxy Rules</div>
+                            <div id="sim-result-box" class="p-4 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-center font-bold">
+                                ➔ Forwarded to Internal Container: http://127.0.0.1:8081 (APP 1)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 62: Interactive Request Flow -->
+            <section class="slide" id="slide-62">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-indigo-400 uppercase tracking-wider">Eksplorasi Interaktif</span>
+                        <h2 class="text-3xl font-bold text-white">Interactive Request Flow Inspector</h2>
+                    </div>
+
+                    <p class="text-xs text-slate-400">Klik pada mana-mana nod di bawah untuk melihat tugas spesifik nod tersebut:</p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                        <button onclick="inspectNode('dns')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-purple-400 font-bold">1. DNS</button>
+                        <button onclick="inspectNode('cloudflare')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-orange-400 font-bold">2. Cloudflare</button>
+                        <button onclick="inspectNode('proxy')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-blue-400 font-bold">3. Proxy</button>
+                        <button onclick="inspectNode('backend')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-emerald-400 font-bold">4. Backend</button>
+                        <button onclick="inspectNode('db')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-teal-400 font-bold">5. Database</button>
+                    </div>
+
+                    <div id="node-info-box" class="glass-panel p-6 rounded-2xl border border-slate-700 text-xs space-y-2">
+                        <h4 id="node-title" class="text-sm font-bold text-blue-400">Sila klik nod di atas...</h4>
+                        <p id="node-desc" class="text-slate-300">Penerangan peranan peranti akan dipaparkan di sini.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 63: Interactive Port Mapping -->
+            <section class="slide" id="slide-63">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Simulator Interaktif</span>
+                        <h2 class="text-3xl font-bold text-white">Interactive Port Mapping Tool</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs font-mono text-slate-300">Tukar Internal Target Port:</span>
+                            <select id="port-select" onchange="updatePortSim()" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-mono text-emerald-400">
+                                <option value="8080">8080 (Web App)</option>
+                                <option value="3000">3000 (React / Next.js)</option>
+                                <option value="5000">5000 (Python API)</option>
+                            </select>
+                        </div>
+
+                        <div class="p-6 bg-slate-900 rounded-xl border border-slate-800 font-mono text-xs text-center space-y-3">
+                            <div class="text-purple-400">Public Request: https://app.example.com:443</div>
+                            <div>↓ Reverse Proxy Dynamic Map</div>
+                            <div id="port-result" class="text-emerald-400 font-bold text-sm">
+                                ➔ Internal Destination: http://localhost:8080
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 64: Quiz 1 -->
+            <section class="slide" id="slide-64">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Ujian Kefahaman 1</span>
+                        <h2 class="text-3xl font-bold text-white">Quiz 1: Routing Header</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <p class="text-sm text-white font-semibold">User membuka <code class="text-blue-400">https://blog.example.com</code>. Apakah HTTP Header utama yang dibaca oleh Reverse Proxy untuk menentukan server sasaran?</p>
+
+                        <div class="space-y-2 text-xs font-mono">
+                            <button onclick="checkQuiz(1, 'A', false)" class="q1-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">A. MAC Address Header</button>
+                            <button onclick="checkQuiz(1, 'B', true)" class="q1-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">B. Hostname / Host Header</button>
+                            <button onclick="checkQuiz(1, 'C', false)" class="q1-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">C. User-Agent Header</button>
+                        </div>
+
+                        <div id="quiz-1-feedback" class="hidden p-3 rounded-xl text-xs font-mono"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 65: Quiz 2 -->
+            <section class="slide" id="slide-65">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Ujian Kefahaman 2</span>
+                        <h2 class="text-3xl font-bold text-white">Quiz 2: Error Analysis</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <p class="text-sm text-white font-semibold">Jika pelayar web memulangkan ralat **502 Bad Gateway**, apakah punca paling utama?</p>
+
+                        <div class="space-y-2 text-xs font-mono">
+                            <button onclick="checkQuiz(2, 'A', true)" class="q2-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">A. Backend server terpadam / port internal tidak memberi respon</button>
+                            <button onclick="checkQuiz(2, 'B', false)" class="q2-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">B. Kad WiFi laptop anda rosak</button>
+                            <button onclick="checkQuiz(2, 'C', false)" class="q2-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">C. RAM server menjadi sebahagian daripada DHCP</button>
+                        </div>
+
+                        <div id="quiz-2-feedback" class="hidden p-3 rounded-xl text-xs font-mono"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 66: Quiz 3 -->
+            <section class="slide" id="slide-66">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-amber-400 uppercase tracking-wider">Ujian Kefahaman 3</span>
+                        <h2 class="text-3xl font-bold text-white">Quiz 3: Peranan Utama</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <p class="text-sm text-white font-semibold">Apakah fungsi TERPENTING Reverse Proxy dalam seni bina web modern?</p>
+
+                        <div class="space-y-2 text-xs font-mono">
+                            <button onclick="checkQuiz(3, 'A', false)" class="q3-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">A. Menggantikan tempat Operating System Linux</button>
+                            <button onclick="checkQuiz(3, 'B', true)" class="q3-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">B. Menjadi pintu masuk tunggal untuk mengurus routing lalulintas ke pelbagai backend</button>
+                            <button onclick="checkQuiz(3, 'C', false)" class="q3-opt w-full text-left p-3 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300">C. Menyimpan kata laluan pangkalan data secara fizikal</button>
+                        </div>
+
+                        <div id="quiz-3-feedback" class="hidden p-3 rounded-xl text-xs font-mono"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 67: Final Challenge -->
+            <section class="slide" id="slide-67">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-purple-400 uppercase tracking-wider">Cabaran Akhir</span>
+                        <h2 class="text-3xl font-bold text-white">Final Architecture Challenge</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl space-y-4">
+                        <p class="text-xs text-slate-300"><strong>Senario:</strong> Bos anda meminta anda mereka bentuk stack Reverse Proxy untuk 3 aplikasi di Raspberry Pi (App 1: :3000, App 2: :8080, App 3: :5000). Pilih padanan port yang betul untuk domain berikut:</p>
+
+                        <div class="grid md:grid-cols-3 gap-3 font-mono text-xs">
+                            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <div class="text-blue-400 font-bold">app.example.com</div>
+                                <div>➔ Port Target: <span class="text-emerald-400 font-bold">:3000</span></div>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <div class="text-blue-400 font-bold">blog.example.com</div>
+                                <div>➔ Port Target: <span class="text-emerald-400 font-bold">:8080</span></div>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <div class="text-blue-400 font-bold">api.example.com</div>
+                                <div>➔ Port Target: <span class="text-emerald-400 font-bold">:5000</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 68: Connection to Previous Lessons -->
+            <section class="slide" id="slide-68">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Pautan Pembelajaran</span>
+                        <h2 class="text-3xl font-bold text-white">Connection To Previous Lessons</h2>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl font-mono text-xs space-y-3">
+                        <div class="text-slate-400">Peringkat 1: Networking Deep Dive (IP, Port, DNS, Firewall)</div>
+                        <div class="text-blue-400 font-bold">Peringkat 2: Reverse Proxy & Web Architecture (HARI INI)</div>
+                        <div class="text-slate-500">Peringkat 3: Production Security, Monitoring & Databases</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 69: Apa Yang Kita Dah Belajar? -->
+            <section class="slide" id="slide-69">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider">Rumusan</span>
+                        <h2 class="text-3xl font-bold text-white">Apa Yang Kita Dah Belajar?</h2>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-xs">
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ Reverse Proxy Concept</div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ Hostname & Path Routing</div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ Nginx vs Caddy</div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ TLS Termination</div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ Docker Network Bridge</div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-emerald-400">✓ 502 Bad Gateway Debug</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 70: Next Topic -->
+            <section class="slide" id="slide-70">
+                <div class="space-y-6">
+                    <div class="border-b border-slate-800 pb-4">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-wider">Modul Seterusnya</span>
+                        <h2 class="text-3xl font-bold text-white">Sesi Akan Datang</h2>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-2xl border-l-4 border-cyan-400 space-y-4">
+                        <span class="pedagogy-badge bg-cyan-500/20 text-cyan-300">NEXT TOPIC</span>
+                        <h3 class="text-2xl font-bold text-white">"DATABASE FOR SELF-HOSTING"</h3>
+                        <p class="text-sm text-slate-300">Bagaimana Application Menyimpan Data Dengan Betul Menggunakan PostgreSQL & MariaDB dalam Docker Containers.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 71: Penutup -->
+            <section class="slide" id="slide-71">
+                <div class="text-center space-y-6 py-12">
+                    <div class="inline-block p-4 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 text-3xl">
+                        <i class="fa-solid fa-flag-checkered"></i>
+                    </div>
+
+                    <h2 class="text-4xl font-extrabold text-white tracking-tight">
+                        "One Server. Multiple Applications. <br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">One Smart Entry Point."</span>
+                    </h2>
+
+                    <p class="text-slate-400 text-sm max-w-xl mx-auto">
+                        Reverse proxy ialah jambatan utama antara keselamatan Internet awam dan kecekapan seni bina aplikasi tempatan anda.
+                    </p>
+
+                    <div class="pt-6">
+                        <button onclick="goToSlide(1)" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-bold transition">
+                            <i class="fa-solid fa-rotate-right mr-2"></i> Ulangi Presentation
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- OVERVIEW MODAL -->
+    <div id="overview-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex flex-col p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-white font-mono"><i class="fa-solid fa-th-large text-blue-400 mr-2"></i> Slide Overview (71 Slides)</h3>
+            <button onclick="toggleOverviewModal()" class="text-slate-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="overview-grid" class="flex-grow overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 p-2">
+            <!-- Dynamic Grid Items injected by JS -->
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 71;
+
+        function updateSlideDisplay() {
+            // Hide all slides
+            document.querySelectorAll('.slide').forEach(slide => {
+                slide.classList.remove('active');
+            });
+
+            // Show current slide
+            const activeSlide = document.getElementById(`slide-${currentSlide}`);
+            if (activeSlide) {
+                activeSlide.classList.add('active');
+            }
+
+            // Update DOM counters
+            document.getElementById('current-slide-num').innerText = currentSlide;
+            document.getElementById('total-slides-num').innerText = totalSlides;
+
+            // Update Progress Bar
+            const progressPercent = (currentSlide / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // Update Button States
+            document.getElementById('prev-btn').disabled = (currentSlide === 1);
+            document.getElementById('next-btn').disabled = (currentSlide === totalSlides);
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateSlideDisplay();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateSlideDisplay();
+            }
+        }
+
+        function goToSlide(slideNum) {
+            if (slideNum >= 1 && slideNum <= totalSlides) {
+                currentSlide = slideNum;
+                updateSlideDisplay();
+                closeOverviewModal();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                goToSlide(1);
+            } else if (e.key === 'End') {
+                goToSlide(totalSlides);
+            }
+        });
+
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            if (modal.classList.contains('hidden')) {
+                buildOverviewGrid();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function closeOverviewModal() {
+            document.getElementById('overview-modal').classList.add('hidden');
+        }
+
+        function buildOverviewGrid() {
+            const grid = document.getElementById('overview-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= totalSlides; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-3 rounded-lg border text-left font-mono text-xs transition ${i === currentSlide ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`;
+                btn.innerHTML = `<span class="block text-[10px] text-slate-500 font-bold">SLIDE ${i}</span> Slide ${i}`;
+                btn.onclick = () => goToSlide(i);
+                grid.appendChild(btn);
+            }
+        }
+
+        // Slide 61: Routing Sim
+        function runRoutingSim() {
+            const hostname = document.getElementById('sim-hostname').value.trim().toLowerCase();
+            const inputDisplay = document.getElementById('sim-input-display');
+            const resultBox = document.getElementById('sim-result-box');
+            
+            inputDisplay.innerText = hostname;
+
+            if (hostname === 'app1.example.com') {
+                resultBox.className = "p-4 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-center font-bold";
+                resultBox.innerText = "➔ Forwarded to Internal Container: http://127.0.0.1:8081 (APP 1)";
+            } else if (hostname === 'blog.example.com') {
+                resultBox.className = "p-4 rounded-lg bg-indigo-950/60 border border-indigo-500/40 text-indigo-300 text-center font-bold";
+                resultBox.innerText = "➔ Forwarded to Internal Container: http://127.0.0.1:8082 (BLOG)";
+            } else if (hostname === 'api.example.com') {
+                resultBox.className = "p-4 rounded-lg bg-purple-950/60 border border-purple-500/40 text-purple-300 text-center font-bold";
+                resultBox.innerText = "➔ Forwarded to Internal Container: http://127.0.0.1:5000 (FASTAPI)";
+            } else {
+                resultBox.className = "p-4 rounded-lg bg-red-950/60 border border-red-500/40 text-red-300 text-center font-bold";
+                resultBox.innerText = "➔ 404 NOT FOUND / Rejected by Default Route Rules";
+            }
+        }
+
+        // Slide 62: Request Flow Inspector
+        function inspectNode(node) {
+            const title = document.getElementById('node-title');
+            const desc = document.getElementById('node-desc');
+            
+            const info = {
+                dns: { title: "1. DNS (Domain Name System)", desc: "Menukar hostname app.example.com kepada IP address pelayan Cloudflare/Public Proxy." },
+                cloudflare: { title: "2. Cloudflare (Edge Proxy)", desc: "Menapis DDoS attack, menguruskan SSL edge, dan meneruskan trafik ke server anda melalui Tunnel." },
+                proxy: { title: "3. Reverse Proxy (Nginx/Caddy)", desc: "Membaca Host header, menguruskan TLS termination, dan me-route request ke port internal." },
+                backend: { title: "4. Backend App Container", desc: "Menjalankan logik perniagaan kod (Python, Node.js) pada port terpencil." },
+                db: { title: "5. Database (PostgreSQL)", desc: "Menyimpan dan memulangkan data kekal aplikasi." }
+            };
+
+            if (info[node]) {
+                title.innerText = info[node].title;
+                desc.innerText = info[node].desc;
+            }
+        }
+
+        // Slide 63: Port Sim
+        function updatePortSim() {
+            const port = document.getElementById('port-select').value;
+            const res = document.getElementById('port-result');
+            res.innerText = `➔ Internal Destination: http://localhost:${port}`;
+        }
+
+        // Quiz checking
+        function checkQuiz(quizNum, option, isCorrect) {
+            const feedback = document.getElementById(`quiz-${quizNum}-feedback`);
+            feedback.classList.remove('hidden');
+            
+            if (isCorrect) {
+                feedback.className = "p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-bold font-mono text-xs";
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check mr-2"></i> TEPAT sekali! Jawapan ${option} adalah BETUL.`;
+            } else {
+                feedback.className = "p-3 rounded-xl bg-red-950/80 border border-red-500/50 text-red-300 font-bold font-mono text-xs";
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark mr-2"></i> KURANG TEPAT. Cuba semak semula konsep slide terdahulu.`;
+            }
+        }
+
+        // Code copy helper
+        function copyCode(btn) {
+            const code = btn.parentElement.nextElementSibling.innerText;
+            navigator.clipboard.writeText(code);
+            btn.innerText = "Copied!";
+            setTimeout(() => { btn.innerText = "Copy"; }, 2000);
+        }
+
+        window.onload = () => {
+            updateSlideDisplay();
+        };
+    </script>
+</body>
+</html>

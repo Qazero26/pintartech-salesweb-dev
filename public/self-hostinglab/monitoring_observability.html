@@ -1,0 +1,2684 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring & Observability — Presentation Slide Deck</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        noc: {
+                            bg: '#0b0f19',
+                            card: '#131b2e',
+                            border: '#1e293b',
+                            accent: '#38bdf8',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#a855f7',
+                            cyan: '#06b6d4'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'Monaco', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+        
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            height: calc(100vh - 80px);
+        }
+
+        .slide {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+            opacity: 1;
+        }
+
+        /* Custom scrollbar for NOC feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+
+        .glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+        .glow-cyan { box-shadow: 0 0 20px rgba(6, 182, 212, 0.15); }
+        .glow-rose { box-shadow: 0 0 20px rgba(244, 63, 94, 0.15); }
+        .glow-amber { box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }
+        
+        .grid-bg {
+            background-image: radial-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="grid-bg min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Top Bar Navigation & Info -->
+    <header class="h-14 bg-noc-card/90 border-b border-noc-border backdrop-blur px-6 flex items-center justify-between text-sm z-30">
+        <div class="flex items-center space-x-3">
+            <span class="px-2.5 py-1 bg-noc-accent/20 text-noc-accent font-mono text-xs font-semibold rounded-md border border-noc-accent/30">
+                DEVOPS & HOMELAB SERIES
+            </span>
+            <span class="text-slate-400 font-medium hidden sm:inline">Monitoring & Observability</span>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <!-- Slide Counter -->
+            <button onclick="toggleGridModal()" class="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 text-xs font-mono transition">
+                <svg class="w-4 h-4 text-noc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                <span>Slide <strong id="current-slide-num" class="text-noc-accent">1</strong> / <span id="total-slides-num">99</span></span>
+            </button>
+
+            <!-- Jump / Menu Toggle -->
+            <button onclick="toggleGridModal()" class="text-slate-400 hover:text-white transition" title="Senarai Slaid Grid">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Slide Viewport -->
+    <main class="slide-container flex-1 relative px-4 py-6 md:px-12 md:py-8 max-w-7xl mx-auto w-full">
+        <div id="slides-wrapper" class="w-full h-full">
+
+            <!-- SLIDE 1: TITLE -->
+            <div class="slide active justify-center items-center text-center space-y-8" data-title="Tajuk Persembahan">
+                <div class="inline-flex items-center px-4 py-2 rounded-full bg-slate-800/80 border border-noc-accent/40 text-noc-accent text-sm font-semibold tracking-wide uppercase">
+                    Sambungan Daripada: Identity & Authentication
+                </div>
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
+                    Monitoring & Observability
+                </h1>
+                <p class="text-xl md:text-2xl text-slate-300 max-w-3xl font-light">
+                    "Bagaimana Tahu Server Anda Sihat Sebelum User Mengadu"
+                </p>
+
+                <!-- Visual flow -->
+                <div class="flex flex-wrap items-center justify-center gap-4 py-6 text-sm font-mono">
+                    <div class="p-4 bg-noc-card border border-slate-700 rounded-xl flex items-center space-x-2">
+                        <span class="text-2xl">🖥️</span> <span class="text-slate-200">Server</span>
+                    </div>
+                    <span class="text-noc-accent font-bold">➔</span>
+                    <div class="p-4 bg-noc-card border border-slate-700 rounded-xl grid grid-cols-2 gap-2 text-left text-xs">
+                        <span class="text-noc-accent">📊 Metrics</span>
+                        <span class="text-noc-purple">📝 Logs</span>
+                        <span class="text-noc-cyan">🔍 Traces</span>
+                        <span class="text-noc-rose">🚨 Alerts</span>
+                    </div>
+                    <span class="text-noc-accent font-bold">➔</span>
+                    <div class="p-4 bg-noc-card border border-slate-700 rounded-xl flex items-center space-x-2">
+                        <span class="text-2xl">👨‍💻</span> <span class="text-slate-200">Administrator</span>
+                    </div>
+                </div>
+
+                <blockquote class="text-lg italic text-noc-cyan bg-slate-900/60 px-6 py-3 rounded-xl border-l-4 border-noc-cyan max-w-xl">
+                    "Kalau kita tidak nampak sistem, kita hanya meneka."
+                </blockquote>
+            </div>
+
+            <!-- SLIDE 2 -->
+            <div class="slide space-y-6" data-title="Kenapa Monitoring?">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kenapa Perlukan Monitoring?</h2>
+                    <p class="text-slate-400">Senario Kehidupan Sebenar Admin System</p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-8 items-stretch my-auto">
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl flex flex-col justify-between">
+                        <div>
+                            <span class="px-3 py-1 bg-noc-rose/20 text-noc-rose text-xs font-bold rounded-full">TANPA MONITORING</span>
+                            <h3 class="text-xl font-bold text-white mt-4 mb-2">Mod Berteka-teki (Guessing)</h3>
+                            <div class="space-y-3 text-sm text-slate-300">
+                                <p class="p-3 bg-slate-900/80 rounded-lg"><strong>User:</strong> "Website tak boleh buka, keluar error 502!"</p>
+                                <p class="p-3 bg-slate-900/80 rounded-lg"><strong>Admin:</strong> "Kenapa pulak? Server mati? Database full? Network putus? Code crash? ❓"</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 p-4 bg-slate-900/90 rounded-xl text-center text-noc-rose font-bold text-sm">
+                            ❌ Buta Mata: Mengambil masa lama untuk cari punca!
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-emerald/10 border border-noc-emerald/30 rounded-2xl flex flex-col justify-between">
+                        <div>
+                            <span class="px-3 py-1 bg-noc-emerald/20 text-noc-emerald text-xs font-bold rounded-full">DENGAN MONITORING</span>
+                            <h3 class="text-xl font-bold text-white mt-4 mb-2">Mod Bukti Data (Evidence)</h3>
+                            <div class="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300">
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800">🖥️ CPU: 98% (High)</div>
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800">🧠 RAM: 4.2GB / 8GB</div>
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800">💾 Disk: 94% (CRITICAL)</div>
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800">🌐 Net: 12Mbps</div>
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800">🐳 Docker: 5/5 Alive</div>
+                                <div class="p-2 bg-slate-900/80 rounded border border-slate-800 text-noc-rose">🗄️ DB: Disk Full!</div>
+                            </div>
+                        </div>
+                        <div class="mt-6 p-4 bg-slate-900/90 rounded-xl text-center text-noc-emerald font-bold text-sm">
+                            ✅ Bukti Jelas: Disk penuh punca PostgreSQL crash!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 3 -->
+            <div class="slide space-y-6" data-title="Monitoring vs Observability">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Monitoring vs Observability</h2>
+                    <p class="text-slate-400">Dua Konsep Penting Yang Selalu Disalah TAFSIR</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl relative">
+                        <div class="absolute -top-3 left-6 px-3 py-0.5 bg-noc-accent text-slate-950 font-bold text-xs rounded-full">MONITORING</div>
+                        <h3 class="text-2xl font-bold text-noc-accent mb-4">"Adakah sistem sihat?"</h3>
+                        <p class="text-slate-300 text-sm mb-4">
+                            Fokus kepada mengumpul dan memaparkan data yang sudah diketahui (known-knowns). Mengesan kegagalan secara luaran.
+                        </p>
+                        <div class="p-4 bg-slate-900/80 rounded-xl text-xs font-mono space-y-1 text-slate-400">
+                            <div>• CPU > 90% (Alert triggered)</div>
+                            <div>• Disk space > 95%</div>
+                            <div>• Website status: HTTP 500</div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl relative">
+                        <div class="absolute -top-3 left-6 px-3 py-0.5 bg-noc-purple text-white font-bold text-xs rounded-full">OBSERVABILITY</div>
+                        <h3 class="text-2xl font-bold text-noc-purple mb-4">"Mengapa sistem berkelakuan begini?"</h3>
+                        <p class="text-slate-300 text-sm mb-4">
+                            Kemampuan infer keadaan dalaman sistem berdasarkan data telemetry output (unknown-unknowns).
+                        </p>
+                        <div class="p-4 bg-slate-900/80 rounded-xl text-xs font-mono space-y-1 text-slate-300">
+                            <div class="text-noc-cyan">Metrics + Logs + Traces + Context</div>
+                            <div class="text-slate-400 mt-2">➔ Memahami *kenapa* query spesifik menyebabkan memory leak sewaktu user checkout.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-center font-medium text-slate-200">
+                    💡 <span class="text-noc-accent">Monitoring</span> memberitahu anda bahawa sistem rosak. <span class="text-noc-purple">Observability</span> membantu anda memahami punca utama (*why & how*).
+                </div>
+            </div>
+
+            <!-- SLIDE 4 -->
+            <div class="slide space-y-6" data-title="3 Pilar Observability">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Tiga Pilar Observability (MELT)</h2>
+                    <p class="text-slate-400">Teras telemetry bagi sistem moden</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto">
+                    <div class="p-6 bg-noc-card border-t-4 border-noc-accent rounded-xl space-y-4">
+                        <div class="text-4xl">📊</div>
+                        <h3 class="text-xl font-bold text-noc-accent">1. METRICS</h3>
+                        <p class="text-slate-300 text-sm">Numerical measurements secara agregat mengikut sela masa.</p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Soalan: <strong>"Apa yang berlaku?"</strong><br>
+                            Contoh: CPU %, Request Count, Latency 150ms.
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border-t-4 border-noc-purple rounded-xl space-y-4">
+                        <div class="text-4xl">📝</div>
+                        <h3 class="text-xl font-bold text-noc-purple">2. LOGS</h3>
+                        <p class="text-slate-300 text-sm">Rekod teks peristiwa bercap masa (timestamped events).</p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Soalan: <strong>"Apa yang dicatat/terjadi?"</strong><br>
+                            Contoh: ERROR: Connection refused to DB.
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border-t-4 border-noc-cyan rounded-xl space-y-4">
+                        <div class="text-4xl">🔍</div>
+                        <h3 class="text-xl font-bold text-noc-cyan">3. TRACES</h3>
+                        <p class="text-slate-300 text-sm">Perjalanan satu request melintasi pelbagai mikro-perkhidmatan.</p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Soalan: <strong>"Di mana request lambat?"</strong><br>
+                            Contoh: API (5ms) ➔ DB (2.4s) ➔ Cache (2ms).
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 5 -->
+            <div class="slide space-y-6" data-title="Metrics Overview">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Metrics (Ukuran Berangka)</h2>
+                    <p class="text-slate-400">Data kuantitatif yang dikumpul secara bersiri mengikut masa (Time-Series)</p>
+                </div>
+
+                <div class="grid md:grid-cols-5 gap-4 my-auto text-center">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-xs text-slate-400 font-mono">CPU USAGE</div>
+                        <div class="text-3xl font-extrabold text-noc-accent">72%</div>
+                        <div class="text-xs text-slate-500">Normal workload</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-xs text-slate-400 font-mono">RAM USED</div>
+                        <div class="text-3xl font-extrabold text-noc-emerald">58%</div>
+                        <div class="text-xs text-slate-500">4.6 GB / 8 GB</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-xs text-slate-400 font-mono">DISK SPACE</div>
+                        <div class="text-3xl font-extrabold text-noc-amber">81%</div>
+                        <div class="text-xs text-slate-500">Warning threshold</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-xs text-slate-400 font-mono">LATENCY (P95)</div>
+                        <div class="text-3xl font-extrabold text-noc-cyan">120ms</div>
+                        <div class="text-xs text-slate-500">Fast response</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-xs text-slate-400 font-mono">ERROR RATE</div>
+                        <div class="text-3xl font-extrabold text-noc-rose">1.2%</div>
+                        <div class="text-xs text-slate-500">12 errors / 1k req</div>
+                    </div>
+                </div>
+
+                <!-- Pedagogical framework breakdown -->
+                <div class="grid md:grid-cols-4 gap-4 text-xs font-mono">
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                        <strong class="text-noc-accent">WHAT:</strong> Data angka tanpa teks panjang. Efficient disimpan.
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                        <strong class="text-noc-emerald">WHY:</strong> Membolehkan graf line, aggregasi & alerting pantas.
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                        <strong class="text-noc-amber">HOW:</strong> Exporter (cth: Node Exporter) scrap data setiap 15s.
+                    </div>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                        <strong class="text-noc-purple">REAL WORLD:</strong> Prometheus scrape metrics dari endpoint `/metrics`.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 6 -->
+            <div class="slide space-y-6" data-title="Counter vs Gauge">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Jenis Metric Utama: Counter vs Gauge</h2>
+                    <p class="text-slate-400">Dua sifat asas pergerakan nombor dalam Prometheus</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-accent/30 rounded-2xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-2xl font-bold text-noc-accent">1. COUNTER (Tergumpal Naik)</h3>
+                            <span class="text-xs font-mono bg-noc-accent/20 text-noc-accent px-2 py-1 rounded">Monotonically Increasing</span>
+                        </div>
+                        <p class="text-sm text-slate-300">
+                            Nilai nombor yang <strong>hanya boleh naik atau reset ke 0</strong> bila server restart. Tidak pernah berkurang secara biasa.
+                        </p>
+                        <div class="p-4 bg-slate-900 rounded-xl font-mono text-xs text-slate-300 space-y-2">
+                            <div>• Jumlah HTTP requests: <code>http_requests_total = 452,091</code></div>
+                            <div>• Jumlah Ralat Sistem: <code>errors_total = 142</code></div>
+                            <div>• Total Bytes Transmitted: <code>net_bytes_sent = 8.4GB</code></div>
+                        </div>
+                        <div class="text-xs text-slate-400 italic">📌 Kegunaan: Dikira kadar persaat menggunakan fungsi <code>rate()</code> dalam PromQL.</div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-emerald/30 rounded-2xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-2xl font-bold text-noc-emerald">2. GAUGE (Naik & Turun)</h3>
+                            <span class="text-xs font-mono bg-noc-emerald/20 text-noc-emerald px-2 py-1 rounded">Flexible Value</span>
+                        </div>
+                        <p class="text-sm text-slate-300">
+                            Nilai semasa snapshot yang <strong>boleh naik dan turun</strong> pada bila-bila masa mengikut keadaan semasa.
+                        </p>
+                        <div class="p-4 bg-slate-900 rounded-xl font-mono text-xs text-slate-300 space-y-2">
+                            <div>• CPU Utilization: <code>node_cpu_seconds = 45.2%</code></div>
+                            <div>• RAM Usage: <code>memory_used_bytes = 4.1GB</code></div>
+                            <div>• Suhu Raspberry Pi: <code>cpu_temperature_c = 52°C</code></div>
+                        </div>
+                        <div class="text-xs text-slate-400 italic">📌 Kegunaan: Mengukur baki, peratusan, dan status semasa sistem.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 7 -->
+            <div class="slide space-y-6" data-title="Latency">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Latency (Kelewatan Respons)</h2>
+                    <p class="text-slate-400">"Berapa lama sesuatu request mengambil masa untuk diproses?"</p>
+                </div>
+
+                <div class="space-y-6 my-auto">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono text-xs text-slate-400">SENARIO MASA RESPONS</span>
+                            <span class="text-xs font-mono text-noc-cyan">Client ➔ Server ➔ Response</span>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-4 text-center font-mono">
+                            <div class="p-4 bg-slate-900/90 rounded-xl border border-noc-emerald/30">
+                                <div class="text-noc-emerald font-bold text-xl">50 ms</div>
+                                <div class="text-xs text-slate-400 mt-1">⚡ Super Fast</div>
+                            </div>
+                            <div class="p-4 bg-slate-900/90 rounded-xl border border-noc-accent/30">
+                                <div class="text-noc-accent font-bold text-xl">120 ms</div>
+                                <div class="text-xs text-slate-400 mt-1">✅ Normal / Good</div>
+                            </div>
+                            <div class="p-4 bg-slate-900/90 rounded-xl border border-noc-amber/30">
+                                <div class="text-noc-amber font-bold text-xl">800 ms</div>
+                                <div class="text-xs text-slate-400 mt-1">⚠️ Slow / Laggy</div>
+                            </div>
+                            <div class="p-4 bg-slate-900/90 rounded-xl border border-noc-rose/30">
+                                <div class="text-noc-rose font-bold text-xl">5.0 sec</div>
+                                <div class="text-xs text-slate-400 mt-1">❌ Unacceptable</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-sm text-slate-300">
+                        <strong>Troubleshooting Insight:</strong> Latency tinggi selalunya berpunca daripada <em>unindexed DB queries, external API block, atau resource contention (CPU/RAM limit)</em>.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 8 -->
+            <div class="slide space-y-6" data-title="Throughput">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Throughput (Kadar Pemprosesan)</h2>
+                    <p class="text-slate-400">"Berapa banyak kerja boleh diproses dalam satu tempoh masa?"</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4">
+                        <h3 class="text-xl font-bold text-noc-accent">Contoh Ukuran Throughput</h3>
+                        <div class="space-y-3 font-mono text-sm">
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex justify-between">
+                                <span>Web Requests:</span>
+                                <strong class="text-noc-emerald">150 req/sec (RPS)</strong>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex justify-between">
+                                <span>Network I/O:</span>
+                                <strong class="text-noc-accent">10 MB/sec</strong>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 flex justify-between">
+                                <span>DB Transactions:</span>
+                                <strong class="text-noc-purple">45 TPS</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-rose/30 rounded-2xl space-y-4">
+                        <h3 class="text-xl font-bold text-noc-rose">Latency ≠ Throughput</h3>
+                        <p class="text-sm text-slate-300">
+                            Sistem boleh mempunyai **latency rendah** (50ms per request) tetapi **throughput terhad** jika hanya dapat proses 1 request pada satu masa (tiada concurrency).
+                        </p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Analog Lebuhraya:<br>
+                            • Latency = Kelajuan kereta (km/j)<br>
+                            • Throughput = Jumlah kereta lalu melepasi tol sesaat
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 9 -->
+            <div class="slide space-y-6" data-title="Error Rate">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Error Rate (Kadar Ralat)</h2>
+                    <p class="text-slate-400">Nisbah permintaan gagal berbanding jumlah keseluruhan request</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto items-center">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 text-center font-mono">
+                        <div class="text-sm text-slate-400">FORMULA</div>
+                        <div class="text-lg text-slate-200">Error Rate = ( Failed Requests / Total Requests ) × 100%</div>
+                        <div class="p-4 bg-slate-900 rounded-xl space-y-2 text-left text-xs">
+                            <div class="text-slate-400">Contoh Pengiraan:</div>
+                            <div class="text-noc-accent">1,000 total requests received</div>
+                            <div class="text-noc-rose">10 failed HTTP 500 errors</div>
+                            <div class="text-noc-amber font-bold text-base mt-2">➔ Error Rate = 1.0%</div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-4">
+                        <h3 class="text-xl font-bold text-noc-rose">Kaitan Dengan Alerting</h3>
+                        <p class="text-sm text-slate-300">
+                            Lonjakan Error Rate tiba-tiba (cth: dari 0.1% ke 5%) adalah petanda terbaik berlakunya **regresi deployment** atau **downstream outage**.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 10 -->
+            <div class="slide space-y-6" data-title="Availability">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Availability (Ketersediaan Perkhidmatan)</h2>
+                    <p class="text-slate-400">"Berapa peratusan masa perkhidmatan boleh berfungsi dan diakses?"</p>
+                </div>
+
+                <div class="space-y-6 my-auto">
+                    <div class="grid md:grid-cols-3 gap-6 font-mono">
+                        <div class="p-6 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                            <div class="text-2xl font-bold text-noc-accent">99% Availability</div>
+                            <div class="text-xs text-noc-rose font-bold">Downtime: ~3.65 hari / tahun</div>
+                            <p class="text-xs text-slate-400">Sesuai untuk Homelab / Personal Project.</p>
+                        </div>
+
+                        <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-xl space-y-2">
+                            <div class="text-2xl font-bold text-noc-amber">99.9% ("Three Nines")</div>
+                            <div class="text-xs text-noc-amber font-bold">Downtime: ~8.76 jam / tahun</div>
+                            <p class="text-xs text-slate-400">Standard Perniagaan SME / Internal Apps.</p>
+                        </div>
+
+                        <div class="p-6 bg-noc-card border border-noc-emerald/40 rounded-xl space-y-2">
+                            <div class="text-2xl font-bold text-noc-emerald">99.99% ("Four Nines")</div>
+                            <div class="text-xs text-noc-emerald font-bold">Downtime: ~52.6 minit / tahun</div>
+                            <p class="text-xs text-slate-400">Sistem Perbankan / Enterprise Critical.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 text-center">
+                        ⚠️ <strong>Ingatan Pedagogi:</strong> Tidak semua sistem memerlukan 99.99%. Menambah "nine" meningkatkan kos infrastruktur dan kompleksiti secara eksponen!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 11 -->
+            <div class="slide space-y-6" data-title="Uptime vs Health">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Uptime vs Application Health</h2>
+                    <p class="text-slate-400">Mengapa status "Running" boleh menipu anda</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 bg-noc-emerald rounded-full"></span>
+                            <h3 class="text-xl font-bold text-white">Docker Container: RUNNING</h3>
+                        </div>
+                        <p class="text-sm text-slate-300">
+                            Process ID (PID) masih wujud dalam OS. Sistem OS menganggap bekas Docker ini aktif.
+                        </p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-noc-emerald">
+                            $ docker ps<br>
+                            Status: Up 14 days (healthy)
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-rose/50 rounded-2xl space-y-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 bg-noc-rose rounded-full animate-pulse"></span>
+                            <h3 class="text-xl font-bold text-noc-rose">Application: BROKEN</h3>
+                        </div>
+                        <p class="text-sm text-slate-300">
+                            Aplikasi mengalami <em>Deadlock</em> atau terputus sambungan ke Database. HTTP request memulangkan 500 Internal Error.
+                        </p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-noc-rose">
+                            HTTP GET /api/users<br>
+                            500 Internal Server Error (Database unreachable)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-noc-amber/10 border border-noc-amber/30 rounded-xl text-sm font-semibold text-center text-noc-amber">
+                    📢 PENTING: Process Running ≠ Application Healthy!
+                </div>
+            </div>
+
+            <!-- SLIDE 12 -->
+            <div class="slide space-y-6" data-title="Health Checks">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Health Checks (Liveness vs Readiness)</h2>
+                    <p class="text-slate-400">Mekanisme proaktif bertanya khabar perkhidmatan</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3">
+                        <h3 class="text-xl font-bold text-noc-accent">1. Liveness Probe</h3>
+                        <p class="text-xs text-slate-300">"Adakah perkhidmatan ini masih hidup/wujud?"</p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Jika Gagal ➔ Orchestrator (Docker Swarm/K8s) akan <strong>KILL & RESTART</strong> container secara automatik.
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl space-y-3">
+                        <h3 class="text-xl font-bold text-noc-purple">2. Readiness Probe</h3>
+                        <p class="text-xs text-slate-300">"Adakah aplikasi sedia terima trafik pengguna?"</p>
+                        <div class="p-3 bg-slate-900 rounded-lg text-xs font-mono text-slate-400">
+                            Jika Gagal ➔ Reverse Proxy akan <strong>STOP HANTAR TRAFIK</strong> ke container ini sehingga ia sedia (cth: habis loading cache).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-300">
+                    Standard Endpoint Contoh: <code>GET /healthz</code> atau <code>GET /ready</code> ➔ Return <code>HTTP 200 OK {"status": "UP"}</code>
+                </div>
+            </div>
+
+            <!-- SLIDE 13 -->
+            <div class="slide space-y-6" data-title="Heartbeat">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Heartbeat Mechanism</h2>
+                    <p class="text-slate-400">"I'm alive!" — Isyarat denyutan nadi berkala</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto items-center">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4">
+                        <h3 class="text-lg font-bold text-white">Bagaimana Heartbeat Berfungsi?</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-sm text-slate-300">
+                            <li>Server / Agent menghantar 'ping' berkala setiap 60 saat ke Central Monitor (cth: Uptime Kuma).</li>
+                            <li>Jika Central Monitor menerima isyarat ➔ Status 🟢 GREEN.</li>
+                            <li>Jika tiada isyarat diterima selama >3 minit ➔ 🚨 ALERT: Server/Tunnel Down!</li>
+                        </ol>
+                    </div>
+
+                    <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4 font-mono">
+                        <div class="text-xs text-slate-400">HEARTBEAT FLOW</div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-emerald text-noc-emerald text-xs">
+                            Server ➔ PING (10:00:00) ➔ OK
+                        </div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-emerald text-noc-emerald text-xs">
+                            Server ➔ PING (10:01:00) ➔ OK
+                        </div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-rose text-noc-rose text-xs animate-pulse">
+                            Server ➔ MISSED (10:02:00) ➔ 🚨 TRIGGER ALERT
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 14 -->
+            <div class="slide space-y-6" data-title="Logs Overview">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Logs (Rekod Peristiwa Bercap Masa)</h2>
+                    <p class="text-slate-400">"Penceritaan Terperinci Peristiwa Sistem"</p>
+                </div>
+
+                <div class="space-y-4 my-auto">
+                    <div class="p-4 bg-slate-950 font-mono text-xs rounded-xl border border-slate-800 space-y-2 text-slate-300">
+                        <div class="text-noc-emerald">2026-08-18 10:21:01 [INFO] User auth_id=8923 login successfully from IP=203.0.113.10</div>
+                        <div class="text-noc-amber">2026-08-18 10:21:45 [WARN] High memory usage detected on worker thread #4</div>
+                        <div class="text-noc-rose">2026-08-18 10:22:14 [ERROR] Database connection failed: timeout after 5000ms</div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4 text-xs">
+                        <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                            <strong class="text-noc-accent">Kelebihan Log:</strong> Menyediakan konteks terperinci (siapa, bila, di mana) yang tidak ditunjukkan oleh angka metrics.
+                        </div>
+                        <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                            <strong class="text-noc-rose">Cabaran Log:</strong> Isipadu data sangat besar. Memerlukan penapisan & log rotation yang betul.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 15 -->
+            <div class="slide space-y-6" data-title="Log Levels">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Log Severity Levels</h2>
+                    <p class="text-slate-400">Tahap kepentingan log untuk kawalan kejelasan data</p>
+                </div>
+
+                <div class="grid md:grid-cols-5 gap-3 font-mono text-xs my-auto">
+                    <div class="p-4 bg-slate-900 border-l-4 border-slate-500 rounded-r-xl space-y-2">
+                        <strong class="text-slate-400 text-sm">DEBUG</strong>
+                        <p class="text-slate-400">Maklumat teknikal terperinci untuk developer semasa pembangunan.</p>
+                    </div>
+                    <div class="p-4 bg-slate-900 border-l-4 border-noc-accent rounded-r-xl space-y-2">
+                        <strong class="text-noc-accent text-sm">INFO</strong>
+                        <p class="text-slate-300">Operasi normal aplikasi (cth: User login, job completed).</p>
+                    </div>
+                    <div class="p-4 bg-slate-900 border-l-4 border-noc-amber rounded-r-xl space-y-2">
+                        <strong class="text-noc-amber text-sm">WARNING</strong>
+                        <p class="text-slate-300">Isu potensi bermasalah tetapi sistem masih berjalan.</p>
+                    </div>
+                    <div class="p-4 bg-slate-900 border-l-4 border-noc-rose rounded-r-xl space-y-2">
+                        <strong class="text-noc-rose text-sm">ERROR</strong>
+                        <p class="text-slate-300">Satu fungsi/operasi gagal diproses.</p>
+                    </div>
+                    <div class="p-4 bg-slate-900 border-l-4 border-noc-purple rounded-r-xl space-y-2">
+                        <strong class="text-noc-purple text-sm">CRITICAL</strong>
+                        <p class="text-slate-200">Seluruh aplikasi crash atau tidak berfungsi langsung.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 16 -->
+            <div class="slide space-y-6" data-title="Structured Logging">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Structured Logging (Format JSON)</h2>
+                    <p class="text-slate-400">Membolehkan mesin & parser seperti Loki / Elasticsearch membuat query pantas</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 my-auto font-mono text-xs">
+                    <div class="p-4 bg-noc-rose/10 border border-noc-rose/30 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">❌ Unstructured (Plain Text)</div>
+                        <pre class="p-3 bg-slate-950 rounded text-slate-400">User login failed for user123 from IP 203.0.113.10 at 10:22</pre>
+                        <p class="text-slate-400">Sukar diproses oleh mesin. Perlu Regex kompleks.</p>
+                    </div>
+
+                    <div class="p-4 bg-noc-emerald/10 border border-noc-emerald/30 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">✅ Structured (JSON Format)</div>
+                        <pre class="p-3 bg-slate-950 rounded text-noc-emerald">
+{
+  "timestamp": "2026-08-18T10:22:00Z",
+  "level": "error",
+  "event": "login_failed",
+  "user_id": "user123",
+  "ip_address": "203.0.113.10"
+}</pre>
+                        <p class="text-slate-300">Sangat mudah dibuat carian: <code>event=="login_failed"</code></p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-noc-rose/20 border border-noc-rose/40 rounded-xl text-xs text-noc-rose font-bold text-center">
+                    🔒 KESELAMATAN: Jangan sesekali simpan Password, JWT Token, atau Card CVV dalam logs!
+                </div>
+            </div>
+
+            <!-- SLIDE 17 -->
+            <div class="slide space-y-6" data-title="Log Correlation">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Log Correlation (Correlation ID)</h2>
+                    <p class="text-slate-400">Menghubungkan log merentas pelbagai perkhidmatan microservices</p>
+                </div>
+
+                <div class="space-y-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-slate-900 border border-noc-accent/40 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">Request ID Generation: `X-Correlation-ID: req-abc-789`</div>
+                        <div class="grid gap-2">
+                            <div class="p-2 bg-slate-950 rounded text-slate-300">
+                                [Reverse Proxy] Pass header ➔ <code>req-abc-789</code>
+                            </div>
+                            <div class="p-2 bg-slate-950 rounded text-slate-300">
+                                [App Service] Receive request ➔ Log entry tagged with <code>req-abc-789</code>
+                            </div>
+                            <div class="p-2 bg-slate-950 rounded text-slate-300">
+                                [DB Service] Execute query ➔ Log query tagged with <code>req-abc-789</code>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-slate-400 text-center text-xs">
+                        Dengan Correlation ID, anda boleh `grep req-abc-789` untuk melihat **keseluruh perjalanan transaksi** pengguna secara lengkap!
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 18 -->
+            <div class="slide space-y-6" data-title="Distributed Tracing">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Distributed Tracing</h2>
+                    <p class="text-slate-400">"Menjejak masa dan perjalanan satu request menerusi pelbagai sistem"</p>
+                </div>
+
+                <div class="space-y-6 my-auto font-mono text-xs">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-3">
+                        <div class="text-noc-cyan font-bold text-sm">TRACE ID: tr-9988-x12 (Total Time: 1,025ms)</div>
+                        
+                        <!-- Waterfall Trace Gantt chart visual -->
+                        <div class="space-y-2">
+                            <div>
+                                <div class="flex justify-between text-slate-400 mb-1">
+                                    <span>Cloudflare WAF (20ms)</span>
+                                </div>
+                                <div class="w-full bg-slate-900 h-4 rounded overflow-hidden">
+                                    <div class="bg-noc-accent h-full" style="width: 2%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-slate-400 mb-1">
+                                    <span>Nginx Reverse Proxy (5ms)</span>
+                                </div>
+                                <div class="w-full bg-slate-900 h-4 rounded overflow-hidden">
+                                    <div class="bg-noc-emerald h-full" style="width: 1%; margin-left: 2%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-slate-400 mb-1">
+                                    <span>API Backend (200ms)</span>
+                                </div>
+                                <div class="w-full bg-slate-900 h-4 rounded overflow-hidden">
+                                    <div class="bg-noc-purple h-full" style="width: 20%; margin-left: 3%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-noc-rose font-bold mb-1">
+                                    <span>PostgreSQL Query (800ms) ⚠️ BOTTLENECK</span>
+                                </div>
+                                <div class="w-full bg-slate-900 h-4 rounded overflow-hidden">
+                                    <div class="bg-noc-rose h-full" style="width: 77%; margin-left: 23%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 19 -->
+            <div class="slide space-y-6" data-title="Trace vs Log">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Perbezaan Trace vs Log</h2>
+                    <p class="text-slate-400">Bagaimana Tracing Melengkapi Logging</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl space-y-3">
+                        <h3 class="text-xl font-bold text-noc-purple">LOG ENTRY</h3>
+                        <p class="text-xs text-slate-300 font-mono">
+                            "Database query took 2.3 seconds."
+                        </p>
+                        <div class="text-slate-400 text-xs">
+                            Memberitahu sesuatu berlaku secara terpencil, tetapi sukar membayangkan konteks susunan masa operasi lain.
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-cyan/40 rounded-2xl space-y-3">
+                        <h3 class="text-xl font-bold text-noc-cyan">DISTRIBUTED TRACE</h3>
+                        <p class="text-xs text-slate-300 font-mono">
+                            Request ➔ API (10ms) ➔ Auth (15ms) ➔ DB Query (2300ms) ➔ Redis (2ms)
+                        </p>
+                        <div class="text-slate-400 text-xs">
+                            Memperlihatkan **hirarki masa & kebergantungan (dependencies)** secara visual.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 20 -->
+            <div class="slide space-y-6" data-title="Observability Data Model">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Observability Data Fusion</h2>
+                    <p class="text-slate-400">Menggabungkan data telemetry menjadi Konteks Penting</p>
+                </div>
+
+                <div class="p-8 bg-slate-900/90 border border-slate-800 rounded-2xl text-center space-y-6 my-auto">
+                    <div class="grid grid-cols-4 gap-4 font-mono text-xs">
+                        <div class="p-3 bg-noc-accent/10 border border-noc-accent/30 rounded-lg text-noc-accent">
+                            📊 METRICS<br><span class="text-white font-bold">Angka & Trend</span>
+                        </div>
+                        <div class="p-3 bg-noc-purple/10 border border-noc-purple/30 rounded-lg text-noc-purple">
+                            📝 LOGS<br><span class="text-white font-bold">Peristiwa & Detail</span>
+                        </div>
+                        <div class="p-3 bg-noc-cyan/10 border border-noc-cyan/30 rounded-lg text-noc-cyan">
+                            🔍 TRACES<br><span class="text-white font-bold">Perjalanan Request</span>
+                        </div>
+                        <div class="p-3 bg-noc-amber/10 border border-noc-amber/30 rounded-lg text-noc-amber">
+                            ⚡ EVENTS<br><span class="text-white font-bold">Perubahan Status</span>
+                        </div>
+                    </div>
+
+                    <div class="text-2xl text-noc-accent font-bold">⬇️ COMBINED WITH CONTEXT ⬇️</div>
+
+                    <div class="p-4 bg-noc-card border border-noc-emerald rounded-xl text-noc-emerald font-semibold text-sm">
+                        OBSERVABILITY = Keupayaan memahami punca masalah dari dalaman sistem tanpa perlu deploy code baharu untuk debug.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 21 -->
+            <div class="slide space-y-6" data-title="Server Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Server & Linux Monitoring</h2>
+                    <p class="text-slate-400">Pemantauan Tahap Infrastruktur & Perkakas (Raspberry Pi / Linux VPS)</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">🖥️</div>
+                        <h3 class="text-noc-accent font-bold text-sm">CPU & LOAD</h3>
+                        <p class="text-slate-400">Utilization %, Load Average (1m, 5m, 15m), CPU Temp.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">🧠</div>
+                        <h3 class="text-noc-emerald font-bold text-sm">MEMORY (RAM)</h3>
+                        <p class="text-slate-400">Used, Free, Available, Swap Space Usage.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">💾</div>
+                        <h3 class="text-noc-amber font-bold text-sm">DISK STORAGE</h3>
+                        <p class="text-slate-400">Partition %, Disk Read/Write I/O, Inodes.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 22 -->
+            <div class="slide space-y-6" data-title="CPU Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Pemantauan CPU & Load Average</h2>
+                    <p class="text-slate-400">"Tinggi CPU tidak sentiasa bermakna serangan siber!"</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-3 text-xs">
+                        <h3 class="text-lg font-bold text-noc-accent">Metrik CPU Utama:</h3>
+                        <ul class="space-y-2 text-slate-300 font-mono">
+                            <li>• <strong>CPU Utilization:</strong> Peratusan masa CPU aktif.</li>
+                            <li>• <strong>Load Average:</strong> Purata giliran proses menunggu CPU. (Load > Jumlah Core = Sesak).</li>
+                            <li>• <strong>CPU Temp:</strong> Suhu cip pemproses (Kritikal untuk Raspberry Pi).</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 text-xs">
+                        <h3 class="text-lg font-bold text-noc-amber">Punca CPU Tinggi:</h3>
+                        <div class="space-y-1 text-slate-300 font-mono">
+                            <div>1. Heavy application processing (Video transcoding)</div>
+                            <div>2. Unindexed Database Query (Full Table Scan)</div>
+                            <div>3. Scheduled Backup Job (Cron Job Compression)</div>
+                            <div>4. Runaway Process / Infinite Loop</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 23 -->
+            <div class="slide space-y-6" data-title="RAM & OOM">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">RAM & Out-Of-Memory (OOM) Killer</h2>
+                    <p class="text-slate-400">Bahaya kehabisan memori fizikal pada Linux & Docker</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-3 text-xs font-mono">
+                        <h3 class="text-lg font-bold text-noc-emerald">Status Memori Linux</h3>
+                        <div class="p-3 bg-slate-950 rounded text-slate-300 space-y-1">
+                            <div>MemTotal: 8,000 MB</div>
+                            <div>MemFree: 400 MB</div>
+                            <div class="text-noc-emerald font-bold">MemAvailable: 3,200 MB (Termasuk Cache)</div>
+                        </div>
+                        <p class="text-slate-400">Nota: Linux menggunakan RAM kosong sebagai Buffers/Cache secara bijak!</p>
+                    </div>
+
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-3 text-xs">
+                        <h3 class="text-lg font-bold text-noc-rose">Bahaya OOM Killer!</h3>
+                        <p class="text-slate-300">
+                            Apabila RAM fizikal + Swap habis, Linux Kernel dipaksa mematikan proses terbesar secara paksa:
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded font-mono text-noc-rose">
+                            [10293.12] Out of memory: Kill process 4921 (mysqld) score 852 or sacrifice child!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 24 -->
+            <div class="slide space-y-6" data-title="Disk Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Disk Storage & Inodes</h2>
+                    <p class="text-slate-400">"Apabila Disk penuh, segalanya terhenti!"</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-noc-rose/40 rounded-xl space-y-2">
+                        <h3 class="text-noc-rose font-bold text-sm">Disk Space (GB / %)</h3>
+                        <p class="text-slate-300">Jika 100% penuh: Database tidak boleh write transaction, Nginx fail log, Docker crash.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-noc-amber/40 rounded-xl space-y-2">
+                        <h3 class="text-noc-amber font-bold text-sm">Disk I/O Wait</h3>
+                        <p class="text-slate-300">Kelewatan pembacaan/penulisan cakera keras. Boleh memperlahankan CPU.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-noc-purple/40 rounded-xl space-y-2">
+                        <h3 class="text-noc-purple font-bold text-sm">Inode Exhaustion</h3>
+                        <p class="text-slate-300">Storage masih ada 50GB, tetapi fail kecil terlalu banyak hingga Inodes 100% habis!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 25 -->
+            <div class="slide space-y-6" data-title="Network Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Network Traffic & Health</h2>
+                    <p class="text-slate-400">Memantau laluan data pada peranti Homelab & Server</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="flex justify-between items-center text-slate-400">
+                        <span>NETWORK FLOW ARCHITECTURE</span>
+                        <span class="text-noc-accent">RX / TX Metrics</span>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-2 text-center">
+                        <div class="p-3 bg-noc-card rounded-lg border border-slate-700 flex-1">🌐 Internet</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-card rounded-lg border border-slate-700 flex-1">📡 Router</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-card rounded-lg border border-slate-700 flex-1">🍓 Raspberry Pi</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-card rounded-lg border border-slate-700 flex-1">🐳 Docker Apps</div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 text-slate-300 pt-4 border-t border-slate-800">
+                        <div>• Bandwidth: In/Out (Mbps)</div>
+                        <div>• Packets Drop / Errors</div>
+                        <div>• Active TCP Connections</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 26 -->
+            <div class="slide space-y-6" data-title="Temperature Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Raspberry Pi Temperature & Throttling</h2>
+                    <p class="text-slate-400">Menjaga perkakas SBC (Single Board Computer) daripada terlampau panas</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-4 text-xs">
+                        <h3 class="text-lg font-bold text-noc-amber">Thermal Throttling</h3>
+                        <p class="text-slate-300">
+                            Apabila suhu CPU Raspberry Pi mencapai <strong>>80°C</strong>, perkakas secara automatik menurunkkan kelajuan clock CPU untuk mengelakkan kerosakan fizikal.
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded font-mono text-noc-amber">
+                            Suhu Naik ➔ Performance Drops ➔ Server Slow!
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-noc-emerald/40 rounded-2xl space-y-4 text-xs">
+                        <h3 class="text-lg font-bold text-noc-emerald">Langkah Pencegahan</h3>
+                        <ul class="space-y-2 text-slate-300 font-mono">
+                            <li>• Heatsink aluminium / kuprum</li>
+                            <li>• Kipas penyejuk (Cooling Fan)</li>
+                            <li>• Monitoring Alert jika Temp > 70°C</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 27 -->
+            <div class="slide space-y-6" data-title="Docker Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Docker Container Monitoring</h2>
+                    <p class="text-slate-400">Memantau prestasi & penggunaan sumber kontena</p>
+                </div>
+
+                <div class="space-y-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-300">
+                        <div class="text-slate-500 mb-2">$ docker stats</div>
+                        <div class="grid grid-cols-5 gap-2 text-noc-accent">
+                            <span>CONTAINER ID</span>
+                            <span>NAME</span>
+                            <span>CPU %</span>
+                            <span>MEM USAGE</span>
+                            <span>NET I/O</span>
+                        </div>
+                        <div class="grid grid-cols-5 gap-2 text-slate-300 mt-1">
+                            <span>a1b2c3d4</span>
+                            <span>nginx-proxy</span>
+                            <span>1.2%</span>
+                            <span>45MiB / 7.7GiB</span>
+                            <span>1.2MB / 8.4MB</span>
+                        </div>
+                        <div class="grid grid-cols-5 gap-2 text-noc-amber mt-1">
+                            <span>e5f6g7h8</span>
+                            <span>postgres-db</span>
+                            <span>45.8%</span>
+                            <span>1.2GiB / 7.7GiB</span>
+                            <span>45MB / 12MB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 28 -->
+            <div class="slide space-y-6" data-title="Database Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Database Monitoring (PostgreSQL / MySQL)</h2>
+                    <p class="text-slate-400">Database selalunya merupakan Bottleneck utama perkhidmatan web</p>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-4 my-auto text-xs font-mono">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">Active Connections</div>
+                        <p class="text-slate-400">Cth: 95/100 connections used. Kehabisan kolam sambungan!</p>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">Query Latency</div>
+                        <p class="text-slate-400">Masa pelaksanaan Slow Queries (>100ms).</p>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-amber font-bold">Cache Hit Rate</div>
+                        <p class="text-slate-400">Nisbah query dibaca dari RAM vs Disk (>99% ideal).</p>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">Locks & Deadlocks</div>
+                        <p class="text-slate-400">Proses saling menunggu kunci row transaksi.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 29 -->
+            <div class="slide space-y-6" data-title="Application Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Application Performance Monitoring (APM)</h2>
+                    <p class="text-slate-400">Pemantauan khusus tahap kod dan lapisan HTTP</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">HTTP Status Codes</div>
+                        <div class="text-slate-300">• 2xx: Success<br>• 4xx: Client Error (404/401)<br>• 5xx: Server Error (500/502)</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">Request Count / Rate</div>
+                        <div class="text-slate-300">Jumlah trafik masuk persaat (RPS).</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-purple font-bold">GC (Garbage Collection)</div>
+                        <div class="text-slate-300">Jeda masa (pause) pembekuan memori aplikasi.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 30 -->
+            <div class="slide space-y-6" data-title="Four Golden Signals">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">The Four Golden Signals (Google SRE)</h2>
+                    <p class="text-slate-400">Empat metrik paling utama untuk memantau mana-mana sistem perkhidmatan</p>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-4 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-accent rounded-xl space-y-2">
+                        <h3 class="text-noc-accent font-bold text-sm">1. LATENCY</h3>
+                        <p class="text-slate-300">Masa diambil untuk memproses permintaan (membezakan request berjaya vs gagal).</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-emerald rounded-xl space-y-2">
+                        <h3 class="text-noc-emerald font-bold text-sm">2. TRAFFIC</h3>
+                        <p class="text-slate-300">Ukuran permintaan terhadap sistem (cth: HTTP requests/sec, network I/O).</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-rose rounded-xl space-y-2">
+                        <h3 class="text-noc-rose font-bold text-sm">3. ERRORS</h3>
+                        <p class="text-slate-300">Kadar permintaan gagal (cth: HTTP 500, DB timeouts, exception errors).</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-amber rounded-xl space-y-2">
+                        <h3 class="text-noc-amber font-bold text-sm">4. SATURATION</h3>
+                        <p class="text-slate-300">Berapa penuh sumber sistem (CPU 90%, RAM 95%, DB Connection pool 99%).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 31 -->
+            <div class="slide space-y-6" data-title="Saturation">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Understanding Saturation</h2>
+                    <p class="text-slate-400">"Sejauh mana sistem menghampiri had maksimanya?"</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-amber font-bold text-sm">AMARAN SATURASI TINGGI (RISK DEGRADATION):</div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">
+                            CPU: <span class="text-noc-amber font-bold">95%</span> ➔ Queueing delay bermula
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">
+                            RAM: <span class="text-noc-amber font-bold">92%</span> ➔ Risk OOM Swap Thrashing
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">
+                            Disk: <span class="text-noc-rose font-bold">98%</span> ➔ Danger Write Failure
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">
+                            DB Conn Pool: <span class="text-noc-rose font-bold">96/100</span> ➔ Client Connection Rejected
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 32 -->
+            <div class="slide space-y-6" data-title="Dashboard Concept">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Visual Dashboards</h2>
+                    <p class="text-slate-400">Menyusun data terasing menjadi pandangan yang jelas</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="text-noc-accent font-bold">📊 NOC DASHBOARD MOCKUP</span>
+                        <span class="text-noc-emerald">🟢 System Status: HEALTHY</span>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="p-4 bg-noc-card rounded-xl text-center border border-slate-800">
+                            <div class="text-slate-400">Requests</div>
+                            <div class="text-2xl font-bold text-noc-accent">142/s</div>
+                        </div>
+                        <div class="p-4 bg-noc-card rounded-xl text-center border border-slate-800">
+                            <div class="text-slate-400">Errors</div>
+                            <div class="text-2xl font-bold text-noc-emerald">0.02%</div>
+                        </div>
+                        <div class="p-4 bg-noc-card rounded-xl text-center border border-slate-800">
+                            <div class="text-slate-400">P95 Latency</div>
+                            <div class="text-2xl font-bold text-noc-cyan">84ms</div>
+                        </div>
+                        <div class="p-4 bg-noc-card rounded-xl text-center border border-slate-800">
+                            <div class="text-slate-400">CPU Temp</div>
+                            <div class="text-2xl font-bold text-noc-amber">52°C</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 33 -->
+            <div class="slide space-y-6" data-title="Prometheus">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Prometheus</h2>
+                    <p class="text-slate-400">Enjin Pengumpul & Penyimpanan Metrics Masa-Siri (Time-Series Database)</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto font-mono text-xs">
+                    <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3">
+                        <h3 class="text-lg font-bold text-noc-accent">Ciri Utama Prometheus:</h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li>• <strong>Pull Model:</strong> Prometheus secara aktif menarik (scrape) metrics dari perkhidmatan.</li>
+                            <li>• <strong>PromQL:</strong> Bahasa query berasaskan matematik siri masa.</li>
+                            <li>• <strong>No External DB:</strong> Menyiapkan enjin data time-series terbinanya sendiri.</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                        <h3 class="text-lg font-bold text-white">Prometheus Architecture Flow</h3>
+                        <div class="p-3 bg-noc-card rounded border border-slate-700 text-center">
+                            Applications / Exporters (e.g. Node Exporter)
+                        </div>
+                        <div class="text-center text-noc-accent">⬇️ Scrapes `/metrics` HTTP Endpoint</div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-accent text-center text-noc-accent font-bold">
+                            Prometheus Server (TSDB)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 34 -->
+            <div class="slide space-y-6" data-title="Metrics Endpoint">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">The `/metrics` Endpoint</h2>
+                    <p class="text-slate-400">Format teks terbuka Prometheus Metrics Exposition</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs">
+                    <div class="text-slate-500"># HTTP GET http://localhost:9100/metrics</div>
+                    <pre class="text-slate-300">
+# HELP node_cpu_seconds_total Seconds the CPUs spent in each mode.
+# TYPE node_cpu_seconds_total counter
+node_cpu_seconds_total{cpu="0",mode="idle"} 489201.2
+node_cpu_seconds_total{cpu="0",mode="system"} 1204.5
+
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 47841280</pre>
+                </div>
+            </div>
+
+            <!-- SLIDE 35 -->
+            <div class="slide space-y-6" data-title="Grafana">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Grafana</h2>
+                    <p class="text-slate-400">Platform Visualisasi & Open-Source Analytics Dashboard</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-3 text-xs">
+                        <h3 class="text-lg font-bold text-noc-amber">Mengapa Grafana?</h3>
+                        <p class="text-slate-300">
+                            Prometheus cemerlang menyimpan data, tetapi Grafana menyediakan **papan pemuka (dashboard)** serba lengkap dengan graf, carta gauge, alert visual dan peta haba.
+                        </p>
+                        <div class="p-3 bg-slate-900 rounded font-mono text-slate-400">
+                            Menyambung pelbagai Data Source: Prometheus, Loki, PostgreSQL, InfluxDB.
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center font-mono text-xs text-noc-amber font-bold">
+                        Prometheus (Data) ➔ Grafana (Visualisasi)
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 36 -->
+            <div class="slide space-y-6" data-title="Prometheus + Grafana Architecture">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Prometheus + Grafana Integration</h2>
+                    <p class="text-slate-400">Gabungan standard industri untuk Homelab & Production</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs text-center">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="p-4 bg-noc-card rounded-xl border border-slate-700">🍓 Raspberry Pi (Node Exporter)</div>
+                        <div class="p-4 bg-noc-card rounded-xl border border-slate-700">🐳 Docker (cAdvisor)</div>
+                        <div class="p-4 bg-noc-card rounded-xl border border-slate-700">🗄️ PostgreSQL Exporter</div>
+                    </div>
+                    <div class="text-noc-accent">⬇️ Pull Scrape (every 15s)</div>
+                    <div class="p-4 bg-noc-accent/10 border border-noc-accent rounded-xl text-noc-accent font-bold">
+                        🔥 PROMETHEUS TSDB
+                    </div>
+                    <div class="text-noc-amber">⬇️ PromQL Query</div>
+                    <div class="p-4 bg-noc-amber/10 border border-noc-amber rounded-xl text-noc-amber font-bold">
+                        📊 GRAFANA DASHBOARDS
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 37 -->
+            <div class="slide space-y-6" data-title="Logging Stack">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Logging Ecosystem Stack (Grafana Loki)</h2>
+                    <p class="text-slate-400">Pengumpulan dan Pengagregatan Log Terpusat</p>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-4 my-auto font-mono text-xs text-center">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-slate-400">1. APP / HOST</div>
+                        <div class="text-slate-200">Writes Logs to stdout/file</div>
+                    </div>
+                    <div class="text-noc-purple self-center">➔</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-purple">2. COLLECTOR</div>
+                        <div class="text-slate-200">Promtail / Grafana Alloy</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-purple font-bold">3. STORAGE</div>
+                        <div class="text-slate-200">Grafana Loki</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 38 -->
+            <div class="slide space-y-6" data-title="OpenTelemetry">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">OpenTelemetry (OTel)</h2>
+                    <p class="text-slate-400">Piawaian Terbuka Generasi Baharu Pengumpulan Telemetry</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-cyan/40 rounded-2xl space-y-4 my-auto text-xs">
+                    <h3 class="text-lg font-bold text-noc-cyan">Mengapa OpenTelemetry Penting?</h3>
+                    <p class="text-slate-300">
+                        OTel menyediakan API, SDK, dan Kolektor vendor-neutral untuk mengumpul **Metrics, Logs, dan Traces** tanpa terikat dengan mana-mana vendor (Vendor Lock-in).
+                    </p>
+                    <div class="p-4 bg-slate-950 rounded font-mono text-slate-400">
+                        Code Instrumentation ➔ OTel Collector ➔ Hantar ke Prometheus / Jaeger / Datadog.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 39 -->
+            <div class="slide space-y-6" data-title="Observability Architecture Pipeline">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Observability Pipeline Flow</h2>
+                    <p class="text-slate-400">Dari Perkhidmatan kepada Tindakan Manusia</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs text-center">
+                    <div class="p-3 bg-noc-card rounded border border-slate-700">APPS & INFRASTRUCTURE</div>
+                    <div>⬇️ (Metrics, Logs, Traces)</div>
+                    <div class="p-3 bg-noc-card rounded border border-noc-cyan">OBSERVABILITY PLATFORM</div>
+                    <div>⬇️</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-3 bg-noc-amber/10 border border-noc-amber rounded text-noc-amber">DASHBOARDS</div>
+                        <div class="p-3 bg-noc-rose/10 border border-noc-rose rounded text-noc-rose">ALERTS</div>
+                    </div>
+                    <div>⬇️</div>
+                    <div class="p-3 bg-noc-emerald/10 border border-noc-emerald rounded text-noc-emerald font-bold">HUMAN / SYSTEM OPERATOR</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 40 -->
+            <div class="slide space-y-6" data-title="Alerting Fundamentals">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alerting Fundamentals</h2>
+                    <p class="text-slate-400">Memberitahu Admin apabila perkhidmatan memerlukan perhatian</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto">
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-3 text-xs">
+                        <h3 class="text-lg font-bold text-noc-rose">🚨 Tujuan Alert</h3>
+                        <p class="text-slate-300">
+                            Alert **bukan sekadar** laporan statistik. Alert hanya patut dihantar apabila **tindakan manusia (human action)** diperlukan secara serta-merta!
+                        </p>
+                    </div>
+
+                    <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-3 text-xs font-mono">
+                        <div class="text-noc-accent font-bold">Siklus Alert:</div>
+                        <div>1. Metric melepasi Threshold</div>
+                        <div>2. Peringkat Pending (cth: berlanjutan 5 minit)</div>
+                        <div>3. Alert Firing ➔ Hantar Notifikasi</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 41 -->
+            <div class="slide space-y-6" data-title="Good Alert vs Bad Alert">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Good Alert vs Bad Alert</h2>
+                    <p class="text-slate-400">Menghindari kebisingan tidak berguna</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto font-mono text-xs">
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-3">
+                        <h3 class="text-noc-rose font-bold text-sm">❌ BAD ALERT (Spam / Noise)</h3>
+                        <div class="p-3 bg-slate-950 rounded text-slate-300">
+                            IF CPU > 80% THEN ALERT
+                        </div>
+                        <p class="text-slate-400">Punca: CPU melonjak 81% selama 3 saat akibat cron job biasa, menghasilkan alert bising mengganggu tidur admin!</p>
+                    </div>
+
+                    <div class="p-6 bg-noc-emerald/10 border border-noc-emerald/30 rounded-2xl space-y-3">
+                        <h3 class="text-noc-emerald font-bold text-sm">✅ GOOD ALERT (Actionable)</h3>
+                        <div class="p-3 bg-slate-950 rounded text-slate-300">
+                            IF CPU > 90% AND Latency > 2s FOR 10 minutes THEN ALERT
+                        </div>
+                        <p class="text-slate-300">Guna syarat berganda (multi-condition) dan tetingkap masa (time window) untuk mengesahkan masalah sebenar.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 42 -->
+            <div class="slide space-y-6" data-title="Alert Fatigue">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Fatigue (Keletihan Alert)</h2>
+                    <p class="text-slate-400">Bahaya terbesar dalam pengurusan pemantauan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-rose/50 rounded-2xl space-y-4 my-auto text-xs">
+                    <div class="text-noc-rose font-bold text-lg">😵 Fenomena Alert Fatigue</div>
+                    <p class="text-slate-300">
+                        Apabila sistem menghantar 100+ alert sehari yang tidak memerlukan tindakan (false alarms), Admin akan mula <strong>mengabaikan atau meletakkan notifikasi pada mod Mute</strong>.
+                    </p>
+                    <div class="p-4 bg-slate-950 rounded font-mono text-noc-rose">
+                        Kesan: Apabila INSIDEN SEBENAR berlaku, tiada siapa yang menyedarinya kerana menyangka ia sekadar spam biasa!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 43 -->
+            <div class="slide space-y-6" data-title="Alert Severity">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Severity Levels</h2>
+                    <p class="text-slate-400">Pengkategorian Alert mengikut tahap impak</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-accent rounded-xl space-y-2">
+                        <h3 class="text-noc-accent font-bold text-sm">INFO / NOTICE</h3>
+                        <p class="text-slate-300">Disk 75% penuh. Perlu perhatian biasa. Hantar ke log / dashboard sahaja.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-amber rounded-xl space-y-2">
+                        <h3 class="text-noc-amber font-bold text-sm">WARNING</h3>
+                        <p class="text-slate-300">Disk 88% penuh. Hantar notifikasi Telegram / Slack waktu pejabat.</p>
+                    </div>
+                    <div class="p-5 bg-noc-card border-t-4 border-noc-rose rounded-xl space-y-2">
+                        <h3 class="text-noc-rose font-bold text-sm">CRITICAL (PAGER)</h3>
+                        <p class="text-slate-300">Website Total Outage / Disk 98%! Kejutkan Admin bertugas serta-merta.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 44 -->
+            <div class="slide space-y-6" data-title="Notification Channels">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Notification Channels</h2>
+                    <p class="text-slate-400">Saluran Penyampaian Notifikasi Alert</p>
+                </div>
+
+                <div class="grid md:grid-cols-4 gap-4 my-auto font-mono text-xs text-center">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">💬</div>
+                        <div class="text-noc-accent font-bold">Telegram / Discord</div>
+                        <div class="text-slate-400">Percuma & Mudah untuk Homelab / Team.</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">📧</div>
+                        <div class="text-noc-emerald font-bold">Email</div>
+                        <div class="text-slate-400">Sesuai untuk laporan berkala / non-urgent.</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">📟</div>
+                        <div class="text-noc-rose font-bold">PagerDuty / Opsgenie</div>
+                        <div class="text-slate-400">Panggilan telefon kecemasan automatik (Enterprise).</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-2xl">🔗</div>
+                        <div class="text-noc-purple font-bold">Webhooks</div>
+                        <div class="text-slate-400">Automasi pembaikan kendiri (Self-healing scripts).</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 45 -->
+            <div class="slide space-y-6" data-title="Incident Lifecycle">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Incident Response Lifecycle</h2>
+                    <p class="text-slate-400">Alur kerja tindak balas daripada Alert sehingga Pemulihan</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs text-center">
+                    <div class="flex items-center justify-between gap-1 text-slate-300">
+                        <div class="p-3 bg-noc-rose/20 border border-noc-rose text-noc-rose rounded">1. ALERT</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-amber/20 border border-noc-amber text-noc-amber rounded">2. ACKNOWLEDGE</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-accent/20 border border-noc-accent text-noc-accent rounded">3. INVESTIGATE</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-purple/20 border border-noc-purple text-noc-purple rounded">4. MITIGATE</div>
+                        <span>➔</span>
+                        <div class="p-3 bg-noc-emerald/20 border border-noc-emerald text-noc-emerald rounded">5. RECOVER</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 46 -->
+            <div class="slide space-y-6" data-title="Incident Timeline Example">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Contoh Timeline Insiden Sebenar</h2>
+                    <p class="text-slate-400">Kronologi pengesanan dan tindakan pembaikan</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs">
+                    <div class="text-slate-400">10:00 - Deployment versi baharu app v2.1 dibuat.</div>
+                    <div class="text-noc-amber">10:03 - Error rate HTTP 500 melonjak dari 0.1% ke 8.5%.</div>
+                    <div class="text-noc-rose font-bold">10:05 - Alert Firing: "High Error Rate on API Service".</div>
+                    <div class="text-noc-accent">10:07 - Admin mendaftar masuk, semak Grafana & Loki logs.</div>
+                    <div class="text-noc-purple">10:15 - Punca ditemui: Missing DB Index. Admin buat Rollback ke v2.0.</div>
+                    <div class="text-noc-emerald font-bold">10:18 - Error rate kembali ke 0%. Service Recovered!</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 47 -->
+            <div class="slide space-y-6" data-title="SLI (Service Level Indicator)">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">SLI (Service Level Indicator)</h2>
+                    <p class="text-slate-400">Ukuran kuantitatif sebenar prestasi perkhidmatan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-accent font-bold text-sm">SLI = MEASUREMENT (APA YANG DIUKUR SEBENARNYA)</div>
+                    <div class="space-y-2 text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded">• Availability SLI: 99.95% daripada request berjaya (HTTP 200).</div>
+                        <div class="p-3 bg-slate-900 rounded">• Latency SLI: 95% daripada request selesai dalam masa &lt; 200ms.</div>
+                        <div class="p-3 bg-slate-900 rounded">• Error Rate SLI: 0.05% ralat dicatat dalam tempoh 30 hari.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 48 -->
+            <div class="slide space-y-6" data-title="SLO (Service Level Objective)">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">SLO (Service Level Objective)</h2>
+                    <p class="text-slate-400">Sasaran prestasi internal yang ditetapkan oleh pasukan perkhidmatan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-emerald/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-emerald font-bold text-sm">SLO = TARGET / OBJECTIVE (MATLAMAT INTERNAL)</div>
+                    <div class="space-y-2 text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded">"Ketersediaan API web mestilah sekurang-kurangnya 99.9% setiap bulan."</div>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded text-slate-400">
+                        Perbezaan: SLI ialah ukuran *sebenar*, SLO ialah *sasaran* yang hendak dicapai.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 49 -->
+            <div class="slide space-y-6" data-title="SLA (Service Level Agreement)">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">SLA (Service Level Agreement)</h2>
+                    <p class="text-slate-400">Perjanjian Kontrak Perniagaan dengan Pelanggan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-purple font-bold text-sm">SLA = CONTRACT / BUSINESS COMMITMENT</div>
+                    <p class="text-slate-300">
+                        Komitmen undang-undang antara penyedia perkhidmatan dan pelanggan. Mengandungi **penalti kewangan** jika SLO gagal dipenuhi.
+                    </p>
+                    <div class="grid grid-cols-3 gap-2 text-center text-slate-400 pt-2">
+                        <div class="p-2 bg-slate-900 rounded">SLI (Ukuran Sebenar)</div>
+                        <div class="p-2 bg-slate-900 rounded">SLO (Sasaran Internal)</div>
+                        <div class="p-2 bg-slate-900 rounded text-noc-purple font-bold">SLA (Kontrak + Penalti)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 50 -->
+            <div class="slide space-y-6" data-title="Percentiles (P50, P95, P99)">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Percentiles (P50, P95, P99 Latency)</h2>
+                    <p class="text-slate-400">Mengapa nilai purata (Average) menyembunyikan masalah sebenar</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto font-mono text-xs">
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-3">
+                        <h3 class="text-noc-rose font-bold text-sm">❌ BAHAYA AVERAGE (MEAN)</h3>
+                        <p class="text-slate-300">
+                            9 request mengambil 100ms, tetapi 1 request mengambil 10,000ms (10 saat). Purata = 1,090ms!
+                        </p>
+                        <p class="text-slate-400">Purata memberi tanggapan salah seolah-olah semua orang mengalami 1 saat lag.</p>
+                    </div>
+
+                    <div class="p-6 bg-noc-emerald/10 border border-noc-emerald/30 rounded-2xl space-y-3">
+                        <h3 class="text-noc-emerald font-bold text-sm">✅ PERCENTILES (TAIL LATENCY)</h3>
+                        <div class="space-y-1 text-slate-300">
+                            <div>• <strong>P50 (Median):</strong> 50% pengguna dapat &lt; 100ms.</div>
+                            <div>• <strong>P95:</strong> 95% pengguna dapat &lt; 200ms.</div>
+                            <div>• <strong>P99 (Tail):</strong> 1% pengguna paling malang mengalami 10s!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 51 -->
+            <div class="slide space-y-6" data-title="Capacity Planning">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Capacity Planning (Perancangan Kapasiti)</h2>
+                    <p class="text-slate-400">Menggunakan data historikal untuk meramal keperluan sumber masa depan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-accent font-bold">SOALAN UTAMA: "Bilakah server ini akan habis sumber?"</div>
+                    <div class="p-4 bg-slate-950 rounded space-y-2 text-slate-300">
+                        <div>• Pertumbuhan Data PostgreSQL: +5 GB / bulan</div>
+                        <div>• Baki Disk Semasa: 30 GB free</div>
+                        <div class="text-noc-amber font-bold">➔ Jangkaan Disk 100% Penuh: Dalam tempoh 6 bulan!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 52 -->
+            <div class="slide space-y-6" data-title="Trend Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Trend Monitoring</h2>
+                    <p class="text-slate-400">Melihat aliran trend perubahan metrics merentas bulan</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-slate-400">TREND PENGGUNAAN STORAGE (DISKS)</div>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                        <div class="p-3 bg-noc-card rounded border border-slate-800">Januari: 40%</div>
+                        <div class="p-3 bg-noc-card rounded border border-slate-800">Mac: 55%</div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-amber">Jun: 70%</div>
+                        <div class="p-3 bg-noc-card rounded border border-noc-rose font-bold text-noc-rose">Ogos: 85%</div>
+                    </div>
+                    <div class="text-noc-emerald text-center">✅ Tindakan Proaktif: Tambah HDD / SSD baharu sebelum bulan Oktober!</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 53 -->
+            <div class="slide space-y-6" data-title="Home Server Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Home Server (Raspberry Pi) Monitoring</h2>
+                    <p class="text-slate-400">Senarai metrik wajib dipantau untuk Homelab Self-Hosters</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">🍓 CPU Temp (&lt;70°C)</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">🧠 RAM Availability</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">💾 MicroSD / SSD Health</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">☁️ Cloudflare Tunnel Status</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 54 -->
+            <div class="slide space-y-6" data-title="Cloudflare Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Cloudflare Tunnel & WAF Monitoring</h2>
+                    <p class="text-slate-400">Memantau pintu masuk trafik luar ke Homelab anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-amber font-bold">METRIK CLOUDFLARE TUNNEL:</div>
+                    <div class="grid md:grid-cols-3 gap-4 text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded">• Tunnel Status (HEALTHY/DOWN)</div>
+                        <div class="p-3 bg-slate-900 rounded">• Threat Requests Blocked (WAF)</div>
+                        <div class="p-3 bg-slate-900 rounded">• Edge Latency & Bandwidth</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 55 -->
+            <div class="slide space-y-6" data-title="DB Deep Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">PostgreSQL Monitoring Metrics</h2>
+                    <p class="text-slate-400">Metrik khusus pangkalan data relasi</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <strong class="text-noc-accent">`pg_stat_activity`</strong><br>Menilai sambungan aktif & query yang tergantung.
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <strong class="text-noc-emerald">`pg_stat_database`</strong><br>Menilai jumlah commit/rollback transaksi.
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <strong class="text-noc-amber">`WAL (Write-Ahead Log)`</strong><br>Saiz disk penulisan log transaksi.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 56 -->
+            <div class="slide space-y-6" data-title="Identity Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Identity & Authentication Monitoring</h2>
+                    <p class="text-slate-400">Sambungan daripada persembahan "Identity & Authentication"</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-purple font-bold text-sm">SECURITY TELEMETRY LOGS & METRICS:</div>
+                    <div class="grid md:grid-cols-2 gap-4 text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded">• Failed Login Attempts (Brute-force detection)</div>
+                        <div class="p-3 bg-slate-900 rounded">• MFA Bypass / Failure events</div>
+                        <div class="p-3 bg-slate-900 rounded">• Unexpected Admin Role Elevation</div>
+                        <div class="p-3 bg-slate-900 rounded">• Session Anomalies (IP change mid-session)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 57 -->
+            <div class="slide space-y-6" data-title="Security Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Security Monitoring (SIEM Concept)</h2>
+                    <p class="text-slate-400">"Monitoring membantu pengesanan (detection), ia BUKAN pengganti kawalan keselamatan!"</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div class="p-4 bg-noc-card rounded border border-slate-700">Firewall / WAF (Prevent)</div>
+                        <div class="p-4 bg-noc-card rounded border border-noc-accent">Logs & Alerts (Detect)</div>
+                        <div class="p-4 bg-noc-card rounded border border-slate-700">Incident Plan (Respond)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 58 -->
+            <div class="slide space-y-6" data-title="Log Retention">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Log Retention Policy</h2>
+                    <p class="text-slate-400">Berapa lama log patut disimpan dalam sistem storage?</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">Application Debug Logs</div>
+                        <div class="text-2xl font-bold text-white">7 Hari</div>
+                        <div class="text-slate-400">Padam secara automatik untuk jimat disk.</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">System Metrics</div>
+                        <div class="text-2xl font-bold text-white">30 Hari</div>
+                        <div class="text-slate-400">Cukupi untuk capacity planning.</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-purple font-bold">Security & Audit Logs</div>
+                        <div class="text-2xl font-bold text-white">90 Hari +</div>
+                        <div class="text-slate-400">Memenuhi pematuhan keselamatan (Compliance).</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 59 -->
+            <div class="slide space-y-6" data-title="Log Rotation">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Log Rotation (`logrotate`)</h2>
+                    <p class="text-slate-400">Mencegah fail log daripada memenuhi seluruh ruang disk</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs">
+                    <div class="text-slate-500"># Contoh kitaran fail log dalam Linux:</div>
+                    <div class="space-y-1 text-slate-300">
+                        <div>app.log <span class="text-noc-accent">➔ (Fail log aktif hari ini)</span></div>
+                        <div>app.log.1 <span class="text-slate-500">➔ (Semalam)</span></div>
+                        <div>app.log.2.gz <span class="text-slate-500">➔ (Mampat zip 2 hari lepas)</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 60 -->
+            <div class="slide space-y-6" data-title="Monitoring Monitoring">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Monitoring the Monitoring System</h2>
+                    <p class="text-slate-400">"Who monitors the watchmen?"</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-4 my-auto font-mono text-xs">
+                    <div class="text-noc-amber font-bold text-sm">🤔 APA TERJADI JIKA PROMETHEUS MATI?</div>
+                    <p class="text-slate-300">
+                        Jika pelayan Prometheus atau Grafana crash, tiada alert akan dihantar!
+                    </p>
+                    <div class="p-4 bg-slate-950 rounded text-slate-300">
+                        ✅ Solusi: Gunakan external Dead Man's Snitch atau Uptime Robot luaran untuk monitor sistem monitoring anda!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 61 -->
+            <div class="slide space-y-6" data-title="Docker Observability">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Observability for Docker Stack</h2>
+                    <p class="text-slate-400">Seni bina pemantauan kontena lengkap</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs text-center">
+                    <div class="p-3 bg-noc-card rounded border border-slate-700">DOCKER HOST (Linux OS)</div>
+                    <div class="grid grid-cols-4 gap-2 pt-2">
+                        <div class="p-2 bg-slate-950 rounded border border-slate-800">App</div>
+                        <div class="p-2 bg-slate-950 rounded border border-slate-800">API</div>
+                        <div class="p-2 bg-slate-950 rounded border border-slate-800">PostgreSQL</div>
+                        <div class="p-2 bg-slate-950 rounded border border-slate-800">Nginx</div>
+                    </div>
+                    <div class="text-noc-accent">⬇️ (cAdvisor + Node Exporter + Loki Agent)</div>
+                    <div class="p-3 bg-noc-accent/10 border border-noc-accent text-noc-accent rounded font-bold">OBSERVABILITY STACK</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 62 -->
+            <div class="slide space-y-6" data-title="Docker Health vs Metrics">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Docker Healthcheck vs Metrics</h2>
+                    <p class="text-slate-400">Kesesuaian penggunaan metrik bersama status kesihatan kontena</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">RESOURCE METRICS</div>
+                        <div class="text-slate-300">• CPU: 30%<br>• RAM: 40%</div>
+                        <div class="text-slate-400">Nampak normal, tetapi tidak menjamin app berfungsi.</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-noc-rose/40 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">HEALTHCHECK STATUS</div>
+                        <div class="text-slate-300">• HEALTHCHECK CMD: `curl -f http://localhost/health`</div>
+                        <div class="text-noc-rose">Status: UNHEALTHY (500 Error)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 63 -->
+            <div class="slide space-y-6" data-title="Traces Multi-Service">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Distributed Traces Multi-Service</h2>
+                    <p class="text-slate-400">Pengenalan Span & Parent ID</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs">
+                    <div class="text-noc-cyan font-bold">Trace ID: 0x8f3a9</div>
+                    <div class="pl-4 border-l-2 border-noc-accent space-y-2">
+                        <div>Span 1: Reverse Proxy (5ms)</div>
+                        <div class="pl-4 border-l-2 border-noc-purple space-y-2">
+                            <div>Span 2: API Auth Service (20ms)</div>
+                            <div class="pl-4 border-l-2 border-noc-rose space-y-2">
+                                <div class="text-noc-rose font-bold">Span 3: DB Query Select Users (850ms) ⚠️ SLOW</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 64 -->
+            <div class="slide space-y-6" data-title="Troubleshooting Workflow">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Observability Troubleshooting Workflow</h2>
+                    <p class="text-slate-400">Langkah teratur mencari punca utama (Root Cause)</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-3 my-auto font-mono text-xs">
+                    <div class="p-3 bg-slate-900 rounded">1. 🚨 Alert Firing: "Website Slow"</div>
+                    <div class="p-3 bg-slate-900 rounded">2. 📊 Check Metrics: CPU/RAM Normal. Latency P95 High (3s).</div>
+                    <div class="p-3 bg-slate-900 rounded">3. 🔍 Check Traces: Request spent 2.9s inside Database Span.</div>
+                    <div class="p-3 bg-slate-900 rounded">4. 📝 Check Logs: DB Log shows "Sequential Scan on large table 'orders'".</div>
+                    <div class="p-3 bg-noc-emerald/20 border border-noc-emerald text-noc-emerald font-bold rounded">
+                        ➔ ROOT CAUSE FOUND: Missing index on column 'created_at'!
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 65 -->
+            <div class="slide space-y-6" data-title="Comparison Table">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Metrics vs Logs vs Traces Summary</h2>
+                    <p class="text-slate-400">Jadual Perbandingan Komprehensif</p>
+                </div>
+
+                <div class="overflow-x-auto my-auto">
+                    <table class="w-full text-left font-mono text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-noc-accent">
+                                <th class="p-3">Ciri</th>
+                                <th class="p-3">Metrics</th>
+                                <th class="p-3">Logs</th>
+                                <th class="p-3">Traces</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800 text-slate-300">
+                            <tr>
+                                <td class="p-3 font-bold text-white">Format Data</td>
+                                <td class="p-3">Numerical Time-Series</td>
+                                <td class="p-3">Text / JSON Events</td>
+                                <td class="p-3">Waterfall Spans</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Fungsi Utama</td>
+                                <td class="p-3">Mengecam Trend & Alerting</td>
+                                <td class="p-3">Konteks & Detail Ralat</td>
+                                <td class="p-3">Analisis Prestasi Masa Request</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-bold text-white">Saiz Storage</td>
+                                <td class="p-3 text-noc-emerald">Kecil / Sangat Jimat</td>
+                                <td class="p-3 text-noc-rose">Sangat Besar</td>
+                                <td class="p-3 text-noc-amber">Sederhana</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SLIDE 66 -->
+            <div class="slide space-y-6" data-title="Observability Pipeline Diagram">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Full Observability Data Pipeline</h2>
+                    <p class="text-slate-400">Dari Pengumpulan hingga Paparan Visual</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-2 font-mono text-xs my-auto">
+                    <div class="p-2 bg-noc-card rounded">Application / Host Telemetry</div>
+                    <div>⬇️</div>
+                    <div class="p-2 bg-noc-card rounded border border-noc-cyan">Collectors (OTel / Promtail / Exporters)</div>
+                    <div>⬇️</div>
+                    <div class="p-2 bg-noc-card rounded border border-noc-purple">Storage (Prometheus / Loki / Tempo)</div>
+                    <div>⬇️</div>
+                    <div class="p-2 bg-noc-card rounded border border-noc-amber font-bold">Visualization & Alerts (Grafana)</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 67 -->
+            <div class="slide space-y-6" data-title="Production Observability Architecture">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Production Observability Architecture</h2>
+                    <p class="text-slate-400">Seni bina pemantauan gred pengeluaran (Production-Grade)</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl text-center space-y-2 font-mono text-xs my-auto">
+                    <div class="p-2 bg-slate-900 rounded">USERS ➔ CLOUDFLARE ➔ REVERSE PROXY ➔ APP ➔ DB</div>
+                    <div class="text-noc-accent">⬇️ (Telemetry Stream)</div>
+                    <div class="p-3 bg-noc-card border border-noc-accent rounded text-noc-accent font-bold">
+                        CENTRAL OBSERVABILITY PLATFORM (Prometheus + Loki + Tempo)
+                    </div>
+                    <div class="text-noc-amber">⬇️</div>
+                    <div class="p-2 bg-slate-900 rounded text-noc-amber font-bold">GRAFANA DASHBOARDS & ALERTMANAGER</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 68 -->
+            <div class="slide space-y-6" data-title="Raspberry Pi Observability Stack">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Raspberry Pi Observability Stack</h2>
+                    <p class="text-slate-400">Struktur pemantauan untuk Homelab Raspberry Pi</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <h3 class="text-noc-accent font-bold">Agent / Exporters:</h3>
+                        <div>• Node Exporter (System metrics)</div>
+                        <div>• cAdvisor (Docker stats)</div>
+                        <div>• Promtail (Container logs)</div>
+                    </div>
+                    <div class="p-5 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <h3 class="text-noc-emerald font-bold">Server Services:</h3>
+                        <div>• Prometheus (Metrics TSDB)</div>
+                        <div>• Grafana (Dashboards)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 69 -->
+            <div class="slide space-y-6" data-title="Homelab Deployment Tradeoffs">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Homelab Monitoring Resource Tradeoffs</h2>
+                    <p class="text-slate-400">"Sistem pemantauan juga menggunakan sumber CPU & RAM!"</p>
+                </div>
+
+                <div class="p-6 bg-noc-amber/10 border border-noc-amber/30 rounded-2xl space-y-3 text-xs my-auto">
+                    <h3 class="text-lg font-bold text-noc-amber">⚠️ Pertimbangan Sumber Raspberry Pi:</h3>
+                    <p class="text-slate-300">
+                        Prometheus & Grafana boleh memakan ~500MB RAM. Jika Raspberry Pi anda hanya ada 2GB RAM, disyorkan untuk membuat **Dedicated Monitoring Server** berasingan!
+                    </p>
+                </div>
+            </div>
+
+            <!-- SLIDE 70 -->
+            <div class="slide space-y-6" data-title="Alert Rule Example">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Prometheus Alert Rule Pseudocode</h2>
+                    <p class="text-slate-400">Contoh logik takrifan aturan alert</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-2 my-auto font-mono text-xs text-noc-accent">
+                    <pre>
+alert: HighDiskUsage
+expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 90
+for: 10m
+labels:
+  severity: critical
+annotations:
+  summary: "Disk space on {{ $labels.instance }} is above 90%"</pre>
+                </div>
+            </div>
+
+            <!-- SLIDE 71 -->
+            <div class="slide space-y-6" data-title="Alert Example: Website Down">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Rule: Website Down</h2>
+                    <p class="text-slate-400">Mengesan kegagalan perkhidmatan sepenuhnya</p>
+                </div>
+
+                <div class="p-6 bg-noc-rose/10 border border-noc-rose/30 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-rose font-bold text-sm">🚨 ALERT DEFINITION</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        IF probe_success == 0 FOR 2 minutes<br>
+                        THEN TRIGGER "Website Down Alert" ➔ TELEGRAM BOT
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 72 -->
+            <div class="slide space-y-6" data-title="Alert Example: Error Rate">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Rule: High Error Rate</h2>
+                    <p class="text-slate-400">Mengesan lonjakan ralat aplikasi</p>
+                </div>
+
+                <div class="p-6 bg-noc-amber/10 border border-noc-amber/30 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-amber font-bold text-sm">⚠️ ALERT DEFINITION</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        IF (rate(http_requests_5xx[5m]) / rate(http_requests_total[5m])) > 0.05<br>
+                        FOR 5 minutes THEN TRIGGER "High Error Rate (>5%)"
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 73 -->
+            <div class="slide space-y-6" data-title="Alert Example: Database">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Rule: Database Pressure</h2>
+                    <p class="text-slate-400">Mengesan tekanan sambungan pangkalan data</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-accent font-bold text-sm">🗄️ ALERT DEFINITION</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        IF pg_stat_activity_count > 90 OR pg_query_duration_seconds > 2s<br>
+                        THEN TRIGGER "Database Pressure Warning"
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 74 -->
+            <div class="slide space-y-6" data-title="Alert Example: Raspberry Pi">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Alert Rule: Raspberry Pi Thermal</h2>
+                    <p class="text-slate-400">Mengesan suhu tinggi perkakas</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-amber/40 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-amber font-bold text-sm">🍓 ALERT DEFINITION</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        IF rpi_cpu_temperature > 75°C FOR 5m<br>
+                        THEN TRIGGER "High CPU Temperature Warning"
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 75 -->
+            <div class="slide space-y-6" data-title="Dashboard Design Rules">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Prinsip Reka Bentuk Dashboard</h2>
+                    <p class="text-slate-400">Susunan Hirarki Maklumat yang Efektif</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="p-3 bg-noc-card rounded border border-noc-accent">
+                        Baris Atas (Top Row): Stat Kesihatan Kritikal (Availability, Error Rate, P95 Latency)
+                    </div>
+                    <div class="p-3 bg-noc-card rounded border border-slate-700">
+                        Baris Kedua (Middle Row): Infrastructure (CPU %, RAM %, Disk Space, Net Bandwidth)
+                    </div>
+                    <div class="p-3 bg-noc-card rounded border border-slate-800">
+                        Baris Bawah (Bottom Row): Application Details (DB Pool, Docker Stats, Logs Stream)
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 76 -->
+            <div class="slide space-y-6" data-title="Red Yellow Green Standard">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Warna Standard Status (Red/Yellow/Green)</h2>
+                    <p class="text-slate-400">Konsistensi visual untuk pembuatan keputusan pantas</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-6 my-auto font-mono text-xs text-center">
+                    <div class="p-6 bg-noc-emerald/10 border border-noc-emerald rounded-2xl space-y-2">
+                        <div class="text-3xl">🟢</div>
+                        <div class="text-noc-emerald font-bold text-sm">GREEN (Healthy)</div>
+                        <p class="text-slate-300">Sistem berfungsi sempurna.</p>
+                    </div>
+                    <div class="p-6 bg-noc-amber/10 border border-noc-amber rounded-2xl space-y-2">
+                        <div class="text-3xl">🟡</div>
+                        <div class="text-noc-amber font-bold text-sm">YELLOW (Warning)</div>
+                        <p class="text-slate-300">Threshold hampir dicapai. Perlu semakan.</p>
+                    </div>
+                    <div class="p-6 bg-noc-rose/10 border border-noc-rose rounded-2xl space-y-2">
+                        <div class="text-3xl">🔴</div>
+                        <div class="text-noc-rose font-bold text-sm">RED (Critical)</div>
+                        <p class="text-slate-300">Outage / Tindakan serta-merta wajib.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 77 -->
+            <div class="slide space-y-6" data-title="Monitoring Mistakes">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kesilapan Lazim Monitoring</h2>
+                    <p class="text-slate-400">Kesilapan yang perlu dielakkan oleh Admin</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-noc-rose/10 border border-noc-rose/30 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">❌ KESILAPAN LAZIM:</div>
+                        <div>• Monitor terlalu banyak metrik tidak berguna</div>
+                        <div>• Tiada retention policy (Log memenuhi disk)</div>
+                        <div>• Terlalu banyak alert sehingga berlaku Alert Fatigue</div>
+                        <div>• Hanya monitor perkakas, lupa monitor aplikasi!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 78 -->
+            <div class="slide space-y-6" data-title="Observability Mistakes">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kesilapan Lazim Observability</h2>
+                    <p class="text-slate-400">Jebak kesilapan tahap observability</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4 my-auto font-mono text-xs">
+                    <div class="p-4 bg-noc-rose/10 border border-noc-rose/30 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">❌ KESILAPAN OBSERVABILITY:</div>
+                        <div>• Simpan log tanpa Correlation ID</div>
+                        <div>• Tiada request tracing untuk microservices</div>
+                        <div>• Menyimpan log tanpa format Structured JSON</div>
+                        <div>• Alert tidak dihubungkan dengan Runbook pembaikan</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 79 -->
+            <div class="slide space-y-6" data-title="Runbooks">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Runbooks (Panduan Pembaikan Alert)</h2>
+                    <p class="text-slate-400">Dokumentasi langkah pembaikan cepat apabila alert berbunyi</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-accent font-bold text-sm">📖 RUNBOOK: DiskUsageAbove90Percent</div>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-300">
+                        <li>Semak penggunaan disk: <code>df -h</code></li>
+                        <li>Cari direktori terbesar: <code>du -sh /* | sort -h</code></li>
+                        <li>Bersihkan fail Docker tidak terpakai: <code>docker system prune -a</code></li>
+                        <li>Semak log rotation status: <code>logrotate -f /etc/logrotate.conf</code></li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- SLIDE 80 -->
+            <div class="slide space-y-6" data-title="Incident Response Steps">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Incident Response Steps Overview</h2>
+                    <p class="text-slate-400">Tindakan Sistematik Pengendalian Insiden</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-4 my-auto font-mono text-xs text-center">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">1. Acknowledge Alert</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">2. Mitigate (Rollback/Restart)</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">3. Post-Incident Review</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 81 -->
+            <div class="slide space-y-6" data-title="MTTR">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">MTTR (Mean Time To Recovery)</h2>
+                    <p class="text-slate-400">Purata Masa Pemulihan Perkhidmatan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-emerald/40 rounded-2xl space-y-3 font-mono text-xs my-auto text-center">
+                    <div class="text-noc-emerald font-bold text-lg">MTTR = Purata Masa (Insiden Berlaku ➔ Service Pulih)</div>
+                    <p class="text-slate-300">Tujuan Observability adalah untuk mengurangkan MTTR dari berjam-jam kepada minit sahaja!</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 82 -->
+            <div class="slide space-y-6" data-title="MTBF">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">MTBF (Mean Time Between Failures)</h2>
+                    <p class="text-slate-400">Purata Jarak Masa Antara Kegagalan</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3 font-mono text-xs my-auto text-center">
+                    <div class="text-noc-accent font-bold text-lg">MTBF = Purata Masa Operasi Tanpa Gangguan</div>
+                    <p class="text-slate-300">Semakin tinggi nilai MTBF, semakin stabil infrastruktur anda.</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 83 -->
+            <div class="slide space-y-6" data-title="Error Budget">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Konsep Error Budget</h2>
+                    <p class="text-slate-400">Toleransi kegagalan yang dibenarkan untuk inovasi</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-purple/40 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-purple font-bold text-sm">FORMULA ERROR BUDGET</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        Error Budget = 100% - SLO Target<br>
+                        Jika SLO = 99.9%, Error Budget = 0.1% downtime yang dibenarkan sebulan untuk deploy feature baharu.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 84 -->
+            <div class="slide space-y-6" data-title="Capacity Forecasting">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Capacity Forecasting</h2>
+                    <p class="text-slate-400">Membuat unjuran keperluan hardware berdasarkan data lalu</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl font-mono text-xs my-auto text-center">
+                    Historical Prometheus Metrics ➔ Linear Regression ➔ RAM Upgrade Needed in 90 Days
+                </div>
+            </div>
+
+            <!-- SLIDE 85 -->
+            <div class="slide space-y-6" data-title="Proactive vs Reactive">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Proactive vs Reactive Operations</h2>
+                    <p class="text-slate-400">Transformasi Budaya Pengurusan Server</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 my-auto font-mono text-xs">
+                    <div class="p-5 bg-noc-rose/10 border border-noc-rose/30 rounded-xl space-y-2">
+                        <div class="text-noc-rose font-bold">❌ REACTIVE (Mod Pemadam Api)</div>
+                        <p class="text-slate-300">Tunggu user mengadu server down ➔ Kalang-kabut cari punca ➔ Stress tinggi.</p>
+                    </div>
+                    <div class="p-5 bg-noc-emerald/10 border border-noc-emerald/30 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">✅ PROACTIVE (Mod Observability)</div>
+                        <p class="text-slate-300">Kesan trend disk 80% ➔ Tambah kapasiti awal ➔ Tiada outage berlaku!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 86 -->
+            <div class="slide space-y-6" data-title="Master Observability Model">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Master Observability Model</h2>
+                    <p class="text-slate-400">Siklus Lengkap Pengurusan Sistem</p>
+                </div>
+
+                <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-2 font-mono text-xs text-center my-auto">
+                    <div class="text-noc-accent font-bold">MONITOR ➔ MEASURE ➔ COLLECT ➔ VISUALIZE ➔ ALERT ➔ INVESTIGATE ➔ RECOVER ➔ IMPROVE</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 87: INTERACTIVE DASHBOARD DEMO -->
+            <div class="slide space-y-6" data-title="Interactive Dashboard Demo">
+                <div class="border-b border-slate-800 pb-4 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white">Interactive Dashboard Demo</h2>
+                        <p class="text-slate-400">Uji metrik secara langsung (Klik butang untuk simulasi)</p>
+                    </div>
+                    <button onclick="simulateTrafficSpike()" class="px-4 py-2 bg-noc-rose text-white text-xs font-mono font-bold rounded-lg shadow hover:bg-rose-600 transition">
+                        ⚡ Simulasi Spike Traffic
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <div class="text-slate-400">CPU Load</div>
+                        <div id="demo-cpu" class="text-2xl font-bold text-noc-emerald">34%</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <div class="text-slate-400">RAM Usage</div>
+                        <div id="demo-ram" class="text-2xl font-bold text-noc-accent">52%</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <div class="text-slate-400">Latency P95</div>
+                        <div id="demo-latency" class="text-2xl font-bold text-noc-cyan">95ms</div>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">
+                        <div class="text-slate-400">Error Rate</div>
+                        <div id="demo-error" class="text-2xl font-bold text-noc-emerald">0.00%</div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs h-32 overflow-y-auto" id="demo-log-stream">
+                    <div class="text-slate-500">[LOG STREAM INITIALIZED... SYSTEM HEALTHY]</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 88: INTERACTIVE INCIDENT SIMULATOR -->
+            <div class="slide space-y-6" data-title="Interactive Incident Investigation">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Simulasi Siasatan Insiden (Interactive)</h2>
+                    <p class="text-slate-400">Senario: Website pengguna tiba-tiba perlahan!</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-noc-amber font-bold">🔴 ADUAN: Latency melonjak ke 3.5 saat. Cari punca utama!</div>
+                    <div class="flex gap-2">
+                        <button onclick="investigateStep('cpu')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Semak CPU</button>
+                        <button onclick="investigateStep('net')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Semak Network</button>
+                        <button onclick="investigateStep('db')" class="px-3 py-2 bg-noc-accent hover:bg-cyan-600 text-slate-950 font-bold rounded">Semak DB Trace</button>
+                    </div>
+                    <div id="incident-investigation-result" class="p-4 bg-slate-950 rounded text-slate-300">
+                        Klik mana-mana butang di atas untuk mulakan siasatan telemetry...
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 89: QUIZ 1 -->
+            <div class="slide space-y-6" data-title="Quiz: Infrastructure vs App">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kuiz Interaktif #1</h2>
+                    <p class="text-slate-400">Uji kefahaman anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-white text-sm">Soalan: CPU & RAM normal, tetapi website masih slow. Apa patut diperiksa dulu?</div>
+                    <div class="space-y-2">
+                        <button onclick="checkQuiz(this, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">A. Database Trace & Slow Query Logs</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">B. Tukar nama hostname server</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">C. Reinstall Operating System</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-3 rounded text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 90: QUIZ 2 -->
+            <div class="slide space-y-6" data-title="Quiz: 3 Pillars">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kuiz Interaktif #2</h2>
+                    <p class="text-slate-400">Uji kefahaman anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-white text-sm">Soalan: Apakah tiga pilar utama Observability (MELT)?</div>
+                    <div class="space-y-2">
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">A. CPU, RAM, Disk</button>
+                        <button onclick="checkQuiz(this, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">B. Metrics, Logs, Traces</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">C. Docker, Linux, Python</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-3 rounded text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 91: QUIZ 3 -->
+            <div class="slide space-y-6" data-title="Quiz: SLI">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kuiz Interaktif #3</h2>
+                    <p class="text-slate-400">Uji kefahaman anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-white text-sm">Soalan: SLI (Service Level Indicator) merujuk kepada:</div>
+                    <div class="space-y-2">
+                        <button onclick="checkQuiz(this, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">A. Ukuran Sebenar (Measurement)</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">B. Target Objektif Internal</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">C. Kontrak Undang-Undang</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-3 rounded text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 92: QUIZ 4 -->
+            <div class="slide space-y-6" data-title="Quiz: SLO">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kuiz Interaktif #4</h2>
+                    <p class="text-slate-400">Uji kefahaman anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-white text-sm">Soalan: SLO (Service Level Objective) ialah:</div>
+                    <div class="space-y-2">
+                        <button onclick="checkQuiz(this, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">A. Sasaran / Target Internal Pasukan</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">B. Jenis pangkalan data</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">C. Saluran Alert Telegram</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-3 rounded text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 93: QUIZ 5 -->
+            <div class="slide space-y-6" data-title="Quiz: Alert Purpose">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kuiz Interaktif #5</h2>
+                    <p class="text-slate-400">Uji kefahaman anda</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-slate-800 rounded-2xl space-y-4 font-mono text-xs my-auto">
+                    <div class="text-white text-sm">Soalan: Apakah tujuan utama sesuatu Alert dicipta?</div>
+                    <div class="space-y-2">
+                        <button onclick="checkQuiz(this, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">A. Memberitahu apabila seseorang perlu mengambil TINDAKAN</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">B. Mengumpul semua notification spam</button>
+                        <button onclick="checkQuiz(this, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 rounded border border-slate-700">C. Menggantikan peranti Firewall</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-3 rounded text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- SLIDE 94: FINAL CHALLENGE -->
+            <div class="slide space-y-6" data-title="Final Architecture Challenge">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Cabaran Senariografi Homelab</h2>
+                    <p class="text-slate-400">Reka Bentuk Pemantauan Raspberry Pi Lengkap</p>
+                </div>
+
+                <div class="p-6 bg-noc-card border border-noc-accent/40 rounded-2xl space-y-3 font-mono text-xs my-auto">
+                    <div class="text-noc-accent font-bold">CHALLENGE REQUIREMENTS:</div>
+                    <div class="p-3 bg-slate-950 rounded text-slate-300">
+                        Sediakan Docker Compose mengandungi Prometheus, Grafana, Node Exporter & Promtail untuk memantau Raspberry Pi 4 (4GB RAM) yang menjalankan Web App & PostgreSQL menerusi Cloudflare Tunnel.
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 95: CHECKLIST -->
+            <div class="slide space-y-6" data-title="Production Checklist">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Senarai Semak Observability Produksi</h2>
+                    <p class="text-slate-400">Checklist sedia guna sebelum melancarkan perkhidmatan</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4 font-mono text-xs my-auto">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-accent font-bold">INFRASTRUCTURE & DB</div>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>CPU, RAM & Temp Monitored</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>Disk Usage Alert (>90%)</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>DB Connection Pool Monitored</span></label>
+                    </div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl space-y-2">
+                        <div class="text-noc-emerald font-bold">APP & OPERATIONS</div>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>Structured JSON Logging</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>Runbooks untuk setiap Alert</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" checked> <span>Dashboard Red/Yellow/Green</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLIDE 96: COMPLETE ARCHITECTURE DIAGRAM -->
+            <div class="slide space-y-6" data-title="Complete Architecture Diagram">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Seni Bina Observability Homelab Lengkap</h2>
+                    <p class="text-slate-400">Peta visual aliran keseluruhan telemetry</p>
+                </div>
+
+                <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl text-center font-mono text-xs space-y-2 my-auto">
+                    <div class="text-noc-accent">USERS ➔ CLOUDFLARE ➔ REVERSE PROXY ➔ APPLICATION ➔ DB</div>
+                    <div>⬇️</div>
+                    <div class="p-3 bg-noc-card rounded border border-noc-accent">RASPBERRY PI HOST (Metrics + Logs + Traces)</div>
+                    <div>⬇️</div>
+                    <div class="p-3 bg-noc-card rounded border border-noc-purple font-bold">PROMETHEUS + LOKI + TEMPO</div>
+                    <div>⬇️</div>
+                    <div class="p-3 bg-noc-amber/20 border border-noc-amber rounded text-noc-amber font-bold">GRAFANA DASHBOARD & ALERTS ➔ ADMIN</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 97: PREVIOUS TOPICS LINK -->
+            <div class="slide space-y-6" data-title="Kaitan Topik Lepas">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Kaitan Dengan Topik Pembangunan Lepas</h2>
+                    <p class="text-slate-400">Bagaimana modul ini melengkapi modul terdahulu</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-4 font-mono text-xs my-auto">
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Networking ➔ Traffic Flow</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Reverse Proxy ➔ Latency Metrics</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Docker ➔ Container Stats</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Database ➔ Query Slow Logs</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Identity ➔ Auth Audit Logs</div>
+                    <div class="p-4 bg-noc-card border border-slate-800 rounded-xl">Troubleshooting ➔ Root Cause</div>
+                </div>
+            </div>
+
+            <!-- SLIDE 98: NEXT TOPIC PREVIEW -->
+            <div class="slide space-y-6" data-title="Modul Seterusnya">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-3xl font-bold text-white">Modul Pembelajaran Seterusnya</h2>
+                    <p class="text-slate-400">Pratonton Persembahan Akan Datang</p>
+                </div>
+
+                <div class="p-8 bg-noc-card border border-noc-accent/40 rounded-2xl text-center space-y-4 my-auto">
+                    <div class="text-xs font-mono text-noc-accent">TOPIK AKAN DATANG</div>
+                    <h3 class="text-3xl font-extrabold text-white">CI/CD & Automated Deployment</h3>
+                    <p class="text-slate-300 font-mono text-xs">"Daripada Git Commit Kepada Production"</p>
+                </div>
+            </div>
+
+            <!-- SLIDE 99: CONCLUSION -->
+            <div class="slide space-y-8 justify-center items-center text-center" data-title="Penutup">
+                <h2 class="text-4xl md:text-5xl font-extrabold text-white">
+                    "Don't Wait For Users To Tell You."
+                </h2>
+                <p class="text-lg text-slate-300 max-w-2xl font-light">
+                    Monitor apa yang penting. Observe apa yang berlaku. Alert bila perlu bertindak.
+                </p>
+
+                <div class="p-6 bg-slate-900 border border-noc-accent/40 rounded-2xl font-mono text-sm text-noc-accent">
+                    METRICS + LOGS + TRACES = OBSERVABILITY
+                </div>
+
+                <div class="text-xs text-slate-500 font-mono">
+                    Tamat Persembahan • Monitoring & Observability Module
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Navigation Bar Footer -->
+    <footer class="h-16 bg-noc-card/90 border-t border-noc-border backdrop-blur px-6 flex items-center justify-between z-30">
+        <div class="flex items-center space-x-2">
+            <button onclick="prevSlide()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1 text-xs font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span class="hidden sm:inline">Sebelumnya</span>
+            </button>
+            <button onclick="nextSlide()" class="p-2.5 bg-noc-accent text-slate-950 font-bold hover:bg-cyan-400 rounded-lg transition flex items-center space-x-1 text-xs">
+                <span class="hidden sm:inline">Seterusnya</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="flex-1 max-w-md mx-6 hidden md:block">
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+                <div id="progress-bar" class="bg-noc-accent h-full w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="goToSlide(0)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono transition">Mula</button>
+            <button onclick="goToSlide(totalSlides - 1)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono transition">Akhir</button>
+        </div>
+    </footer>
+
+    <!-- Grid Modal for Jump to Slide -->
+    <div id="grid-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex flex-col p-6">
+        <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white font-mono">Senarai 99 Slaid Persembahan</h3>
+            <button onclick="toggleGridModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+        </div>
+        <div id="grid-modal-list" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 py-6 overflow-y-auto flex-1 font-mono text-xs">
+            <!-- Dynamically generated slide list -->
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        document.getElementById('total-slides-num').innerText = totalSlides;
+
+        function updateSlideView() {
+            slides.forEach((slide, index) => {
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            document.getElementById('current-slide-num').innerText = currentSlide + 1;
+            const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlideView();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlideView();
+            }
+        }
+
+        function goToSlide(index) {
+            if (index >= 0 && index < totalSlides) {
+                currentSlide = index;
+                updateSlideView();
+                document.getElementById('grid-modal').classList.add('hidden');
+            }
+        }
+
+        function toggleGridModal() {
+            const modal = document.getElementById('grid-modal');
+            const list = document.getElementById('grid-modal-list');
+            
+            if (modal.classList.contains('hidden')) {
+                list.innerHTML = '';
+                slides.forEach((slide, i) => {
+                    const title = slide.getAttribute('data-title') || `Slide ${i + 1}`;
+                    const btn = document.createElement('button');
+                    btn.className = `p-3 rounded-lg border text-left flex flex-col justify-between h-20 transition ${i === currentSlide ? 'bg-noc-accent/20 border-noc-accent text-noc-accent' : 'bg-noc-card border-slate-800 text-slate-300 hover:border-slate-600'}`;
+                    btn.innerHTML = `<span class="font-bold text-xs">#${i + 1}</span><span class="truncate text-[10px] text-slate-400">${title}</span>`;
+                    btn.onclick = () => goToSlide(i);
+                    list.appendChild(btn);
+                });
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                goToSlide(0);
+            } else if (e.key === 'End') {
+                goToSlide(totalSlides - 1);
+            } else if (e.key === 'Escape') {
+                document.getElementById('grid-modal').classList.add('hidden');
+            }
+        });
+
+        // Interactive Dashboard Simulator (Slide 87)
+        function simulateTrafficSpike() {
+            const cpuEl = document.getElementById('demo-cpu');
+            const ramEl = document.getElementById('demo-ram');
+            const latencyEl = document.getElementById('demo-latency');
+            const errorEl = document.getElementById('demo-error');
+            const logStream = document.getElementById('demo-log-stream');
+
+            cpuEl.innerText = '94%';
+            cpuEl.className = 'text-2xl font-bold text-noc-rose animate-pulse';
+
+            ramEl.innerText = '88%';
+            ramEl.className = 'text-2xl font-bold text-noc-amber';
+
+            latencyEl.innerText = '1450ms';
+            latencyEl.className = 'text-2xl font-bold text-noc-rose';
+
+            errorEl.innerText = '4.25%';
+            errorEl.className = 'text-2xl font-bold text-noc-rose';
+
+            logStream.innerHTML += `<div class="text-noc-rose">[10:24:01] 🚨 HIGH ERROR RATE DETECTED: HTTP 500 Connection Pool Exhausted</div>`;
+            logStream.scrollTop = logStream.scrollHeight;
+
+            setTimeout(() => {
+                cpuEl.innerText = '42%';
+                cpuEl.className = 'text-2xl font-bold text-noc-emerald';
+                ramEl.innerText = '54%';
+                ramEl.className = 'text-2xl font-bold text-noc-accent';
+                latencyEl.innerText = '110ms';
+                latencyEl.className = 'text-2xl font-bold text-noc-cyan';
+                errorEl.innerText = '0.00%';
+                errorEl.className = 'text-2xl font-bold text-noc-emerald';
+                logStream.innerHTML += `<div class="text-noc-emerald">[10:24:15] ✅ TRAFFIC DISSIPATED: SYSTEM RECOVERED NORMAL OPERATION</div>`;
+                logStream.scrollTop = logStream.scrollHeight;
+            }, 4000);
+        }
+
+        // Interactive Incident Investigation (Slide 88)
+        function investigateStep(type) {
+            const res = document.getElementById('incident-investigation-result');
+            if (type === 'cpu') {
+                res.innerHTML = `<span class="text-noc-emerald">🖥️ CPU Metrics: Load Average 0.45, Utilization 22% (NORMAL)</span>`;
+            } else if (type === 'net') {
+                res.innerHTML = `<span class="text-noc-accent">🌐 Network Metrics: Bandwidth 4Mbps, Packets Drop 0% (NORMAL)</span>`;
+            } else if (type === 'db') {
+                res.innerHTML = `<span class="text-noc-rose font-bold">🗄️ DB Trace Span: PostgreSQL Executed Query 'SELECT * FROM audit_logs' taking 3.4 seconds (BOTTLENECK FOUND!)</span>`;
+            }
+        }
+
+        // Quiz checking
+        function checkQuiz(btn, isCorrect) {
+            const parent = btn.parentElement.parentElement;
+            const feedback = parent.querySelector('.quiz-feedback');
+            feedback.classList.remove('hidden', 'bg-noc-emerald/20', 'text-noc-emerald', 'bg-noc-rose/20', 'text-noc-rose');
+            
+            if (isCorrect) {
+                feedback.classList.add('bg-noc-emerald/20', 'text-noc-emerald');
+                feedback.innerHTML = '✅ TEPAT SEKALI! Jawapan anda betul.';
+            } else {
+                feedback.classList.add('bg-noc-rose/20', 'text-noc-rose');
+                feedback.innerHTML = '❌ KURANG TEPAT. Cuba semak semula konsep slide.';
+            }
+        }
+
+        // Initial view setup
+        updateSlideView();
+    </script>
+</body>
+</html>

@@ -1,0 +1,2870 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CI/CD & Git — Daripada Code Commit Hingga Production Deployment</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          },
+          colors: {
+            git: {
+              DEFAULT: '#f05032',
+              dark: '#c43a21',
+              light: '#f97316'
+            },
+            ci: {
+              DEFAULT: '#3b82f6',
+              dark: '#1d4ed8'
+            },
+            cd: {
+              DEFAULT: '#8b5cf6',
+              dark: '#6d28d9'
+            },
+            devops: {
+              bg: '#0a0e17',
+              card: '#111827',
+              border: '#1f2937',
+              accent: '#06b6d4'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .slide {
+      display: none;
+      min-height: calc(100vh - 120px);
+      animation: fadeIn 0.3s ease-in-out forwards;
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .glass-card {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .code-block {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+
+    .pedagogy-box {
+      border-left: 4px solid;
+    }
+  </style>
+</head>
+<body class="bg-[#090d16] text-gray-100 flex flex-col min-h-screen justify-between select-none">
+
+  <!-- TOP BAR & PROGRESS INDICATOR -->
+  <header class="sticky top-0 z-50 bg-[#0d121f]/90 backdrop-blur border-b border-gray-800 px-4 py-2.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="bg-git/20 text-git px-2.5 py-1 rounded-md text-xs font-mono font-bold flex items-center gap-1.5 border border-git/30">
+          <i class="fa-brands fa-git-alt"></i> CI/CD & Git
+        </span>
+        <span class="text-xs text-gray-400 hidden md:inline truncate max-w-xs font-medium" id="header-slide-title">
+          Title Slide
+        </span>
+      </div>
+
+      <!-- Center Controls / Search Trigger -->
+      <div class="flex items-center space-x-2">
+        <button onclick="toggleModal()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 flex items-center gap-2 transition">
+          <i class="fa-solid fa-list-ul text-xs"></i>
+          <span>Senarai Slide (<span id="slide-count-badge">1/98</span>)</span>
+        </button>
+      </div>
+
+      <!-- Controls Right -->
+      <div class="flex items-center space-x-3 text-xs">
+        <button onclick="toggleFullscreen()" title="Fullscreen" class="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition">
+          <i class="fa-solid fa-expand text-sm"></i>
+        </button>
+        <span class="font-mono text-gray-400 font-semibold" id="slide-counter">1 / 98</span>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="w-full bg-gray-800 h-1 mt-2 rounded-full overflow-hidden">
+      <div id="progress-bar" class="bg-gradient-to-r from-git via-ci to-emerald-500 h-full w-0 transition-all duration-300"></div>
+    </div>
+  </header>
+
+  <!-- MAIN SLIDES CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col justify-center">
+
+    <!-- SLIDE 1: TITLE -->
+    <section class="slide active flex-col items-center justify-center text-center py-12" data-title="Tajuk Utama">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-git/10 border border-git/30 text-git font-mono text-xs font-semibold mb-6 animate-pulse">
+        <i class="fa-solid fa-rocket"></i> Kursus DevOps & Infrastructure — Sambungan Observability
+      </div>
+      <h1 class="text-4xl md:text-6xl font-black tracking-tight mb-4 bg-gradient-to-r from-git via-orange-400 to-amber-300 bg-clip-text text-transparent">
+        CI/CD & Git
+      </h1>
+      <p class="text-xl md:text-2xl font-light text-gray-300 mb-8 max-w-2xl">
+        Daripada Code Commit Hingga Production Deployment
+      </p>
+
+      <!-- VISUAL FLOW -->
+      <div class="glass-card p-6 rounded-2xl w-full max-w-4xl border border-gray-800 mb-8 shadow-2xl">
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 text-center text-xs font-mono">
+          <div class="p-2 rounded bg-gray-800/80 border border-gray-700"><i class="fa-solid fa-[#f05032] fa-user font-semibold text-git block text-base mb-1"></i> Developer</div>
+          <div class="p-2 rounded bg-git/20 border border-git/40"><i class="fa-brands fa-git-alt text-git block text-base mb-1"></i> Git</div>
+          <div class="p-2 rounded bg-ci/20 border border-ci/40"><i class="fa-solid fa-gears text-ci block text-base mb-1"></i> CI Pipeline</div>
+          <div class="p-2 rounded bg-purple-500/20 border border-purple-500/40"><i class="fa-solid fa-cube text-purple-400 block text-base mb-1"></i> Build Image</div>
+          <div class="p-2 rounded bg-cyan-500/20 border border-cyan-500/40"><i class="fa-solid fa-box-archive text-cyan-400 block text-base mb-1"></i> Registry</div>
+          <div class="p-2 rounded bg-indigo-500/20 border border-indigo-500/40"><i class="fa-solid fa-truck-fast text-indigo-400 block text-base mb-1"></i> CD Deploy</div>
+          <div class="p-2 rounded bg-emerald-500/20 border border-emerald-500/40"><i class="fa-solid fa-server text-emerald-400 block text-base mb-1"></i> Production</div>
+          <div class="p-2 rounded bg-amber-500/20 border border-amber-500/40"><i class="fa-solid fa-chart-line text-amber-400 block text-base mb-1"></i> Monitor</div>
+        </div>
+      </div>
+
+      <p class="text-gray-400 text-sm italic max-w-xl">
+        "Bagaimana code yang kita tulis di komputer tempatan bertukar menjadi perisian stabil yang berjalan secara automatik di server production?"
+      </p>
+    </section>
+
+    <!-- SLIDE 2: MASALAH TANPA CI/CD -->
+    <section class="slide" data-title="Masalah Tanpa CI/CD">
+      <div class="mb-6">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Aliran Kerja Tradisional (Manual)</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation"></i> Masalah Utama Tanpa CI/CD
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div class="glass-card p-5 rounded-xl border border-red-900/40 bg-red-950/10">
+          <h3 class="text-sm font-bold font-mono text-red-300 mb-3 uppercase">Workflow Buruk & Berbahaya:</h3>
+          <div class="space-y-2 text-xs font-mono">
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">1. Developer ubah code di local</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800 text-red-400">2. Copy file manual guna FileZilla / SCP</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800 text-red-400">3. SSH ke Production Server secara terus</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800 text-red-400">4. Edit file konfigurasi terus di server (`nano`)</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800 text-red-400">5. Restart application secara manual</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800 text-amber-400">6. Berdoa tiada error ("Hope everything works")</div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="p-4 rounded-lg bg-gray-900 border border-gray-800 flex items-start gap-3">
+            <i class="fa-solid fa-circle-xmark text-red-500 mt-1"></i>
+            <div>
+              <h4 class="font-bold text-sm text-gray-200">Human Error Tinggi</h4>
+              <p class="text-xs text-gray-400">Tersilap copy file atau tertinggal fail konfigurasi .env dengan mudah merosakkan production.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-lg bg-gray-900 border border-gray-800 flex items-start gap-3">
+            <i class="fa-solid fa-circle-xmark text-red-500 mt-1"></i>
+            <div>
+              <h4 class="font-bold text-sm text-gray-200">Deployment Inconsistent</h4>
+              <p class="text-xs text-gray-400">Environment staging dan production berbeza sebab tiada standardisasi artifact build.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-lg bg-gray-900 border border-gray-800 flex items-start gap-3">
+            <i class="fa-solid fa-circle-xmark text-red-500 mt-1"></i>
+            <div>
+              <h4 class="font-bold text-sm text-gray-200">Sukar Rollback & Trace Perubahan</h4>
+              <p class="text-xs text-gray-400">Bila berlaku downtime, tiada sejarah jelas siapa yang mengubah baris code mana.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: WORKFLOW YANG LEBIH BAIK -->
+    <section class="slide" data-title="Workflow Yang Lebih Baik">
+      <div class="mb-6">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Prinsip DevOps Moden</span>
+        <h2 class="text-3xl font-bold mt-1 text-emerald-400 flex items-center gap-2">
+          <i class="fa-solid fa-circle-check"></i> Workflow Yang Automatik & Terkawal
+        </h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-emerald-900/30 mb-6">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-center text-xs font-mono">
+          <div class="p-3 bg-gray-900 rounded-lg border border-git/50 text-git w-full">
+            <i class="fa-brands fa-git-alt text-lg block mb-1"></i> Developer Commit
+          </div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded-lg border border-ci/50 text-ci w-full">
+            <i class="fa-solid fa-vial-circle-check text-lg block mb-1"></i> Automated Test
+          </div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded-lg border border-purple-500/50 text-purple-400 w-full">
+            <i class="fa-solid fa-hammer text-lg block mb-1"></i> Automated Build
+          </div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded-lg border border-indigo-500/50 text-indigo-400 w-full">
+            <i class="fa-solid fa-cloud-arrow-up text-lg block mb-1"></i> Deploy
+          </div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded-lg border border-emerald-500/50 text-emerald-400 w-full">
+            <i class="fa-solid fa-chart-line text-lg block mb-1"></i> Monitor
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 rounded-xl bg-gradient-to-r from-emerald-950/30 to-blue-950/30 border border-emerald-800/40 text-center">
+        <p class="text-xl font-semibold text-emerald-300 italic mb-2">"Automate apa sahaja yang boleh diautomasi."</p>
+        <p class="text-xs text-gray-400">Komputer cemerlang dalam tugas berulang tanpa penat dan tanpa kecuaian manusia. Biarkan pipeline menguji dan mendepoy!</p>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: APA ITU GIT? -->
+    <section class="slide" data-title="Apa Itu Git?">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Asas Version Control</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apa Itu Git?</h2>
+      </div>
+
+      <p class="text-gray-300 text-sm mb-6">
+        Git ialah <strong class="text-git font-mono">Distributed Version Control System (DVCS)</strong> percuma dan open-source yang direka untuk mengendali projek perisian dari skala kecil hingga sangat besar.
+      </p>
+
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <div class="glass-card p-4 rounded-lg">
+          <i class="fa-solid fa-clock-rotate-left text-git text-xl mb-2"></i>
+          <h4 class="font-bold text-sm text-gray-200">Track Code Changes</h4>
+          <p class="text-xs text-gray-400">Merakam setiap penambahan, pemotongan, dan perubahan baris kod berserta pengarang.</p>
+        </div>
+        <div class="glass-card p-4 rounded-lg">
+          <i class="fa-solid fa-users text-ci text-xl mb-2"></i>
+          <h4 class="font-bold text-sm text-gray-200">Collaboration</h4>
+          <p class="text-xs text-gray-400">Membolehkan beratus developer bekerja serentak pada kod yang sama tanpa bertindih.</p>
+        </div>
+        <div class="glass-card p-4 rounded-lg">
+          <i class="fa-solid fa-code-branch text-purple-400 text-xl mb-2"></i>
+          <h4 class="font-bold text-sm text-gray-200">Branching & Merging</h4>
+          <p class="text-xs text-gray-400">Membuat cabang eksperimen secara bebas dan menggabungkannya semula apabila selamat.</p>
+        </div>
+      </div>
+
+      <!-- PEDAGOGICAL BOX -->
+      <div class="pedagogy-box border-git bg-git/5 p-4 rounded-r-lg text-xs">
+        <span class="font-bold text-git block mb-1 uppercase font-mono">Real World Insight:</span>
+        Hampir 95%+ pasukan kejuruteraan perisian di seluruh dunia menggunakan Git sebagai tulang belakang pengurusan kod sumber mereka.
+      </div>
+    </section>
+
+    <!-- SLIDE 5: VERSION CONTROL -->
+    <section class="slide" data-title="Version Control System">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Kenapa Kena Ada Git?</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Perbandingan: Tanpa vs Dengan Git</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- TANPA GIT -->
+        <div class="glass-card p-5 rounded-xl border border-red-900/40 bg-red-950/10">
+          <div class="flex items-center gap-2 text-red-400 font-bold mb-3">
+            <i class="fa-solid fa-folder-open"></i> Tanpa Git (Pengurusan File Manual)
+          </div>
+          <div class="code-block p-3 rounded text-xs text-gray-400 space-y-1">
+            <div class="text-red-400">project_v1.py</div>
+            <div class="text-red-400">project_v2_final.py</div>
+            <div class="text-red-400">project_v2_really_final.py</div>
+            <div class="text-red-400">project_v2_final_FIXED_TODAY.py</div>
+            <div class="text-red-400">project_backup_dont_delete.py</div>
+          </div>
+          <p class="text-xs text-gray-400 mt-3">Sukar tahu apa beza antara fail, tiada rekod siapa ubah, dan fail mudah terpadam.</p>
+        </div>
+
+        <!-- DENGAN GIT -->
+        <div class="glass-card p-5 rounded-xl border border-emerald-900/40 bg-emerald-950/10">
+          <div class="flex items-center gap-2 text-emerald-400 font-bold mb-3">
+            <i class="fa-solid fa-diagram-project"></i> Dengan Git (Commit History Clean)
+          </div>
+          <div class="code-block p-3 rounded text-xs space-y-2">
+            <div class="flex justify-between items-center text-emerald-400">
+              <span>commit c1d2e3f</span>
+              <span class="text-gray-500">Add user authentication</span>
+            </div>
+            <div class="flex justify-between items-center text-emerald-400">
+              <span>commit a4b5c6d</span>
+              <span class="text-gray-500">Fix database connection timeout</span>
+            </div>
+            <div class="flex justify-between items-center text-emerald-400">
+              <span>commit 7e8f9a0</span>
+              <span class="text-gray-500">Initial release v1.0.0</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-3">Satu directory sahaja! Setiap perubahan diikat dengan commit hash, timestamp, dan mesej bermakna.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: GIT REPOSITORY -->
+    <section class="slide" data-title="Git Repository">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Struktur Data</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apa Itu Git Repository?</h2>
+      </div>
+
+      <p class="text-sm text-gray-300 mb-6">
+        <strong>Repository (Repo)</strong> ialah folder projek yang dipantau oleh Git. Di dalamnya terkandung folder tersembunyi <code class="text-git font-mono">.git/</code> yang menyimpan metadata, sejarah commit, branch, dan tags.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs">
+          <div class="text-gray-400 mb-2">// Struktur Pohon Repository</div>
+          <div class="text-blue-400">my-app/</div>
+          <div class="pl-4 text-gray-500">├── .git/ <span class="text-amber-400">(Git Internal Database)</span></div>
+          <div class="pl-4 text-gray-300">├── src/</div>
+          <div class="pl-8 text-gray-300">├── main.py</div>
+          <div class="pl-8 text-gray-300">└── auth.py</div>
+          <div class="pl-4 text-gray-300">├── Dockerfile</div>
+          <div class="pl-4 text-gray-300">└── README.md</div>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="glass-card p-3 rounded-lg border-l-4 border-git">
+            <strong class="text-git block">Main / Master Branch</strong>
+            Cabang utama yang mengandungi kod sedia-production yang stabil.
+          </div>
+          <div class="glass-card p-3 rounded-lg border-l-4 border-ci">
+            <strong class="text-ci block">Feature Branches</strong>
+            Cabang sampingan seperti <code class="text-gray-300">feature/login</code> untuk pembangunan fungsi baharu.
+          </div>
+          <div class="glass-card p-3 rounded-lg border-l-4 border-purple-500">
+            <strong class="text-purple-400 block">Release / Tags</strong>
+            Penanda versi rasmi seperti <code class="text-gray-300">v1.0.0</code>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: GIT WORKING TREE -->
+    <section class="slide" data-title="Git Working Tree">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">3 Teras Utama Git</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Working Directory, Staging Area & Repository</h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <!-- WORKING DIR -->
+        <div class="glass-card p-4 rounded-xl border-t-4 border-amber-500">
+          <span class="text-xs font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">1. Working Directory</span>
+          <h4 class="font-bold text-sm text-gray-200 mt-2 mb-1">Unstaged Changes</h4>
+          <p class="text-xs text-gray-400">Fail sedang diedit dalam editor kod korang. Git mengesan perubahan tapi belum bersedia disimpan.</p>
+        </div>
+
+        <!-- STAGING -->
+        <div class="glass-card p-4 rounded-xl border-t-4 border-ci">
+          <span class="text-xs font-mono bg-ci/20 text-ci px-2 py-0.5 rounded">2. Staging Area (Index)</span>
+          <h4 class="font-bold text-sm text-gray-200 mt-2 mb-1">Staged Files</h4>
+          <p class="text-xs text-gray-400">Zon persediaan. Fail disaring menggunakan <code class="text-ci font-mono">git add</code> sebelum dimasukkan dalam commit.</p>
+        </div>
+
+        <!-- REPOSITORY -->
+        <div class="glass-card p-4 rounded-xl border-t-4 border-emerald-500">
+          <span class="text-xs font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded">3. Git Repository (.git)</span>
+          <h4 class="font-bold text-sm text-gray-200 mt-2 mb-1">Committed History</h4>
+          <p class="text-xs text-gray-400">Snapshot kekal yang telah disahkan dengan <code class="text-emerald-400 font-mono">git commit</code>.</p>
+        </div>
+      </div>
+
+      <!-- VISUAL ARROWS -->
+      <div class="code-block p-3 rounded-lg text-xs font-mono text-center text-gray-300 flex justify-around items-center">
+        <span>Working Dir</span>
+        <span class="text-git"><i class="fa-solid fa-arrow-right"></i> git add <i class="fa-solid fa-arrow-right"></i></span>
+        <span>Staging Area</span>
+        <span class="text-emerald-400"><i class="fa-solid fa-arrow-right"></i> git commit <i class="fa-solid fa-arrow-right"></i></span>
+        <span>Repository</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: GIT STATUS -->
+    <section class="slide" data-title="Git Status">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Arahan Asas</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git status` — Semak Keadaan Repo</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            <code class="text-git font-mono font-bold">git status</code> memberikan jawapan kepada soalan kritikal: <br>
+            <em class="text-amber-300">"Apakah status fail projek saya pada saat ini?"</em>
+          </p>
+
+          <div class="space-y-2 text-xs">
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="font-bold text-red-400">Untracked Files:</span> Fail baharu yang belum pernah ditambah ke Git.
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="font-bold text-amber-400">Modified Files:</span> Fail sedia ada yang telah diubah suai.
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="font-bold text-emerald-400">Changes to be committed:</span> Fail yang sudah berada di Staging Area.
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block p-4 rounded-xl text-xs relative">
+          <button onclick="copyCode('git status')" class="absolute top-2 right-2 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-500 mb-2">$ git status</div>
+          <div class="text-gray-300">On branch main</div>
+          <div class="text-red-400 font-semibold mt-2">Changes not staged for commit:</div>
+          <div class="text-red-400 pl-4">modified:   app.py</div>
+          <div class="text-red-400 font-semibold mt-2">Untracked files:</div>
+          <div class="text-red-400 pl-4">utils/helper.py</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: GIT ADD -->
+    <section class="slide" data-title="Git Add">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Penyediaan Snapshot</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git add` — Pindah ke Staging Area</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 mb-4">
+        <div class="code-block p-4 rounded-xl text-xs space-y-3 relative">
+          <button onclick="copyCode('git add app.py')" class="absolute top-2 right-2 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400">// Tambah fail spesifik</div>
+          <div class="text-emerald-400">$ git add app.py</div>
+          <div class="text-gray-400 mt-2">// Tambah SEMUA perubahan folder semasa</div>
+          <div class="text-emerald-400">$ git add .</div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="pedagogy-box border-amber-500 bg-amber-500/10 p-3 rounded-r text-xs">
+            <strong class="text-amber-400 block font-bold uppercase">PERATURAN PENTING:</strong>
+            <code class="text-white">git add</code> TIDAK bermaksud perubahan anda telah selamat disimpan dalam sejarah (history) repo! Ia sekadar memasukkan fail ke dalam kotak persediaan (Staging Area).
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs flex items-center gap-4">
+        <i class="fa-solid fa-lightbulb text-amber-400 text-2xl"></i>
+        <div>
+          <h4 class="font-bold text-gray-200">Tips Best Practice:</h4>
+          <p class="text-gray-400">Gunakan <code class="text-git font-mono">git add app.py</code> berbanding <code class="text-git font-mono">git add .</code> jika anda ingin mengasingkan commit bagi tujuan komit bersih (atomic commits).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: GIT COMMIT -->
+    <section class="slide" data-title="Git Commit">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Merakam Sejarah</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git commit` — Merakam Snapshot Permanent</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Commit ialah <strong class="text-emerald-400">Snapshot / Rekod Kekal</strong> perubahan yang disimpan dalam pangkalan data Git. Setiap commit mendapat penanda unik 40-karakter (SHA-1 Hash).
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs relative">
+            <button onclick="copyCode('git commit -m &quot;feat: add user login endpoint&quot;')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+              <i class="fa-regular fa-copy"></i> Salin
+            </button>
+            <div class="text-gray-400 mb-1">// Format Standard</div>
+            <div class="text-emerald-400 font-mono">$ git commit -m "feat: add user login endpoint"</div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 space-y-2 text-xs">
+          <h4 class="font-bold text-git uppercase text-xs tracking-wider">Ciri Mesej Commit Yang Baik:</h4>
+          <ul class="list-disc pl-4 space-y-1 text-gray-300">
+            <li>Jelas, padat, dan menceritakan <strong>APA</strong> dan <strong>KENAPA</strong> perubahan dibuat.</li>
+            <li>Gunakan perkataan kata kerja perintah: <code class="text-emerald-400">Add login</code> bukannya <code class="text-gray-500">Added login</code>.</li>
+            <li>Boleh mengikut spesifikasi <em>Conventional Commits</em> (<code class="text-ci">feat:</code>, <code class="text-amber-400">fix:</code>, <code class="text-purple-400">docs:</code>).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: COMMIT HISTORY -->
+    <section class="slide" data-title="Commit History">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Menyemak Log Sejarah</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git log` — Audit Trail Perubahan</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs relative">
+          <button onclick="copyCode('git log --oneline')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400 mb-2">$ git log --oneline</div>
+          <div class="text-amber-400 font-mono">a1b2c3d <span class="text-gray-200">Add user authentication JWT</span></div>
+          <div class="text-amber-400 font-mono">d4e5f6a <span class="text-gray-200">Add health check API route</span></div>
+          <div class="text-amber-400 font-mono">1234567 <span class="text-gray-200">Initial commit & project setup</span></div>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="glass-card p-3 rounded-lg border-l-4 border-ci">
+            <strong class="text-ci block font-bold">Audit & Debugging</strong>
+            Membolehkan pasukan mengesan punca bug diperkenalkan secara tepat.
+          </div>
+          <div class="glass-card p-3 rounded-lg border-l-4 border-amber-500">
+            <strong class="text-amber-400 block font-bold">Rollback Safe Point</strong>
+            Setiap hash commit (<code class="text-amber-300">a1b2c3d</code>) membolehkan kita mengembalikan sistem ke keadaan tersebut jika production rosak.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 12: GIT DIFF -->
+    <section class="slide" data-title="Git Diff">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Pemeriksaan Baris Kod</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git diff` — Membanding Perubahan Baris</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            <code class="text-git font-mono font-bold">git diff</code> memaparkan perbezaan persis antara fail di <strong>Working Directory</strong> dengan fail di <strong>Staging Area</strong> / Commit Terakhir.
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs relative">
+            <button onclick="copyCode('git diff')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+              <i class="fa-regular fa-copy"></i> Salin
+            </button>
+            <div class="text-gray-500 mb-2">$ git diff app.py</div>
+            <div class="text-gray-400">--- a/app.py</div>
+            <div class="text-gray-400">+++ b/app.py</div>
+            <div class="text-red-400">- PORT = 8080</div>
+            <div class="text-emerald-400">+ PORT = 3000</div>
+            <div class="text-emerald-400">+ DEBUG = False</div>
+          </div>
+        </div>
+
+        <div class="pedagogy-box border-ci bg-ci/10 p-4 rounded-r text-xs space-y-2">
+          <span class="font-bold text-ci uppercase block font-mono">Pedagogy Breakdown:</span>
+          <p><strong>WHAT:</strong> Alat perbandingan kod grafik/tekstual.</p>
+          <p><strong>WHY:</strong> Mengelakkan ter-commit kod salah, secret kunci API, atau kenyataan `print()` debug yang tertinggal.</p>
+          <p><strong>HOW:</strong> Membandingkan versi hash dalam blob Git.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 13: GIT BRANCH -->
+    <section class="slide" data-title="Git Branch">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Pengasingan Kod</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apa Itu Git Branch?</h2>
+      </div>
+
+      <p class="text-xs text-gray-300 mb-6">
+        Branch (Cabang) ialah penunjuk boleh alih (*movable pointer*) ke salah satu commit. Ia membolehkan developer membina feature baharu tanpa mengganggu cawangan utama (<code class="text-emerald-400 font-mono">main</code>).
+      </p>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+        <div class="code-block p-4 rounded-lg text-xs font-mono space-y-2">
+          <div class="text-emerald-400 flex items-center gap-2">
+            <i class="fa-solid fa-code-branch"></i> main ──── [C1] ─── [C2] ───────────────── [C5 (Merge)]
+          </div>
+          <div class="text-ci pl-24 flex items-center gap-2">
+            └─ feature/login ─── [C3] ─── [C4] ──┘
+          </div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 text-xs">
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-git block font-mono">Independent Line of Development</strong>
+          Ujian atau eksperimen yang gagal di branch feature boleh dipadam secara terus tanpa merosakkan main.
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-ci block font-mono">Parallel Work</strong>
+          10 orang developer boleh membuat 10 feature berbeza serentak pada branch tersendiri.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 14: MAIN VS FEATURE -->
+    <section class="slide" data-title="Main vs Feature Branch">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Strategi Cawangan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Main Branch vs Feature Branch</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border-t-4 border-emerald-500">
+          <h3 class="font-bold text-emerald-400 text-sm mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved"></i> Main Branch (Production)
+          </h3>
+          <ul class="text-xs space-y-2 text-gray-300 list-disc pl-4">
+            <li>Menyimpan kod yang <strong>stabil, diuji, dan sedia dideploy</strong>.</li>
+            <li>Dilarang push secara terus (*Protected Branch*).</li>
+            <li>Hanya menerima perubahan melalui <em>Pull Request (PR)</em> yang diluluskan.</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border-t-4 border-ci">
+          <h3 class="font-bold text-ci text-sm mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-code-fork"></i> Feature Branch (Development)
+          </h3>
+          <ul class="text-xs space-y-2 text-gray-300 list-disc pl-4">
+            <li>Dicipta khas untuk satu tugasan (contoh: <code class="text-ci">feature/login-ui</code>).</li>
+            <li>Bersifat sementara — dipadam selepas digabungkan (*merged*) ke main.</li>
+            <li>Tempat bebas melakukan eksperimen tanpa risiko downtime.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 15: GIT SWITCH / CHECKOUT -->
+    <section class="slide" data-title="Git Switch & Checkout">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Navigasi Branch</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git switch` — Berpindah Branch</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs space-y-3 relative">
+          <button onclick="copyCode('git switch -c feature/login')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400">// Cipta dan terus pindah ke branch baharu</div>
+          <div class="text-emerald-400">$ git switch -c feature/login</div>
+
+          <div class="text-gray-400 border-t border-gray-800 pt-2">// Berpindah semula ke main branch</div>
+          <div class="text-emerald-400">$ git switch main</div>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="glass-card p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <h4 class="font-bold text-amber-300 mb-1"><i class="fa-solid fa-circle-info"></i> Nota Perintah Moden vs Lama:</h4>
+            <p class="text-gray-400">
+              Dahulu perintah <code class="text-white font-mono">git checkout -b</code> digunakan. Git versi moden memperkenalkan <code class="text-emerald-400 font-mono">git switch</code> khusus untuk navigasi branch supaya lebih jelas.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 16: MERGE -->
+    <section class="slide" data-title="Git Merge">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Penggabungan Kod</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git merge` — Menggabungkan Branch</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Penggabungan (*Merging*) mengambil sejarah commit daripada branch feature dan memasukkannya ke dalam branch sasaran (contohnya <code class="text-emerald-400 font-mono">main</code>).
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs relative">
+            <button onclick="copyCode('git switch main\ngit merge feature/login')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+              <i class="fa-regular fa-copy"></i> Salin
+            </button>
+            <div class="text-gray-400 mb-1">// 1. Berpindah ke main dahulu</div>
+            <div class="text-emerald-400">$ git switch main</div>
+            <div class="text-gray-400 my-1">// 2. Gabungkan feature branch</div>
+            <div class="text-emerald-400">$ git merge feature/login</div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-2">
+          <h4 class="font-bold text-ci uppercase tracking-wider">Jenis Merge:</h4>
+          <p><strong class="text-emerald-400">Fast-Forward Merge:</strong> Main tiada commit baharu, pointer hanya dialih ke depan.</p>
+          <p><strong class="text-purple-400">3-Way Merge:</strong> Kedua-dua branch ada commit baharu. Git secara automatik mencipta <em>Merge Commit</em> khas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 17: MERGE CONFLICT -->
+    <section class="slide" data-title="Merge Conflict">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Konflik Kod</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation"></i> Merge Conflict — Punca & Penyelesaian
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 mb-4">
+        <div class="glass-card p-4 rounded-xl border border-red-900/50 bg-red-950/10 text-xs space-y-2">
+          <h4 class="font-bold text-red-400">Skenario Konflik:</h4>
+          <p class="text-gray-300">Developer A dan Developer B mengubah baris kod yang <strong>SAMA</strong> pada fail yang <strong>SAMA</strong> secara serentak.</p>
+          <div class="code-block p-2 rounded text-[11px] text-gray-300">
+            &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD (Branch Anda)<br>
+            <span class="text-emerald-400">port = 8080</span><br>
+            =======<br>
+            <span class="text-ci">port = 9090</span><br>
+            &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/api
+          </div>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <h4 class="font-bold text-gray-200">Langkah Penyelesaian Manusia (Manual):</h4>
+          <div class="p-2.5 bg-gray-900 rounded border border-gray-800">1. Buka fail berkonflik dalam VS Code / Editor.</div>
+          <div class="p-2.5 bg-gray-900 rounded border border-gray-800 text-amber-300">2. Bincang dengan rakan pasukan & pilih kod yang betul.</div>
+          <div class="p-2.5 bg-gray-900 rounded border border-gray-800">3. Padamkan tanda konflik (<code class="text-red-400">&lt;&lt;&lt; === &gt;&gt;&gt;</code>).</div>
+          <div class="p-2.5 bg-gray-900 rounded border border-gray-800 text-emerald-400">4. Jalankan <code class="text-mono">git add .</code> dan <code class="text-mono">git commit</code> untuk menyelesaikan merge.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 18: PULL REQUEST -->
+    <section class="slide" data-title="Pull Request">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Mekanisme Pengawasan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apa Itu Pull Request (PR) / Merge Request (MR)?</h2>
+      </div>
+
+      <p class="text-xs text-gray-300 mb-6">
+        Pull Request (di GitHub) atau Merge Request (di GitLab) ialah cadangan untuk menggabungkan perbezaan kod dari branch feature anda ke dalam main branch projek.
+      </p>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-center text-xs font-mono">
+          <div class="p-3 bg-gray-900 rounded border border-git/40">1. Push Feature Branch</div>
+          <div class="p-3 bg-gray-900 rounded border border-ci/40">2. Cipta Pull Request</div>
+          <div class="p-3 bg-gray-900 rounded border border-purple-500/40">3. Automated CI Pass</div>
+          <div class="p-3 bg-gray-900 rounded border border-amber-500/40">4. Peer Code Review</div>
+          <div class="p-3 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-400 font-bold">5. Merge ke Main</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 19: CODE REVIEW -->
+    <section class="slide" data-title="Code Review">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Kawalan Kualiti</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Budaya Code Review</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="space-y-3 text-xs">
+          <h4 class="font-bold text-ci uppercase tracking-wider">Apa Yang Diperiksa Oleh Reviewer?</h4>
+          <div class="p-3 bg-gray-900 rounded border border-gray-800 flex items-center gap-3">
+            <i class="fa-solid fa-lock text-red-400 text-base"></i>
+            <span><strong>Keselamatan (Security):</strong> Tiada kredensial/secret terdedah, perlindungan dari SQLi/XSS.</span>
+          </div>
+          <div class="p-3 bg-gray-900 rounded border border-gray-800 flex items-center gap-3">
+            <i class="fa-solid fa-gauge-high text-amber-400 text-base"></i>
+            <span><strong>Prestasi (Performance):</strong> Query pangkalan data yang cekap tanpa kebocoran memori.</span>
+          </div>
+          <div class="p-3 bg-gray-900 rounded border border-gray-800 flex items-center gap-3">
+            <i class="fa-solid fa-eye text-emerald-400 text-base"></i>
+            <span><strong>Keterbacaan (Readability):</strong> Mengikut standard linting pasukan.</span>
+          </div>
+        </div>
+
+        <div class="p-6 rounded-xl bg-gradient-to-br from-git/10 to-purple-950/20 border border-git/30 flex flex-col justify-center text-center">
+          <i class="fa-solid fa-quote-left text-git text-3xl mb-3"></i>
+          <p class="text-base font-semibold text-gray-200 mb-2">
+            "Code review bukan persidangan mencari siapa salah. Ia mekanisme menangkap bug sebelum ia sampai ke tangan pelanggan."
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 20: GIT TAG -->
+    <section class="slide" data-title="Git Tag">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Penanda Versi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git tag` — Penanda Milestone Release</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Tag digunakan untuk memberi penanda tetap pada commit tertentu dalam sejarah (kebiasaannya penanda rilis seperti <code class="text-emerald-400 font-mono">v1.0.0</code>).
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs space-y-2 relative">
+            <button onclick="copyCode('git tag -a v1.0.0 -m &quot;Release version 1.0.0&quot;\ngit push origin v1.0.0')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+              <i class="fa-regular fa-copy"></i> Salin
+            </button>
+            <div class="text-gray-400">// Cipta tag berserta mesej</div>
+            <div class="text-emerald-400">$ git tag -a v1.0.0 -m "Release version 1.0.0"</div>
+            <div class="text-gray-400">// Push tag ke remote server</div>
+            <div class="text-emerald-400">$ git push origin v1.0.0</div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-3">
+          <h4 class="font-bold text-amber-400 uppercase font-mono">Kenapa Tag Sangat Penting Dalam CI/CD?</h4>
+          <p class="text-gray-300">
+            Pushing tag baru (contoh: <code class="text-emerald-400 font-mono">v1.2.0</code>) selalunya dijadikan pemicu (*trigger*) automatik untuk pipeline CD membina Docker Image dan mendepoy ke Production Server!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 21: SEMANTIC VERSIONING -->
+    <section class="slide" data-title="Semantic Versioning">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Pemiawaian Versi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Semantic Versioning (SemVer)</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 text-center mb-6">
+        <div class="text-4xl md:text-6xl font-mono font-black tracking-widest mb-2">
+          <span class="text-red-400">MAJOR</span>.<span class="text-ci">MINOR</span>.<span class="text-emerald-400">PATCH</span>
+        </div>
+        <div class="text-lg font-mono text-amber-300">Contoh: v2.4.1</div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4 text-xs">
+        <div class="p-4 bg-gray-900 rounded-xl border-t-4 border-red-500">
+          <strong class="text-red-400 block text-sm font-mono mb-1">MAJOR (2.0.0)</strong>
+          Perubahan besar yang tidak serasi dengan versi terdahulu (*Breaking Changes*).
+        </div>
+        <div class="p-4 bg-gray-900 rounded-xl border-t-4 border-ci">
+          <strong class="text-ci block text-sm font-mono mb-1">MINOR (2.4.0)</strong>
+          Penambahan feature baharu yang masih serasi ke belakang (*Backward Compatible*).
+        </div>
+        <div class="p-4 bg-gray-900 rounded-xl border-t-4 border-emerald-500">
+          <strong class="text-emerald-400 block text-sm font-mono mb-1">PATCH (2.4.1)</strong>
+          Pembaikan bug kecil (*Bug Fixes*) tanpa penambahan feature.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 22: REMOTE REPOSITORY -->
+    <section class="slide" data-title="Remote Repository">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">GitHub vs Git</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Remote Repository (GitHub / GitLab)</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800">
+          <h4 class="font-bold text-git mb-2 text-sm">Local vs Remote:</h4>
+          <div class="space-y-2 text-xs text-gray-300">
+            <p><strong>Local Repo:</strong> Tersimpan dalam pemacu keras (HDD/SSD) komputer anda.</p>
+            <p><strong>Remote Repo:</strong> Dihoskan di pelayan awan seperti GitHub, GitLab, atau Bitbucket.</p>
+          </div>
+
+          <div class="code-block p-3 rounded mt-4 text-xs">
+            <div class="text-gray-400">// Tambah remote origin</div>
+            <div class="text-emerald-400">$ git remote add origin https://github.com/example/myapp.git</div>
+          </div>
+        </div>
+
+        <div class="pedagogy-box border-purple-500 bg-purple-950/10 p-4 rounded-r text-xs space-y-2">
+          <span class="font-bold text-purple-400 uppercase font-mono">KONSEP PENTING:</span>
+          <p><strong>Git</strong> ialah *tool/software* version control.</p>
+          <p><strong>GitHub / GitLab</strong> ialah *platform perkhidmatan web* yang menyimpan Git repository di cloud berserta kemudahan UI, CI/CD runner, dan Issue Tracker.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 23: GIT PUSH & PULL -->
+    <section class="slide" data-title="Git Push & Pull">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Sinkronisasi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git push` vs `git pull`</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border-t-4 border-git">
+          <h4 class="font-bold text-git text-sm mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-up"></i> git push
+          </h4>
+          <p class="text-xs text-gray-300 mb-3">Hantar commit tempatan dari komputer anda ke Remote Repository (GitHub).</p>
+          <div class="code-block p-2 rounded text-xs text-emerald-400">$ git push origin main</div>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border-t-4 border-ci">
+          <h4 class="font-bold text-ci text-sm mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-down"></i> git pull
+          </h4>
+          <p class="text-xs text-gray-300 mb-3">Muat turun dan **terus gabungkan** commit terkini dari Remote ke Local branch anda.</p>
+          <div class="code-block p-2 rounded text-xs text-emerald-400">$ git pull origin main</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 24: GIT FETCH -->
+    <section class="slide" data-title="Git Fetch">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Sinkronisasi Selamat</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`git fetch` — Semak Tanpa Menggabung</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Berbeza dengan <code class="text-ci font-mono">git pull</code>, perintah <code class="text-amber-400 font-mono">git fetch</code> mengambil maklumat terkini dari remote **TANPA** terus mengubah atau mengacau kod di working branch anda.
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs space-y-2">
+            <div class="text-emerald-400">$ git fetch origin</div>
+            <div class="text-gray-400">// Semak perbezaan dahulu</div>
+            <div class="text-emerald-400">$ git diff main origin/main</div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs">
+          <h4 class="font-bold text-amber-300 mb-2 font-mono">Persamaan Formula:</h4>
+          <div class="p-3 bg-gray-900 rounded font-mono text-center text-emerald-400">
+            git pull = git fetch + git merge
+          </div>
+          <p class="text-gray-400 mt-3">Gunakan <code class="text-amber-300">git fetch</code> jika anda ingin menyemak perubahan rakan pasukan secara selamat sebelum memutuskan untuk merge.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 25: GIT IGNORE -->
+    <section class="slide" data-title="Git Ignore">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Penyaringan Fail</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">`.gitignore` — Abaikan Fail Sampah</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs font-mono">
+          <div class="text-gray-500">// Contoh fail .gitignore</div>
+          <div class="text-red-400">.env</div>
+          <div class="text-gray-400">__pycache__/</div>
+          <div class="text-gray-400">*.log</div>
+          <div class="text-gray-400">node_modules/</div>
+          <div class="text-gray-400">.venv/</div>
+          <div class="text-gray-400">dist/</div>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="glass-card p-3 rounded-lg border-l-4 border-red-500">
+            <strong class="text-red-400 block font-bold">Jangan Push Dependency / Cache!</strong>
+            Folder seperti <code class="text-gray-300">node_modules/</code> bersatu gigabyte tidak sepatutnya berada dalam Git repository.
+          </div>
+          <div class="glass-card p-3 rounded-lg border-l-4 border-amber-500">
+            <strong class="text-amber-400 block font-bold">Abaikan Fail Kredensial Tempatkan</strong>
+            Fail <code class="text-gray-300">.env</code> tempatan wajib dimasukkan ke `.gitignore`!
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 26: SECRET MANAGEMENT -->
+    <section class="slide" data-title="Secret Management">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Keselamatan Amaran Tinggi</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400 flex items-center gap-2">
+          <i class="fa-solid fa-vault"></i> Secret Management Dalam Git
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 mb-4">
+        <div class="glass-card p-4 rounded-xl border border-red-900/50 bg-red-950/20 text-xs space-y-2">
+          <h4 class="font-bold text-red-400 uppercase">❌ JANGAN PERNAH COMMIT SECRETS:</h4>
+          <ul class="list-disc pl-4 space-y-1 text-gray-300">
+            <li>Kata Laluan Pangkalan Data</li>
+            <li>API Keys (AWS, OpenAI, Cloudflare)</li>
+            <li>Kunci SSH Private Key / Token JWT</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-emerald-900/50 bg-emerald-950/20 text-xs space-y-2">
+          <h4 class="font-bold text-emerald-400 uppercase">✓ GUNAKAN PENYELUTURAN SECURE:</h4>
+          <ul class="list-disc pl-4 space-y-1 text-gray-300">
+            <li>Environment Variables (<code class="text-emerald-300">process.env</code>)</li>
+            <li>GitHub / GitLab Repository Secrets</li>
+            <li>Vault Services (HashiCorp Vault, AWS Secrets Manager)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pedagogy-box border-red-500 bg-red-500/10 p-3 rounded-r text-xs">
+        <strong class="text-red-400 block font-bold">INGATAN PENTING:</strong>
+        <em class="text-white">".gitignore bukanlah Secret Manager!"</em> Sekiranya secret pernah ter-commit secara tidak sengaja, hash tersebut kekal berada dalam Git history walaupun fail telah dipadam. Secret tersebut dikira terbocor dan **WAJIB DI-ROTATE** segera.
+      </div>
+    </section>
+
+    <!-- SLIDE 27: APA ITU CI? -->
+    <section class="slide" data-title="Apa Itu CI?">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Pengamalan Automasi</span>
+        <h2 class="text-3xl font-bold mt-1 text-ci">Apa Itu Continuous Integration (CI)?</h2>
+      </div>
+
+      <p class="text-xs text-gray-300 mb-6">
+        <strong>Continuous Integration (CI)</strong> ialah amalan kejuruteraan di mana developer secara kerap menggabungkan kod mereka ke dalam cawangan utama, di mana ujian dan pembinaan diautomatiskan secara serta-merta.
+      </p>
+
+      <div class="glass-card p-5 rounded-xl border border-ci/40 mb-6">
+        <div class="flex flex-col md:flex-row items-center justify-around text-center text-xs font-mono gap-3">
+          <div class="p-2 bg-gray-900 rounded border border-gray-800">Developer Push Kod</div>
+          <i class="fa-solid fa-arrow-right text-ci"></i>
+          <div class="p-2 bg-gray-900 rounded border border-gray-800">Automated Trigger</div>
+          <i class="fa-solid fa-arrow-right text-ci"></i>
+          <div class="p-2 bg-gray-900 rounded border border-gray-800">Linting & Unit Test</div>
+          <i class="fa-solid fa-arrow-right text-ci"></i>
+          <div class="p-2 bg-emerald-950 rounded border border-emerald-500 text-emerald-400 font-bold">Maklum Balas Pantas</div>
+        </div>
+      </div>
+
+      <div class="pedagogy-box border-ci bg-ci/10 p-3 rounded-r text-xs">
+        <strong class="text-ci block font-bold">TUJUAN UTAMA CI:</strong>
+        Mengenal pasti masalah dan bug regresi seawal mungkin (*Fail Fast*) sebelum kod bersatu dengan cawangan production.
+      </div>
+    </section>
+
+    <!-- SLIDE 28: CI PIPELINE -->
+    <section class="slide" data-title="CI Pipeline">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Anatomi Pipeline</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Anatomi CI Pipeline Lengkap</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs font-mono">
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 1</span>
+            <strong class="text-ci">Checkout Code</strong>
+          </div>
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 2</span>
+            <strong class="text-ci">Install Deps</strong>
+          </div>
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 3</span>
+            <strong class="text-purple-400">Run Linter</strong>
+          </div>
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 4</span>
+            <strong class="text-emerald-400">Unit Tests</strong>
+          </div>
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 5</span>
+            <strong class="text-amber-400">Build Image</strong>
+          </div>
+          <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+            <span class="text-gray-500 block mb-1">Step 6</span>
+            <strong class="text-cyan-400">Save Artifact</strong>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-xs text-gray-400 text-center">
+        Jika mana-mana satu langkah dalam pipeline gagal, pipeline akan terhenti serta-merta dan memberi amaran kepada pembina kod.
+      </p>
+    </section>
+
+    <!-- SLIDE 29: LINTING -->
+    <section class="slide" data-title="Linting">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Pemeriksaan Statik</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apa Itu Linting & Static Analysis?</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Linter menyemak kod sumber anda **tanpa menjalankan kod tersebut** untuk menangkap ralat sintaks, pembolehubah yang tidak digunakan, atau perlanggaran gaya penulisan.
+          </p>
+
+          <div class="space-y-2 text-xs">
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <strong class="text-ci block font-mono">Python Ecosystem:</strong> <code class="text-gray-300">ruff</code>, <code class="text-gray-300">flake8</code>, <code class="text-gray-300">black</code>
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <strong class="text-ci block font-mono">JavaScript / Node.js:</strong> <code class="text-gray-300">eslint</code>, <code class="text-gray-300">prettier</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="pedagogy-box border-amber-500 bg-amber-500/10 p-4 rounded-r text-xs">
+          <strong class="text-amber-400 block font-bold mb-1 uppercase">PERINGATAN PEDAGOGI:</strong>
+          Jangan sesekali menganggap Linter sebagai pengganti Automated Testing! Linter hanya menyemak format dan sintaks, bukannya logik perniagaan (*business logic*) aplikasi.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 30: AUTOMATED TESTING -->
+    <section class="slide" data-title="Automated Testing">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Pengujian Otomatik</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Jenis-Jenis Automated Testing</h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4 text-xs">
+        <div class="glass-card p-4 rounded-xl border-t-4 border-emerald-500">
+          <strong class="text-emerald-400 block text-sm font-bold mb-1">1. Unit Test</strong>
+          <p class="text-gray-400">Menguji fungsi atau kaedah kecil secara terpencil. Sangat pantas dijalankan (milisaat).</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border-t-4 border-ci">
+          <strong class="text-ci block text-sm font-bold mb-1">2. Integration Test</strong>
+          <p class="text-gray-400">Menguji perhubungan antara komponen (contoh: API app berkomunikasi dengan pangkalan data PostgreSQL).</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border-t-4 border-purple-500">
+          <strong class="text-purple-400 block text-sm font-bold mb-1">3. End-to-End (E2E) Test</strong>
+          <p class="text-gray-400">Simulasi tingkah laku pengguna sebenar dari Frontend hingga Backend (menggunakan Playwright / Cypress).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 31: TEST PYRAMID -->
+    <section class="slide" data-title="Test Pyramid">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Strategi Ujian</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Piramid Ujian (Test Pyramid)</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <!-- PYRAMID VISUAL -->
+        <div class="glass-card p-6 rounded-xl border border-gray-800 text-center font-mono text-xs space-y-2">
+          <div class="p-2 bg-purple-900/60 rounded border border-purple-500 w-1/3 mx-auto text-purple-200">
+            E2E Tests (Sedikit)
+          </div>
+          <div class="p-2.5 bg-ci/30 rounded border border-ci w-2/3 mx-auto text-ci">
+            Integration Tests (Sederhana)
+          </div>
+          <div class="p-3 bg-emerald-950/80 rounded border border-emerald-500 w-full text-emerald-300 font-bold">
+            Unit Tests (Banyak, Pantas & Murah)
+          </div>
+        </div>
+
+        <div class="space-y-3 text-xs text-gray-300">
+          <p>
+            Piramid ujian memberi panduan nisbah ujian yang ideal dalam pipeline CI.
+          </p>
+          <ul class="list-disc pl-4 space-y-1">
+            <li><strong>Unit Tests di dasar:</strong> Kerana ia murah, sangat pantas, dan mudah diselenggara.</li>
+            <li><strong>E2E di puncak:</strong> Kerana ia lambat, mahal, dan mudah terganggu (*flaky*).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 32: BUILD -->
+    <section class="slide" data-title="Build Phase">
+      <div class="mb-4">
+        <span class="text-purple-400 font-mono text-xs uppercase font-bold tracking-widest">Fasa Kompilasi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Fasa Build & Artifact</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            Selepas kod lulus ujian, CI akan mengompil atau membungkus kod sumber menjadi **Artifact** yang sedia untuk dideploy.
+          </p>
+
+          <div class="code-block p-4 rounded-xl text-xs space-y-2">
+            <div class="text-gray-400">// Tradisional: Zip / Binary</div>
+            <div class="text-purple-400">app-v1.0.0.tar.gz</div>
+            <div class="text-gray-400 mt-2">// Moden (Container Era):</div>
+            <div class="text-emerald-400">Docker Image (ghcr.io/app:1.0.0)</div>
+          </div>
+        </div>
+
+        <div class="pedagogy-box border-purple-500 bg-purple-950/10 p-4 rounded-r text-xs space-y-2">
+          <span class="font-bold text-purple-400 uppercase font-mono">Prinsip Immutability:</span>
+          <p class="text-gray-300">
+            Artifact yang dibina dalam CI tidak boleh diubah lagi. Artifact yang sama yang diuji dalam Staging adalah artifact persis yang dideploy ke Production!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 33: DOCKER IMAGE -->
+    <section class="slide" data-title="Docker Image">
+      <div class="mb-4">
+        <span class="text-cyan-400 font-mono text-xs uppercase font-bold tracking-widest">Standard Container</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Docker Image Sebagai CI Artifact</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs space-y-2 relative">
+          <button onclick="copyCode('docker build -t ghcr.io/example/myapp:1.2.0 .')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400">// Arahan CI Build Docker</div>
+          <div class="text-cyan-400">$ docker build -t ghcr.io/example/myapp:1.2.0 .</div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-3">
+          <h4 class="font-bold text-amber-300 uppercase font-mono"><i class="fa-solid fa-triangle-exclamation"></i> PERATURAN TAG PRODUCTION:</h4>
+          <p class="text-gray-300">
+            Jangan sesekali bergantung kepada tag <code class="text-red-400 font-mono">:latest</code> sahaja untuk production!
+          </p>
+          <p class="text-gray-400">
+            Sentiasa gunakan tag spesifik berangka seperti <code class="text-emerald-400 font-mono">:1.2.0</code> atau SHA commit <code class="text-ci font-mono">:a1b2c3d</code> bagi tujuan keterulangan (*reproducibility*) dan rollback.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 34: CONTAINER REGISTRY -->
+    <section class="slide" data-title="Container Registry">
+      <div class="mb-4">
+        <span class="text-cyan-400 font-mono text-xs uppercase font-bold tracking-widest">Penyimpanan Artifact</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Container Registry</h2>
+      </div>
+
+      <p class="text-xs text-gray-300 mb-6">
+        <strong>Container Registry</strong> ialah gudang berpusat untuk menyimpan dan mengedar Docker Images yang telah dibina oleh CI.
+      </p>
+
+      <div class="grid md:grid-cols-3 gap-4 text-xs mb-6">
+        <div class="glass-card p-4 rounded-xl text-center">
+          <i class="fa-brands fa-docker text-3xl text-cyan-400 mb-2"></i>
+          <h4 class="font-bold text-gray-200">Docker Hub</h4>
+          <p class="text-gray-400 text-[11px] mt-1">Registry awam/persendirian paling popular.</p>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <i class="fa-brands fa-github text-3xl text-purple-400 mb-2"></i>
+          <h4 class="font-bold text-gray-200">GitHub Packages (GHCR)</h4>
+          <p class="text-gray-400 text-[11px] mt-1">Sangat terintegrasi dengan GitHub Actions.</p>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <i class="fa-solid fa-server text-3xl text-emerald-400 mb-2"></i>
+          <h4 class="font-bold text-gray-200">Self-Hosted Registry</h4>
+          <p class="text-gray-400 text-[11px] mt-1">Harbor / Nexus dalam server tempatan.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 35: CD -->
+    <section class="slide" data-title="Continuous Delivery vs Deployment">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Pengagihan Otomatik</span>
+        <h2 class="text-3xl font-bold mt-1 text-cd">Continuous Delivery vs Continuous Deployment</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border-t-4 border-ci">
+          <h3 class="font-bold text-ci text-sm mb-2">Continuous Delivery</h3>
+          <p class="text-xs text-gray-300 mb-4">
+            Artifact sentiasa diuji dan sedia dideploy pada bila-bila masa. Namun, proses deploy ke production memerlukan **Kelulusan Manual (Manual Approval / Click Button)**.
+          </p>
+          <span class="bg-ci/20 text-ci text-[10px] px-2 py-1 rounded font-mono">Biasa di Sektor Perbankan / Enterprise</span>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border-t-4 border-emerald-500">
+          <h3 class="font-bold text-emerald-400 text-sm mb-2">Continuous Deployment</h3>
+          <p class="text-xs text-gray-300 mb-4">
+            Setiap perubahan kod yang lulus ujian pipeline CI akan **terus dideploy secara 100% automatik** ke Production tanpa sebarang penglibatan manusia.
+          </p>
+          <span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-1 rounded font-mono">Biasa di Startup / SaaS Pantas</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 36: CD PIPELINE -->
+    <section class="slide" data-title="CD Pipeline">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Aliran CD</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Aliran CD Pipeline Lengkap</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800">
+        <div class="flex flex-col md:flex-row items-center justify-between text-center text-xs font-mono gap-2">
+          <div class="p-3 bg-gray-900 rounded border border-cyan-500 text-cyan-300 w-full">Pull Image dari Registry</div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded border border-indigo-500 text-indigo-300 w-full">Update Server Config</div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded border border-purple-500 text-purple-300 w-full">Restart Container</div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-gray-900 rounded border border-amber-500 text-amber-300 w-full">Run Health Check</div>
+          <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+          <div class="p-3 bg-emerald-950 rounded border border-emerald-500 text-emerald-400 font-bold w-full">Verify & Route Traffic</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 37: DEPLOYMENT TO HOME SERVER -->
+    <section class="slide" data-title="Deployment to Home Server">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Praktikal Self-Hosted</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Deployment Ke Home Server / Raspberry Pi</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800 space-y-3 text-xs">
+          <h4 class="font-bold text-amber-300 uppercase font-mono">Aliran Kerja Home Server:</h4>
+          <ol class="list-decimal pl-4 space-y-2 text-gray-300">
+            <li>GitHub Actions membina Docker Image berasaskan seni bina ARM/x86.</li>
+            <li>Image di-push ke GitHub Container Registry.</li>
+            <li>GitHub Actions menghantar isyarat Webhook / SSH ke Raspberry Pi tempatan.</li>
+            <li>Raspberry Pi menjalankan <code class="text-emerald-400 font-mono">docker compose pull && docker compose up -d</code>.</li>
+          </ol>
+        </div>
+
+        <div class="code-block p-4 rounded-xl text-xs relative">
+          <button onclick="copyCode('docker compose pull app\ndocker compose up -d --remove-orphans')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400 mb-2">// Skrip Deployment pada Server</div>
+          <div class="text-emerald-400">$ docker compose pull app</div>
+          <div class="text-emerald-400">$ docker compose up -d --remove-orphans</div>
+          <div class="text-gray-400 mt-2">// Semak status container</div>
+          <div class="text-emerald-400">$ docker ps</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 38: DEPLOYMENT STRATEGIES -->
+    <section class="slide" data-title="Deployment Strategies">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Strategi Deployment</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">4 Strategi Deployment Utama</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 text-xs">
+        <div class="glass-card p-4 rounded-xl">
+          <strong class="text-red-400 text-sm block mb-1">1. Recreate</strong>
+          Matikan container lama, kemudian hidupkan container baru. Ada downtime seketika.
+        </div>
+        <div class="glass-card p-4 rounded-xl">
+          <strong class="text-ci text-sm block mb-1">2. Rolling Update</strong>
+          Gantikan pod/container satu demi satu secara berperingkat tanpa downtime.
+        </div>
+        <div class="glass-card p-4 rounded-xl">
+          <strong class="text-emerald-400 text-sm block mb-1">3. Blue / Green</strong>
+          Sediakan dua environment identikal. Tukar trafik dari Blue ke Green serta-merta.
+        </div>
+        <div class="glass-card p-4 rounded-xl">
+          <strong class="text-purple-400 text-sm block mb-1">4. Canary</strong>
+          Salurkan 5% trafik pengguna ke versi baru dahulu untuk menguji kestabilan sebelum 100%.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 39: RECREATE -->
+    <section class="slide" data-title="Recreate Strategy">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Strategi Asas</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Strategi 1: Recreate</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-red-900/40 bg-red-950/10 text-xs space-y-3">
+          <div class="font-mono text-red-400">Old Container ──► STOP & REMOVE ──► Start New Container</div>
+          <p class="text-gray-300">Sesuai untuk persekitaran Development / Staging atau aplikasi dalaman yang boleh menerima downtime beberapa minit.</p>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <div class="p-3 bg-gray-900 rounded border border-gray-800 text-emerald-400">
+            <strong>Kelebihan:</strong> Sangat mudah dibina, tiada isu persaingan versi pangkalan data.
+          </div>
+          <div class="p-3 bg-gray-900 rounded border border-gray-800 text-red-400">
+            <strong>Kekurangan:</strong> Menimbulkan Service Downtime kepada pengguna sepanjang proses pengangkatan.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 40: BLUE / GREEN -->
+    <section class="slide" data-title="Blue Green Strategy">
+      <div class="mb-4">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Zero Downtime</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Strategi 2: Blue / Green Deployment</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+        <div class="grid md:grid-cols-3 gap-4 text-center text-xs font-mono">
+          <div class="p-4 bg-ci/20 border border-ci rounded-xl">
+            <strong class="text-ci block text-sm mb-1">BLUE Environment</strong>
+            <p class="text-gray-400 text-[11px]">Versi v1.0.0 (Sedang Menerima Trafik Pengguna)</p>
+          </div>
+          <div class="p-4 bg-gray-900 border border-amber-500 rounded-xl flex items-center justify-center">
+            <i class="fa-solid fa-arrows-rotate text-amber-400 text-2xl"></i>
+            <span class="block text-[11px] text-amber-300 ml-2">Reverse Proxy Switch (Nginx / Cloudflare)</span>
+          </div>
+          <div class="p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl">
+            <strong class="text-emerald-400 block text-sm mb-1">GREEN Environment</strong>
+            <p class="text-gray-400 text-[11px]">Versi v1.1.0 (Diuji Kesihatan & Sedia Diswitch)</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-xs text-gray-300 text-center">
+        Jika Green bermasalah, titikkan (*point*) semula Reverse Proxy ke Blue dalam masa kurang 1 saat!
+      </p>
+    </section>
+
+    <!-- SLIDE 41: CANARY -->
+    <section class="slide" data-title="Canary Strategy">
+      <div class="mb-4">
+        <span class="text-purple-400 font-mono text-xs uppercase font-bold tracking-widest">Pengurangan Risiko</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Strategi 3: Canary Deployment</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-purple-500/30 text-xs space-y-3">
+          <h4 class="font-bold text-purple-400 uppercase font-mono">Pembahagian Trafik Berperingkat:</h4>
+          <div class="p-2 bg-gray-900 rounded border border-gray-800">Fasa 1: 95% Trafik v1.0 | 5% Trafik Canary v2.0</div>
+          <div class="p-2 bg-gray-900 rounded border border-gray-800">Fasa 2: 80% Trafik v1.0 | 20% Trafik Canary v2.0</div>
+          <div class="p-2 bg-emerald-950 rounded border border-emerald-500 text-emerald-300">Fasa 3: 0% Trafik v1.0 | 100% Trafik v2.0</div>
+        </div>
+
+        <div class="pedagogy-box border-purple-500 bg-purple-950/10 p-4 rounded-r text-xs space-y-2">
+          <span class="font-bold text-purple-400 uppercase font-mono">Asal Usul Nama:</span>
+          <p class="text-gray-300">
+            Diambil dari burung *Canary in a Coal Mine*. Jika terdapat bug kritikal dalam v2.0, hanya 5% pengguna terkesan sebelum ia ditarik balik dengan selamat.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 42: HEALTH CHECK SELEPAS DEPLOY -->
+    <section class="slide" data-title="Health Check Deployment">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Pengesahan Keadaan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Health Check Selepas Deployment</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-amber-500/30 text-xs space-y-3">
+          <h4 class="font-bold text-amber-300">Container "Running" ≠ App "Berfungsi"!</h4>
+          <p class="text-gray-300">
+            Container Docker boleh berstatus <code class="text-emerald-400">Up 2 minutes</code>, tetapi aplikasi di dalamnya pengsan akibat kehabisan memori atau gagal berhubung dengan DB.
+          </p>
+        </div>
+
+        <div class="code-block p-4 rounded-xl text-xs space-y-2">
+          <div class="text-gray-400">// Skrip Semakan HTTP dalam CD</div>
+          <div class="text-emerald-400">$ curl -f http://localhost:3000/health || exit 1</div>
+          <div class="text-gray-400 mt-2">// Respons Dijangka:</div>
+          <div class="text-emerald-400">{"status": "ok", "db": "connected"}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 43: AUTOMATIC ROLLBACK -->
+    <section class="slide" data-title="Automatic Rollback">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Pemulihan Bencana</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400 flex items-center gap-2">
+          <i class="fa-solid fa-rotate-left"></i> Automatic Rollback
+        </h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-red-900/50 bg-red-950/10 mb-6">
+        <div class="flex flex-col md:flex-row items-center justify-between text-center text-xs font-mono gap-2">
+          <div class="p-3 bg-gray-900 rounded border border-gray-800">Deploy Versi v1.5.0</div>
+          <i class="fa-solid fa-arrow-right text-gray-600"></i>
+          <div class="p-3 bg-red-950 rounded border border-red-500 text-red-400 font-bold">Health Check Gagal (HTTP 500)</div>
+          <i class="fa-solid fa-arrow-right text-red-500"></i>
+          <div class="p-3 bg-amber-950 rounded border border-amber-500 text-amber-300 font-bold">Trigger Auto Rollback</div>
+          <i class="fa-solid fa-arrow-right text-emerald-500"></i>
+          <div class="p-3 bg-emerald-950 rounded border border-emerald-500 text-emerald-400 font-bold">Kembali ke Versi v1.4.2</div>
+        </div>
+      </div>
+
+      <p class="text-xs text-gray-300 text-center">
+        Automated Rollback memastikan insiden masa terhenti (*downtime*) dikurangkan daripada berjam-jam kepada hanya beberapa saat sahaja!
+      </p>
+    </section>
+
+    <!-- SLIDE 44: CI/CD + SECRETS -->
+    <section class="slide" data-title="CI/CD Secrets">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Pengurusan Token</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">CI/CD + Secrets Store</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+          <h4 class="font-bold text-amber-300">Penyimpanan Kredensial Dalam GitHub Actions:</h4>
+          <p class="text-gray-300">Kunci API dimasukkan melalui menu <code class="text-emerald-400">Settings -&gt; Secrets and variables -&gt; Actions</code>.</p>
+          <div class="code-block p-3 rounded font-mono text-[11px] text-gray-300">
+            env:<br>
+            &nbsp;&nbsp;DB_PASS: ${{ secrets.PROD_DB_PASSWORD }}<br>
+            &nbsp;&nbsp;CF_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+          </div>
+        </div>
+
+        <div class="pedagogy-box border-amber-500 bg-amber-500/10 p-4 rounded-r text-xs space-y-2">
+          <span class="font-bold text-amber-400 uppercase font-mono">Masking Keselamatan:</span>
+          <p class="text-gray-300">
+            Platform CI/CD secara automatik akan memadam (*mask*) sebarang paparan rahsia dalam log output dengan tanda <code class="text-amber-300">***</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 45: PRINCIPLE OF LEAST PRIVILEGE -->
+    <section class="slide" data-title="Principle of Least Privilege">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Prinsip Keselamatan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Principle of Least Privilege (PoLP)</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-red-900/40 bg-red-950/10 text-xs space-y-2">
+          <strong class="text-red-400 block font-bold">❌ AMALAN BURUK:</strong>
+          <p class="text-gray-300">Memberi CI Runner akses penuh <code class="text-red-400 font-mono">root / sudo</code> pada seluruh server production.</p>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border border-emerald-900/40 bg-emerald-950/10 text-xs space-y-2">
+          <strong class="text-emerald-400 block font-bold">✓ AMALAN TERBAIK (PoLP):</strong>
+          <p class="text-gray-300">Cipta AKAUN KHAS yang hanya dibenarkan melepaskan arahan <code class="text-emerald-400 font-mono">docker pull</code> dan <code class="text-emerald-400 font-mono">docker compose up</code> sahaja.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 46: DEPLOYMENT CREDENTIALS -->
+    <section class="slide" data-title="Deployment Credentials">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Kredensial Capaian</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Pengurusan Deployment Credentials</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <h4 class="font-bold text-amber-300 font-mono uppercase">Checklist Keselamatan Kredensial Deploy:</h4>
+        <ul class="list-disc pl-4 space-y-2 text-gray-300">
+          <li><strong>Gunakan Short-Lived Tokens:</strong> Akses sementara (contoh: OIDC / AWS STS) berbanding SSH key kekal.</li>
+          <li><strong>Scoped Permissions:</strong> Token hanya boleh push ke satu repository Docker spesifik sahaja.</li>
+          <li><strong>Kunci SSH Terhad:</strong> Gunakan `command="..."` dalam fail <code class="text-emerald-400 font-mono">authorized_keys</code> untuk menyekat shell interaktif.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 47: ENVIRONMENT -->
+    <section class="slide" data-title="Environments">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Pengasingan Persekitaran</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Pengasingan Environment</h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4 text-xs">
+        <div class="glass-card p-4 rounded-xl border-t-4 border-ci">
+          <strong class="text-ci text-sm block mb-1">Development (Dev)</strong>
+          Persekitaran di laptop developer. Data mock, kerap berubah.
+        </div>
+        <div class="glass-card p-4 rounded-xl border-t-4 border-amber-500">
+          <strong class="text-amber-400 text-sm block mb-1">Staging (STG)</strong>
+          Persekitaran serupa Production (*Production-like*) untuk ujian integrasi akhir.
+        </div>
+        <div class="glass-card p-4 rounded-xl border-t-4 border-emerald-500">
+          <strong class="text-emerald-400 text-sm block mb-1">Production (PROD)</strong>
+          Persekitaran hidup sebenar pengguna. Kawalan ketat &amp; bermonitoring tinggi.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 48: DEVELOPMENT -->
+    <section class="slide" data-title="Development Environment">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Persekitaran Tempatan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Development Environment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <h4 class="font-bold text-ci font-mono">Ciri-Ciri Utama:</h4>
+        <ul class="list-disc pl-4 space-y-1 text-gray-300">
+          <li>Dijalankan secara tempatan menggunakan Docker Compose tempatan.</li>
+          <li>Mempunyai *Hot-Reloading* untuk maklum balas kod segera.</li>
+          <li>Data ujian yang palsu / sintetik (*Seed Data*).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 49: STAGING -->
+    <section class="slide" data-title="Staging Environment">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Persekitaran Simulasi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Staging Environment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <h4 class="font-bold text-amber-300 font-mono">"Salinan Karbon Production":</h4>
+        <p class="text-gray-300">
+          Staging menggunakan seni bina, Docker image, versi pangkalan data, dan konfigurasi Reverse Proxy yang **identikal** dengan Production.
+        </p>
+        <p class="text-gray-400">
+          Tujuan: Menangkap isu keselamatan atau ketidakserasian saat-saat akhir sebelum disentuh pengguna sebenar.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 50: PRODUCTION -->
+    <section class="slide" data-title="Production Environment">
+      <div class="mb-4">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Persekitaran Utama</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Production Environment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-emerald-900/50 bg-emerald-950/10 text-xs space-y-3">
+        <h4 class="font-bold text-emerald-400 uppercase">Ciri Persekitaran Production:</h4>
+        <ul class="list-disc pl-4 space-y-1.5 text-gray-300">
+          <li>Pengguna sebenar &amp; transaksi wang/data bernilai tinggi.</li>
+          <li>Perlindungan Backup automatik &amp; High Availability.</li>
+          <li>Akses SSH dihadkan hanya untuk situasi cemas (*Break-Glass Procedure*).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 51: GIT + DOCKER + CLOUD -->
+    <section class="slide" data-title="Git + Docker + Cloud">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Integrasi Lengkap</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Hubungan Git + Docker + Cloud Tunnel</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800">
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-2 text-center text-xs font-mono">
+          <div class="p-2 bg-gray-900 rounded border border-git/40 text-git">1. Git Push</div>
+          <div class="p-2 bg-gray-900 rounded border border-ci/40 text-ci">2. CI Test</div>
+          <div class="p-2 bg-gray-900 rounded border border-purple-500/40 text-purple-400">3. Docker Build</div>
+          <div class="p-2 bg-gray-900 rounded border border-cyan-500/40 text-cyan-400">4. Registry</div>
+          <div class="p-2 bg-gray-900 rounded border border-indigo-500/40 text-indigo-400">5. CD Deploy</div>
+          <div class="p-2 bg-gray-900 rounded border border-amber-500/40 text-amber-300">6. Cloudflare Tunnel</div>
+          <div class="p-2 bg-emerald-950 rounded border border-emerald-500/40 text-emerald-400 font-bold">7. Public User</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 52: CI/CD + MONITORING -->
+    <section class="slide" data-title="CI/CD + Monitoring">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Sambungan Observability</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">CI/CD Menghubungkan Monitoring</h2>
+      </div>
+
+      <p class="text-xs text-gray-300 mb-6">
+        Proses CI/CD tidak berakhir sebaik sahaja container dihidupkan. Sistem **Observability (Prometheus / Grafana)** mula mengambil alih tugas mengawasi kesihatan aplikasi.
+      </p>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs font-mono text-center text-amber-300">
+        Deploy ──► Health Check ──► Metrics Collection ──► Logs ──► Alerting ──► Auto Rollback / Fix
+      </div>
+    </section>
+
+    <!-- SLIDE 53: OBSERVABILITY-GUIDED DEPLOYMENT -->
+    <section class="slide" data-title="Observability-Guided Deployment">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Deployment Berpandukan Data</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Observability-Guided Deployment</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2">
+          <h4 class="font-bold text-amber-300">Metrik Diperhati Selepas Release:</h4>
+          <ul class="list-disc pl-4 space-y-1 text-gray-300">
+            <li>Kadar Ralat (*Error Rate* HTTP 5xx)</li>
+            <li>Kadar Pendam (*Latency p99*)</li>
+            <li>Penggunaan CPU &amp; RAM Server</li>
+          </ul>
+        </div>
+
+        <div class="pedagogy-box border-emerald-500 bg-emerald-950/10 p-4 rounded-r text-xs">
+          <strong class="text-emerald-400 block font-bold mb-1">Keputusan Automatik:</strong>
+          Jika kadar ralat meningkat &gt; 1% dalam tempoh 5 minit selepas release, CI/CD pipeline secara automatik membatalkan release.
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 54: GITOPS CONCEPT -->
+    <section class="slide" data-title="GitOps Concept">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Paradigma Moden</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Konsep GitOps — Git Sebagai Single Source of Truth</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+          <p class="text-gray-300">
+            Dalam konsep **GitOps**, keseluruhan keadaan infrastruktur dan aplikasi diisytiharkan (*declared*) dalam bentuk kod di dalam Git Repository.
+          </p>
+          <div class="code-block p-2 rounded text-[11px] text-devops-accent">
+            Git Repo State == Production Environment State
+          </div>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <div class="p-3 bg-gray-900 rounded border border-gray-800">
+            <strong class="text-emerald-400 block">No Manual SSH Changes</strong>
+            Perubahan infrastruktur dibuat melalui Pull Request di Git, bukan `ssh root@server`.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 55: INFRASTRUCTURE AS CODE -->
+    <section class="slide" data-title="Infrastructure as Code">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Pengendalian Kod Server</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Infrastructure as Code (IaC)</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs text-gray-300 mb-4">
+            IaC membolehkan anda mengurus dan menyediakan server/pangkalan data melalui fail konfigurasi berstruktur bukannya persediaan fizikal manual.
+          </p>
+          <div class="space-y-2 text-xs">
+            <div class="p-2.5 bg-gray-900 rounded border border-gray-800 font-mono">Terraform / OpenTofu</div>
+            <div class="p-2.5 bg-gray-900 rounded border border-gray-800 font-mono">Ansible</div>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-2">
+          <h4 class="font-bold text-devops-accent">Kelebihan IaC:</h4>
+          <p class="text-gray-300">Boleh diulang (*Repeatable*), mempunyai sejarah version control, dan boleh diluluskan melalui Code Review.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 56: CONFIGURATION MANAGEMENT -->
+    <section class="slide" data-title="Configuration Management">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Pengurusan Lapisan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Pengurusan Lapisan Konfigurasi</h2>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-3 text-xs font-mono text-center">
+        <div class="p-3 bg-gray-900 rounded border border-git/40">
+          <strong class="text-git block mb-1">Code</strong>
+          Git Repository
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-ci/40">
+          <strong class="text-ci block mb-1">Infra</strong>
+          IaC (Terraform)
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-purple-500/40">
+          <strong class="text-purple-400 block mb-1">App</strong>
+          Docker Image
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-amber-500/40">
+          <strong class="text-amber-300 block mb-1">Secrets</strong>
+          Secret Store
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 57: AUTOMATED TESTING PIPELINE -->
+    <section class="slide" data-title="Automated Testing Pipeline">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Halangan Keselamatan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Peringkat Kegagalan Pipeline</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-red-900/40 bg-red-950/10 text-xs space-y-3">
+        <p class="text-gray-300">
+          Jika ujian unit atau imbasan keselamatan gagal pada mana-mana peringkat, pipeline **WAJIB TERHENTI SEGERA (Pipeline Halt)**.
+        </p>
+        <div class="code-block p-3 rounded font-mono text-red-400">
+          [Lint: PASS] ──► [Unit Test: FAIL ❌] ──► 🛑 PIPELINE TERMINATED
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 58: IMAGE SECURITY SCAN -->
+    <section class="slide" data-title="Image Security Scan">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Pemeriksaan Kerentanan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Imbasan Keselamatan Docker Image</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="code-block p-4 rounded-xl text-xs space-y-2 relative">
+          <button onclick="copyCode('trivy image myapp:1.0.0')" class="absolute top-2 right-2 text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+            <i class="fa-regular fa-copy"></i> Salin
+          </button>
+          <div class="text-gray-400">// Imbasan Kerentanan Guna Trivy</div>
+          <div class="text-emerald-400">$ trivy image myapp:1.0.0</div>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-2">
+          <h4 class="font-bold text-red-400">Tujuan Imbasan:</h4>
+          <p class="text-gray-300">Mengespesifikasi CVE (Common Vulnerabilities and Exposures) dalam OS base image sebelum dideploy ke server.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 59: DEPENDENCY SCANNING -->
+    <section class="slide" data-title="Dependency Scanning">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Pakej Pihak Ketiga</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Dependency Scanning</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <p class="text-gray-300">
+          Aplikasi anda bergantung kepada ratusan library pihak ketiga (<code class="text-gray-400">pip</code>, <code class="text-gray-400">npm</code>). CI boleh mengimbas fail manifest secara automatik.
+        </p>
+        <div class="p-3 bg-gray-900 rounded font-mono text-amber-300">
+          Tools: GitHub Dependabot / Snyk / OWASP Dependency-Check
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 60: SECRET SCANNING -->
+    <section class="slide" data-title="Secret Scanning">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Pencegahan Kebocoran</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Secret Scanning Automatik</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-red-900/40 text-xs space-y-3">
+        <h4 class="font-bold text-red-400 uppercase font-mono"><i class="fa-solid fa-shield-virus"></i> Mencegah Token Terbocor:</h4>
+        <p class="text-gray-300">
+          Secret scanner (seperti GitGuardian / Trufflehog) akan menolak Git Push jika dikesan corak Kunci API atau Password terbocor.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 61: BRANCH PROTECTION -->
+    <section class="slide" data-title="Branch Protection">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Peraturan Repo</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Branch Protection Rules</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <h4 class="font-bold text-git font-mono">Peraturan Wajib Main Branch:</h4>
+        <ul class="list-disc pl-4 space-y-1.5 text-gray-300">
+          <li>✓ Pull Request Diperlukan (Tiada Direct Push).</li>
+          <li>✓ Sekurang-kurangnya 1 Code Reviewer meluluskan.</li>
+          <li>✓ CI Pipeline mesti Pass 100%.</li>
+          <li>✓ Force Push (<code class="text-red-400 font-mono">git push -f</code>) Dilarang Sama Sekali.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 62: RELEASE PROCESS -->
+    <section class="slide" data-title="Release Process">
+      <div class="mb-4">
+        <span class="text-purple-400 font-mono text-xs uppercase font-bold tracking-widest">Prosedur Rilis</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Prosedur Release Moden</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-2 font-mono text-center">
+          <div class="p-3 bg-gray-900 rounded">1. PR Merged</div>
+          <div class="p-3 bg-gray-900 rounded">2. Git Tag (v1.2.0)</div>
+          <div class="p-3 bg-gray-900 rounded">3. Changelog Generated</div>
+          <div class="p-3 bg-emerald-950 text-emerald-400 font-bold rounded">4. CD Deployment</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 63: SEMANTIC VERSIONING DETAILS -->
+    <section class="slide" data-title="Semantic Versioning Details">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Pemetaan Versioning</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Pemetaan Tag Ke Docker Image</h2>
+      </div>
+
+      <div class="code-block p-4 rounded-xl text-xs space-y-2 font-mono">
+        <div class="text-gray-400">// Tag Git: v1.4.2</div>
+        <div class="text-cyan-400">ghcr.io/company/app:1.4.2</div>
+        <div class="text-cyan-400">ghcr.io/company/app:1.4</div>
+        <div class="text-cyan-400">ghcr.io/company/app:1</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 64: CHANGELOG -->
+    <section class="slide" data-title="Changelog">
+      <div class="mb-4">
+        <span class="text-purple-400 font-mono text-xs uppercase font-bold tracking-widest">Dokumentasi Perubahan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kepentingan Fail CHANGELOG.md</h2>
+      </div>
+
+      <div class="code-block p-4 rounded-xl text-xs font-mono">
+        <div class="text-amber-300">## [v1.4.2] - 2026-08-19</div>
+        <div class="text-emerald-400">### Added</div>
+        <div>- Login sokongan Multi-Factor Authentication</div>
+        <div class="text-ci">### Fixed</div>
+        <div>- DB connection pool leak semasa beban tinggi</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 65: ROLLBACK CONCEPT -->
+    <section class="slide" data-title="Rollback Concept">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Pemulihan Pantas</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Konsep Pelaksanaan Rollback</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <p class="text-gray-300">
+          Rollback bukan bermaksud membuat commit baru secara tergesa-gesa. Ia bermaksud mengarahkan CD **menukar semula penunjuk tag Docker Image** ke versi terdahulu yang diketahui stabil.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 66: DATABASE MIGRATION + CI/CD -->
+    <section class="slide" data-title="Database Migration + CI/CD">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Migrasi Skema</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Database Migration Dalam CI/CD</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2">
+          <h4 class="font-bold text-amber-300">Strategi Backward-Compatible:</h4>
+          <p class="text-gray-300">1. Tambah lajur DB baharu dahulu (Jangan padam lajur lama lagi).</p>
+          <p class="text-gray-300">2. Deploy aplikasi v2 yang membaca lajur baharu.</p>
+          <p class="text-gray-300">3. Padam lajur lama dalam release akan datang.</p>
+        </div>
+
+        <div class="pedagogy-box border-amber-500 bg-amber-500/10 p-4 rounded-r text-xs">
+          <strong class="text-amber-400 block font-bold mb-1">AMARAN ISU MIGRASI:</strong>
+          Migrasi skema DB yang tidak serasi ke belakang akan menyebabkan rollback aplikasi v1 gagal berhubung dengan DB!
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 67: ZERO DOWNTIME CONCEPT -->
+    <section class="slide" data-title="Zero Downtime Concept">
+      <div class="mb-4">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Ketersediaan Tinggi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Mencapai Zero Downtime Deployment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-emerald-900/40 text-xs space-y-3">
+        <h4 class="font-bold text-emerald-400">3 Komponen Utama Zero Downtime:</h4>
+        <ul class="list-disc pl-4 space-y-1 text-gray-300">
+          <li>Reverse Proxy (Nginx/Traefik) dengan *Graceful Reload*.</li>
+          <li>Aplikasi menyokong *Graceful Shutdown* (menyiapkan request sedia ada sebelum mati).</li>
+          <li>Health Check Probe yang betul.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 68: SELF-HOSTED CI/CD -->
+    <section class="slide" data-title="Self-Hosted CI/CD">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Infrastruktur Sendiri</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Self-Hosted CI/CD Architecture</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs">
+        <div class="font-mono text-center text-devops-accent space-y-2">
+          <div>GitHub Repo ──► GitHub Actions ──► GHCR Registry</div>
+          <div class="text-gray-500">│ (Tunnel)</div>
+          <div class="text-emerald-400">▼</div>
+          <div>Home Server (Raspberry Pi / Cloudflare Tunnel)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 69: CI/CD PADA RASPBERRY PI -->
+    <section class="slide" data-title="CI/CD Pada Raspberry Pi">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Peranti Hadapan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">CI/CD Pada Raspberry Pi</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <h4 class="font-bold text-devops-accent font-mono">Kunci Kejayaan Raspberry Pi CI/CD:</h4>
+        <p class="text-gray-300">
+          Gunakan Multi-Arch Docker Build (<code class="text-emerald-400 font-mono">docker buildx</code>) dalam Cloud Runner supaya Raspberry Pi tidak kehabisan CPU/RAM semasa proses kompilasi!
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 70: DEPLOYMENT METHODS -->
+    <section class="slide" data-title="Deployment Methods">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Kaedah Pelaksanaan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">5 Kaedah Deployment Ke Server</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3 text-xs">
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">1. SSH Remote Execution</div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">2. Self-Hosted Runner</div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">3. Webhook Listener</div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">4. GitOps Pull Agent (ArgoCD)</div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">5. Cloud Provider SDK</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 71: WEBHOOK DEPLOYMENT -->
+    <section class="slide" data-title="Webhook Deployment">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Pemicu Webhook</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Webhook Deployment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-3">
+        <p class="text-gray-300">
+          Server mendengar HTTP POST request dari GitHub. Apabila dipanggil berserta Secret Token yang sah, skrip <code class="text-emerald-400 font-mono">deploy.sh</code> akan dijalankan.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 72: SELF-HOSTED RUNNER -->
+    <section class="slide" data-title="Self-Hosted Runner">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Agen Tempatan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Self-Hosted Runner Security</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-red-900/40 text-xs space-y-3">
+        <h4 class="font-bold text-red-400">Amaran Keselamatan Self-Hosted Runner:</h4>
+        <p class="text-gray-300">
+          Jangan guna Self-Hosted Runner pada Repository AWAM (Public Repo)! Sesiapa sahaja boleh menghantar Pull Request jahat untuk mengeksekusi kod pada server anda.
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 73: CI/CD SECURITY -->
+    <section class="slide" data-title="CI/CD Security Checklist">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Senarai Semak Keselamatan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Checklist Keselamatan CI/CD</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2">
+        <div class="grid md:grid-cols-2 gap-2">
+          <div>✓ Protected Branches Active</div>
+          <div>✓ Secrets Encrypted</div>
+          <div>✓ Image Vulnerability Scanned</div>
+          <div>✓ Least Privilege SSH Keys</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 74: PIPELINE FAILURE -->
+    <section class="slide" data-title="Pipeline Failure">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Pengendalian Ralat</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400">Apabila CI Pipeline Gagal</h2>
+      </div>
+
+      <div class="p-6 bg-red-950/20 border border-red-900/50 rounded-xl text-center text-xs space-y-3">
+        <i class="fa-solid fa-circle-xmark text-red-500 text-4xl"></i>
+        <h3 class="font-bold text-red-300 text-sm">PRINSIP UTAMA: JANGAN DEPLOY!</h3>
+        <p class="text-gray-300">Developer perlu membaiki kod di local, commit, dan push semula sehingga warna bertukar HIJAU.</p>
+      </div>
+    </section>
+
+    <!-- SLIDE 75: DEPLOYMENT FAILURE -->
+    <section class="slide" data-title="Deployment Failure">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Pengendalian Ralat CD</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Apabila CD Deployment Gagal</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2">
+        <h4 class="font-bold text-amber-300 font-mono">Langkah Troubleshooting:</h4>
+        <p class="text-gray-300">1. Semak log container: <code class="text-emerald-400 font-mono">docker logs --tail 100 app</code></p>
+        <p class="text-gray-300">2. Semak ruang cakera: <code class="text-emerald-400 font-mono">df -h</code></p>
+        <p class="text-gray-300">3. Jalankan Rollback serta-merta.</p>
+      </div>
+    </section>
+
+    <!-- SLIDE 76: INCIDENT RESPONSE + CI/CD -->
+    <section class="slide" data-title="Incident Response">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Tindak Balas Insiden</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Incident Response Berteraskan CI/CD</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs font-mono text-center text-gray-300">
+        Insiden ──► Stop Release ──► Rollback ──► Investigate ──► Hotfix Branch ──► CI Test ──► Redeploy
+      </div>
+    </section>
+
+    <!-- SLIDE 77: AUDIT TRAIL -->
+    <section class="slide" data-title="Audit Trail">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Kebolehjejakkan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Audit Trail & Compliance</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 text-xs">
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-git block">Siapa ubah kod?</strong> Git Commit Author
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-ci block">Siapa luluskan?</strong> PR Reviewer Log
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-purple-400 block">Siapa trigger deploy?</strong> CD Pipeline Log
+        </div>
+        <div class="p-3 bg-gray-900 rounded border border-gray-800">
+          <strong class="text-emerald-400 block">Versi apa berjalan?</strong> Docker Tag Active
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 78: PRODUCTION VISIBILITY -->
+    <section class="slide" data-title="Production Visibility">
+      <div class="mb-4">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Keterlihatan Status</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Production Visibility Dashboard</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-emerald-900/50 bg-emerald-950/10 font-mono text-xs space-y-2">
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span>Active Version:</span> <span class="text-emerald-400 font-bold">v1.4.2</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span>Commit Hash:</span> <span class="text-ci">a1b2c3d</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span>Deployed At:</span> <span>2026-08-19 14:00 MYT</span>
+        </div>
+        <div class="flex justify-between">
+          <span>System Health:</span> <span class="text-emerald-400 font-bold">✓ HEALTHY (Error Rate: 0.02%)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 79: DEPLOYMENT DOCUMENTATION -->
+    <section class="slide" data-title="Deployment Documentation">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Dokumentasi</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Dokumentasi Deployment</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2 text-gray-300">
+        <p>Setiap projek wajib mempunyai fail <code class="text-emerald-400 font-mono">DEPLOYMENT.md</code> yang menerangkan:</p>
+        <ul class="list-disc pl-4 space-y-1">
+          <li>Cara manual triggered rollback.</li>
+          <li>Senarai Environment Variables yang diperlukan.</li>
+          <li>Langkah pemulihan bencana pangkalan data.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SLIDE 80: RUNBOOK -->
+    <section class="slide" data-title="Runbook">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Panduan Kecemasan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Contoh Deployment Runbook</h2>
+      </div>
+
+      <div class="code-block p-4 rounded-xl text-xs font-mono space-y-1 text-gray-300">
+        <div class="text-amber-300 font-bold">// RUNBOOK: DEPLOYMENT FAILURE</div>
+        <div>1. Semak status Grafana Alerting.</div>
+        <div>2. Jika HTTP 5xx &gt; 5%, jalankan: `gh workflow run rollback.yml`</div>
+        <div>3. Sahkan kesihatan server kembali ke v1.4.2.</div>
+        <div>4. Buka ticket insiden Post-Mortem.</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 81: FULL CI/CD ARCHITECTURE -->
+    <section class="slide" data-title="Full CI/CD Architecture">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Gambar Rajah Arsitektur</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Seni Bina CI/CD Lengkap</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 text-center font-mono text-xs overflow-x-auto">
+        <div class="min-w-[600px] space-y-2">
+          <div class="p-2 bg-git/20 border border-git rounded w-48 mx-auto text-git">DEVELOPER (Git Commit)</div>
+          <div class="text-gray-500">│</div>
+          <div class="p-2 bg-ci/20 border border-ci rounded w-64 mx-auto text-ci">CI PIPELINE (Lint ➔ Test ➔ Scan)</div>
+          <div class="text-gray-500">│</div>
+          <div class="p-2 bg-purple-500/20 border border-purple-500 rounded w-64 mx-auto text-purple-300">BUILD &amp; PUSH DOCKER IMAGE</div>
+          <div class="text-gray-500">│</div>
+          <div class="p-2 bg-cyan-500/20 border border-cyan-500 rounded w-64 mx-auto text-cyan-300">CONTAINER REGISTRY</div>
+          <div class="text-gray-500">│</div>
+          <div class="p-2 bg-emerald-500/20 border border-emerald-500 rounded w-64 mx-auto text-emerald-300 font-bold">CD DEPLOYMENT TO PRODUCTION SERVER</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 82: COMPLETE SELF-HOSTING PIPELINE -->
+    <section class="slide" data-title="Complete Self-Hosting Pipeline">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Penutup Topik</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Pipeline Self-Hosting Dari A - Z</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs space-y-2 text-gray-300">
+        <p>Menggabungkan kesemua modul kursus sebelum ini:</p>
+        <p class="font-mono text-devops-accent">
+          Git ➔ CI ➔ Docker ➔ Registry ➔ CD ➔ Linux Server ➔ Reverse Proxy ➔ Cloudflare Tunnel ➔ Database ➔ Monitoring
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 83: INTERACTIVE GIT WORKFLOW -->
+    <section class="slide" data-title="Interactive Git Workflow">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Simulasi Interaktif</span>
+        <h2 class="text-3xl font-bold mt-1 text-git flex items-center gap-2">
+          <i class="fa-solid fa-gamepad"></i> Interactive Git Workflow Simulator
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="space-y-2 text-xs">
+          <p class="text-gray-300 mb-2">Klik langkah berikut untuk melihat perubahan zon Git:</p>
+          <button onclick="runGitStep(1)" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800 font-mono">1. Edit fail `app.py`</button>
+          <button onclick="runGitStep(2)" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800 font-mono">2. Jalankan `git add app.py`</button>
+          <button onclick="runGitStep(3)" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800 font-mono">3. Jalankan `git commit -m "fix bug"`</button>
+          <button onclick="runGitStep(4)" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800 font-mono">4. Jalankan `git push origin main`</button>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border border-git/40 text-xs flex flex-col justify-between">
+          <div>
+            <h4 class="font-bold text-git uppercase font-mono mb-2">Status Semasa Simulator:</h4>
+            <div id="git-sim-status" class="code-block p-4 rounded font-mono text-amber-300 min-h-[120px]">
+              Sedia untuk bermula. Klik langkah 1!
+            </div>
+          </div>
+          <button onclick="resetGitSim()" class="mt-4 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-1.5 rounded">Reset Simulasi</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 84: INTERACTIVE CI PIPELINE -->
+    <section class="slide" data-title="Interactive CI Pipeline">
+      <div class="mb-4">
+        <span class="text-ci font-mono text-xs uppercase font-bold tracking-widest">Simulasi Interaktif</span>
+        <h2 class="text-3xl font-bold mt-1 text-ci flex items-center gap-2">
+          <i class="fa-solid fa-gears"></i> Interactive CI Pipeline Simulator
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="space-y-3">
+          <div class="flex gap-2">
+            <button onclick="runCiSim('pass')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded text-xs font-bold font-mono">
+              <i class="fa-solid fa-play"></i> Trigger Pipeline (SUCCESS Case)
+            </button>
+            <button onclick="runCiSim('fail')" class="flex-1 bg-red-600 hover:bg-red-500 text-white p-3 rounded text-xs font-bold font-mono">
+              <i class="fa-solid fa-bug"></i> Trigger Pipeline (TEST FAIL Case)
+            </button>
+          </div>
+
+          <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs space-y-2">
+            <div id="ci-step-1" class="p-2 bg-gray-900 rounded border border-gray-800">1. Checkout Code</div>
+            <div id="ci-step-2" class="p-2 bg-gray-900 rounded border border-gray-800">2. Lint Check</div>
+            <div id="ci-step-3" class="p-2 bg-gray-900 rounded border border-gray-800">3. Automated Unit Tests</div>
+            <div id="ci-step-4" class="p-2 bg-gray-900 rounded border border-gray-800">4. Build Docker Image</div>
+          </div>
+        </div>
+
+        <div class="code-block p-4 rounded-xl text-xs font-mono overflow-y-auto max-h-[250px]" id="ci-log-output">
+          <span class="text-gray-500">// Log output CI akan dipaparkan di sini...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 85: INTERACTIVE DEPLOYMENT PIPELINE -->
+    <section class="slide" data-title="Interactive Deployment Pipeline">
+      <div class="mb-4">
+        <span class="text-cd font-mono text-xs uppercase font-bold tracking-widest">Simulasi Interaktif</span>
+        <h2 class="text-3xl font-bold mt-1 text-purple-400 flex items-center gap-2">
+          <i class="fa-solid fa-truck-fast"></i> Interactive Deployment & Rollback Simulation
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="space-y-3 text-xs">
+          <button onclick="runCdSim(false)" class="w-full p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-mono font-bold">
+            Deploy Versi Healthy v1.5.0
+          </button>
+          <button onclick="runCdSim(true)" class="w-full p-3 bg-red-600 hover:bg-red-500 text-white rounded font-mono font-bold">
+            Deploy Versi Rosak v1.6.0 (Trigger Auto-Rollback)
+          </button>
+        </div>
+
+        <div class="glass-card p-5 rounded-xl border border-purple-500/40 text-xs font-mono space-y-2" id="cd-sim-box">
+          <div class="text-gray-400">Current Running Version: <span class="text-emerald-400 font-bold">v1.4.2</span></div>
+          <div class="text-gray-400">Server Status: <span class="text-emerald-400 font-bold">HEALTHY</span></div>
+          <div id="cd-sim-logs" class="pt-2 text-amber-300">Sedia untuk mendepoy. Klik butang di sebelah kiri.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 86: QUIZ 1 -->
+    <section class="slide" data-title="Quiz 1">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Ujian Kefahaman</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kuiz 1: Fungsi Git</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 space-y-4 text-xs">
+        <h3 class="font-bold text-sm text-gray-200">Apakah fungsi utama Git?</h3>
+        <div class="space-y-2 font-mono">
+          <button onclick="checkQuiz(1, 'A')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">A. Menjalankan pangkalan data PostgreSQL</button>
+          <button onclick="checkQuiz(1, 'B')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">B. Distributed Version Control System untuk merekod perubahan kod</button>
+          <button onclick="checkQuiz(1, 'C')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">C. Bertindak sebagai Web Application Firewall</button>
+        </div>
+        <div id="quiz-ans-1" class="font-bold text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SLIDE 87: QUIZ 2 -->
+    <section class="slide" data-title="Quiz 2">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Ujian Kefahaman</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kuiz 2: Definisi CI</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 space-y-4 text-xs">
+        <h3 class="font-bold text-sm text-gray-200">Apakah yang dimaksudkan dengan Continuous Integration (CI)?</h3>
+        <div class="space-y-2 font-mono">
+          <button onclick="checkQuiz(2, 'A')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">A. Prose manual memindahkan fail guna SCP</button>
+          <button onclick="checkQuiz(2, 'B')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">B. Workflow automatik untuk integrasi, pembinaan, dan ujian kod secara kerap</button>
+          <button onclick="checkQuiz(2, 'C')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">C. Perkhidmatan pendaftaran nama domain</button>
+        </div>
+        <div id="quiz-ans-2" class="font-bold text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SLIDE 88: QUIZ 3 -->
+    <section class="slide" data-title="Quiz 3">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Ujian Kefahaman</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kuiz 3: Kegagalan Ujian CI</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 space-y-4 text-xs">
+        <h3 class="font-bold text-sm text-gray-200">Apakah yang sepatutnya berlaku jika ujian automated unit test gagal dalam CI pipeline?</h3>
+        <div class="space-y-2 font-mono">
+          <button onclick="checkQuiz(3, 'A')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">A. Teruskan deployment ke production seperti biasa</button>
+          <button onclick="checkQuiz(3, 'B')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">B. Pipeline mesti terhenti serta-merta dan membatalkan deployment</button>
+          <button onclick="checkQuiz(3, 'C')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">C. Padam pangkalan data server</button>
+        </div>
+        <div id="quiz-ans-3" class="font-bold text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SLIDE 89: QUIZ 4 -->
+    <section class="slide" data-title="Quiz 4">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Ujian Kefahaman</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kuiz 4: Docker Image Versioning</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 space-y-4 text-xs">
+        <h3 class="font-bold text-sm text-gray-200">Mengapa Docker Image untuk Production perlu diberi tag versi spesifik (contoh: `:1.2.0`)?</h3>
+        <div class="space-y-2 font-mono">
+          <button onclick="checkQuiz(4, 'A')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">A. Untuk membolehkan rollback mudah dan kebolehterulangan artifact</button>
+          <button onclick="checkQuiz(4, 'B')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">B. Supaya kelajuan CPU server menjadi 2x lebih laju</button>
+          <button onclick="checkQuiz(4, 'C')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">C. Supaya domain DNS diperbarui automatik</button>
+        </div>
+        <div id="quiz-ans-4" class="font-bold text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SLIDE 90: QUIZ 5 -->
+    <section class="slide" data-title="Quiz 5">
+      <div class="mb-4">
+        <span class="text-amber-400 font-mono text-xs uppercase font-bold tracking-widest">Ujian Kefahaman</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Kuiz 5: Continuous Delivery vs Deployment</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 space-y-4 text-xs">
+        <h3 class="font-bold text-sm text-gray-200">Apakah perbezaan utama Continuous Delivery dan Continuous Deployment?</h3>
+        <div class="space-y-2 font-mono">
+          <button onclick="checkQuiz(5, 'A')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">A. Continuous Delivery memerlukan kelulusan manual sebelum deploy; Continuous Deployment adalah 100% automatik</button>
+          <button onclick="checkQuiz(5, 'B')" class="w-full text-left p-3 bg-gray-900 hover:bg-gray-800 rounded border border-gray-800">B. Continuous Delivery menggunakan Windows; Continuous Deployment menggunakan Linux</button>
+        </div>
+        <div id="quiz-ans-5" class="font-bold text-xs"></div>
+      </div>
+    </section>
+
+    <!-- SLIDE 91: FINAL CHALLENGE -->
+    <section class="slide" data-title="Final Challenge">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Cabar Kaji</span>
+        <h2 class="text-3xl font-bold mt-1 text-amber-300 flex items-center gap-2">
+          <i class="fa-solid fa-trophy"></i> Cabaran Akhir: Reka Bentuk Pipeline
+        </h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-amber-500/30 text-xs space-y-3">
+        <h4 class="font-bold text-amber-300 text-sm">Skenario Syarikat:</h4>
+        <p class="text-gray-300">
+          Bos anda meminta anda mereka bentuk pipeline CI/CD penuh untuk aplikasi Python Flask + PostgreSQL yang dihoskan di Raspberry Pi melalui Cloudflare Tunnel.
+        </p>
+        <div class="p-4 bg-gray-900 rounded border border-gray-800 space-y-1 font-mono text-gray-300">
+          <div>1. Push Kod ➔ 2. Lint &amp; Test ➔ 3. Build Multi-Arch Docker Image</div>
+          <div>4. Scan Image ➔ 5. Push ke GHCR ➔ 6. SSH Deploy ke Raspberry Pi</div>
+          <div>7. Run DB Migration ➔ 8. Health Check ➔ 9. Auto Rollback Jika Gagal</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 92: PRODUCTION PIPELINE ARCHITECTURE -->
+    <section class="slide" data-title="Production Pipeline Architecture">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Ringkasan Seni Bina</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Seni Bina Pipeline Production Cadangan</h2>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-gray-800 text-xs font-mono">
+        <div class="text-center text-emerald-400 space-y-2">
+          <div>Developer ──► Git Pull Request ──► Code Review</div>
+          <div>│</div>
+          <div>CI (Ruff Lint + Pytest + Trivy Scan + Docker Build)</div>
+          <div>│</div>
+          <div>GitHub Packages Registry (GHCR)</div>
+          <div>│</div>
+          <div>CD Agent ──► Raspberry Pi Container ──► Reverse Proxy ──► Cloudflare</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 93: CI/CD CHECKLIST -->
+    <section class="slide" data-title="CI/CD Checklist">
+      <div class="mb-4">
+        <span class="text-emerald-400 font-mono text-xs uppercase font-bold tracking-widest">Senarai Semak Persediaan</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">CI/CD Production Checklist</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 text-xs">
+        <div class="glass-card p-4 rounded-xl space-y-1">
+          <strong class="text-git block">GIT &amp; REPO:</strong>
+          <div>[ ] Branch Protection Enabled</div>
+          <div>[ ] Conventional Commits</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl space-y-1">
+          <strong class="text-ci block">CI &amp; SECURITY:</strong>
+          <div>[ ] Automated Testing Pass</div>
+          <div>[ ] Image Vulnerability Scan</div>
+          <div>[ ] Secrets Masked</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 94: COMMON CI/CD MISTAKES -->
+    <section class="slide" data-title="Common CI/CD Mistakes">
+      <div class="mb-4">
+        <span class="text-red-400 font-mono text-xs uppercase font-bold tracking-widest">Kesilapan Lazim</span>
+        <h2 class="text-3xl font-bold mt-1 text-red-400">10 Kesilapan Paling Kerap Dalam CI/CD</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3 text-xs">
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">1. Deploy terus dari laptop developer</div>
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">2. Tiada automated testing</div>
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">3. Menilai tag `:latest` dalam production</div>
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">4. Commit fail `.env` atau password ke Git</div>
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">5. Tiada perancangan Automated Rollback</div>
+        <div class="p-2.5 bg-red-950/30 border border-red-900/40 rounded text-red-300">6. CI Runner berjalan sebagai root tanpa kekangan</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 95: CI/CD MENTAL MODEL -->
+    <section class="slide" data-title="CI/CD Mental Model">
+      <div class="mb-4">
+        <span class="text-git font-mono text-xs uppercase font-bold tracking-widest">Model Minda</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">Model Minda DevOps</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-gray-800 text-xs font-mono space-y-3">
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span class="text-git">GIT:</span> <span>"Apa yang berubah?"</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span class="text-ci">CI:</span> <span>"Adakah selamat untuk dibina?"</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span class="text-purple-400">BUILD:</span> <span>"Apakah bentuk pasti artifact yang berjalan?"</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-800 pb-2">
+          <span class="text-emerald-400">CD:</span> <span>"Bagaimana ia sampai ke production?"</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-amber-300">MONITOR:</span> <span>"Adakah ia berfungsi dengan betul?"</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 96: CONNECTION KE TOPIK SEBELUMNYA -->
+    <section class="slide" data-title="Connection to Previous Topics">
+      <div class="mb-4">
+        <span class="text-devops-accent font-mono text-xs uppercase font-bold tracking-widest">Penghubung Seni Bina</span>
+        <h2 class="text-3xl font-bold mt-1 text-white">CI/CD Sebagai Layer Automasi Pusat</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-devops-accent/40 text-center">
+        <p class="text-base text-gray-200 mb-4 font-semibold">
+          "CI/CD bukanlah satu tool terasing. Ia merupakan lapisan automasi (*automation layer*) yang mengikat seluruh komponen seni bina perisian kita."
+        </p>
+        <div class="inline-block p-3 bg-gray-900 rounded font-mono text-xs text-devops-accent border border-gray-800">
+          Git ➔ CI/CD ➔ Docker ➔ Reverse Proxy ➔ Cloudflare ➔ Auth ➔ DB ➔ Monitoring
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 97: NEXT TOPIC -->
+    <section class="slide" data-title="Next Topic">
+      <div class="mb-4">
+        <span class="text-purple-400 font-mono text-xs uppercase font-bold tracking-widest">Topik Seterusnya</span>
+        <h2 class="text-3xl font-bold mt-1 text-purple-400 flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved"></i> Modul Seterusnya
+        </h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl border border-purple-500/40 text-xs space-y-3">
+        <h3 class="text-2xl font-bold text-white">Advanced Security Architecture</h3>
+        <p class="text-purple-300 text-sm">"Defense in Depth, Zero Trust, Network Segmentation &amp; Threat Modeling"</p>
+        <div class="grid md:grid-cols-2 gap-2 text-gray-400 pt-2 font-mono">
+          <div>• Defense in Depth</div>
+          <div>• Zero Trust Architecture</div>
+          <div>• WAF &amp; IAM Secrets</div>
+          <div>• Incident Response Plan</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 98: PENUTUP -->
+    <section class="slide flex-col items-center justify-center text-center py-12" data-title="Penutup">
+      <div class="glass-card p-8 rounded-2xl max-w-3xl border border-git/40 shadow-2xl space-y-6">
+        <h2 class="text-3xl md:text-5xl font-black bg-gradient-to-r from-git via-ci to-emerald-400 bg-clip-text text-transparent leading-tight">
+          "Commit Small.<br>Test Automatically.<br>Deploy Safely.<br>Monitor Continuously.<br>Rollback When Needed."
+        </h2>
+
+        <p class="text-gray-300 text-sm max-w-xl mx-auto">
+          CI/CD menjadikan deployment satu proses yang boleh diulang, diuji, dan diaudit tanpa ketakutan berlakunya downtime.
+        </p>
+
+        <div class="pt-4 border-t border-gray-800 text-xs text-gray-500 font-mono">
+          Selesai Presentation • CI/CD &amp; Git Module
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <footer class="sticky bottom-0 z-50 bg-[#0d121f]/95 backdrop-blur border-t border-gray-800 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <button onclick="prevSlide()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-chevron-left"></i> Previous
+        </button>
+        <button onclick="nextSlide()" class="bg-git hover:bg-git-dark text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-git/20">
+          Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="hidden sm:flex items-center space-x-2">
+        <button onclick="goToSlide(0)" class="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-xs text-gray-400 hover:text-white" title="Home (Slide 1)">
+          <i class="fa-solid fa-house"></i>
+        </button>
+        <button onclick="goToSlide(totalSlides - 1)" class="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-xs text-gray-400 hover:text-white" title="End (Slide 98)">
+          <i class="fa-solid fa-flag-checkered"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-gray-500 font-mono hidden md:block">
+        Gunakan papan kekunci <kbd class="bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-700">←</kbd> <kbd class="bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-700">→</kbd> untuk navigasi
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL SEARCH / SLIDE LIST -->
+  <div id="slide-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-2xl rounded-2xl border border-gray-800 max-h-[80vh] flex flex-col overflow-hidden">
+      <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+        <h3 class="font-bold text-sm text-gray-200 flex items-center gap-2">
+          <i class="fa-solid fa-list-ul text-git"></i> Senarai Kestoran Slide (1 - 98)
+        </h3>
+        <button onclick="toggleModal()" class="text-gray-400 hover:text-white text-lg">&times;</button>
+      </div>
+      <div class="p-3 border-b border-gray-800">
+        <input type="text" id="modal-search" oninput="filterSlides()" placeholder="Cari tajuk slide..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-git">
+      </div>
+      <div class="p-4 overflow-y-auto space-y-1.5 flex-1" id="modal-slide-list">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+
+    function updateSlide() {
+      slides.forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // Update counters & UI
+      document.getElementById('slide-counter').innerText = `${currentSlide + 1} / ${totalSlides}`;
+      document.getElementById('slide-count-badge').innerText = `${currentSlide + 1}/${totalSlides}`;
+      
+      const currentTitle = slides[currentSlide].getAttribute('data-title') || 'Slide';
+      document.getElementById('header-slide-title').innerText = `${currentSlide + 1}. ${currentTitle}`;
+
+      // Update progress bar
+      const progress = ((currentSlide + 1) / totalSlides) * 100;
+      document.getElementById('progress-bar').style.width = `${progress}%`;
+
+      // Scroll top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(index) {
+      if (index >= 0 && index < totalSlides) {
+        currentSlide = index;
+        updateSlide();
+        const modal = document.getElementById('slide-modal');
+        if (!modal.classList.contains('hidden')) {
+          toggleModal();
+        }
+      }
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      } else if (e.key === 'Home') {
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        goToSlide(totalSlides - 1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+    });
+
+    // Modal Slide List
+    function toggleModal() {
+      const modal = document.getElementById('slide-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        renderModalList();
+      }
+    }
+
+    function renderModalList() {
+      const container = document.getElementById('modal-slide-list');
+      container.innerHTML = '';
+      slides.forEach((slide, idx) => {
+        const title = slide.getAttribute('data-title') || `Slide ${idx + 1}`;
+        const item = document.createElement('div');
+        item.className = `p-2.5 rounded-lg text-xs font-mono flex justify-between items-center cursor-pointer transition ${idx === currentSlide ? 'bg-git/20 border border-git/50 text-git font-bold' : 'bg-gray-900 hover:bg-gray-800 text-gray-300'}`;
+        item.onclick = () => goToSlide(idx);
+        item.innerHTML = `<span>${idx + 1}. ${title}</span> <i class="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>`;
+        container.appendChild(item);
+      });
+    }
+
+    function filterSlides() {
+      const query = document.getElementById('modal-search').value.toLowerCase();
+      const items = document.getElementById('modal-slide-list').children;
+      Array.from(items).forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(query) ? 'flex' : 'none';
+      });
+    }
+
+    // Fullscreen Toggle
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Copy Command Helper
+    function copyCode(text) {
+      const dummy = document.createElement('textarea');
+      document.body.appendChild(dummy);
+      dummy.value = text;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+
+      // Toast notification substitute
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-16 right-4 z-50 bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg shadow-lg font-mono flex items-center gap-2';
+      toast.innerHTML = '<i class="fa-solid fa-check"></i> Copied to clipboard!';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    // Interactive Git Simulator
+    function runGitStep(step) {
+      const statusBox = document.getElementById('git-sim-status');
+      if (step === 1) {
+        statusBox.innerHTML = `<span class="text-red-400 font-bold">Status: Working Directory Modified</span><br>Fail 'app.py' telah diubah. Git mengesan perubahan tetapi belum berada di Staging Area.`;
+      } else if (step === 2) {
+        statusBox.innerHTML = `<span class="text-ci font-bold">Status: Staged in Index</span><br>'app.py' berada di Staging Area! Sedia untuk dimasukkan dalam snapshot commit.`;
+      } else if (step === 3) {
+        statusBox.innerHTML = `<span class="text-emerald-400 font-bold">Status: Committed to Local Repo (.git)</span><br>Commit 'a1b2c3d' dicipta dengan selamat dalam pangkalan data Git tempatan!`;
+      } else if (step === 4) {
+        statusBox.innerHTML = `<span class="text-purple-400 font-bold">Status: Pushed to GitHub Remote</span><br>Commit dihantar ke remote repository. Trigger CI Pipeline bermula di GitHub!`;
+      }
+    }
+
+    function resetGitSim() {
+      document.getElementById('git-sim-status').innerText = 'Sedia untuk bermula. Klik langkah 1!';
+    }
+
+    // Interactive CI Simulator
+    function runCiSim(type) {
+      const log = document.getElementById('ci-log-output');
+      const steps = [
+        document.getElementById('ci-step-1'),
+        document.getElementById('ci-step-2'),
+        document.getElementById('ci-step-3'),
+        document.getElementById('ci-step-4')
+      ];
+
+      steps.forEach(s => s.className = 'p-2 bg-gray-900 rounded border border-gray-800');
+      log.innerText = '$ Triggering CI Pipeline job...\n';
+
+      setTimeout(() => {
+        steps[0].className = 'p-2 bg-ci/20 border border-ci text-ci font-bold rounded';
+        log.innerText += '[INFO] Checking out repository commit a1b2c3d...\n';
+      }, 500);
+
+      setTimeout(() => {
+        steps[1].className = 'p-2 bg-ci/20 border border-ci text-ci font-bold rounded';
+        log.innerText += '[INFO] Running Ruff Linter... 0 errors found.\n';
+      }, 1200);
+
+      setTimeout(() => {
+        if (type === 'fail') {
+          steps[2].className = 'p-2 bg-red-950 border border-red-500 text-red-400 font-bold rounded';
+          log.innerText += '[ERROR] Pytest failed: test_login_auth() expected 200 OK got 500 Internal Error.\n';
+          log.innerText += '🛑 PIPELINE HALTED. Deployment canceled!';
+        } else {
+          steps[2].className = 'p-2 bg-emerald-950 border border-emerald-500 text-emerald-400 font-bold rounded';
+          log.innerText += '[INFO] Running Pytest... 24/24 unit tests passed (1.2s).\n';
+
+          setTimeout(() => {
+            steps[3].className = 'p-2 bg-emerald-950 border border-emerald-500 text-emerald-400 font-bold rounded';
+            log.innerText += '[INFO] Building Docker Image ghcr.io/myapp:1.5.0... SUCCESS!\n';
+            log.innerText += '✓ CI PIPELINE PASSED SUCCESSFULLY!';
+          }, 800);
+        }
+      }, 2000);
+    }
+
+    // Interactive CD Simulator
+    function runCdSim(isFailure) {
+      const box = document.getElementById('cd-sim-box');
+      box.innerHTML = `
+        <div class="text-gray-400">Current Running Version: <span class="text-amber-300 font-bold">Deploying...</span></div>
+        <div class="text-amber-300 pt-2 font-mono">PULLING IMAGE FROM REGISTRY...</div>
+      `;
+
+      setTimeout(() => {
+        if (isFailure) {
+          box.innerHTML = `
+            <div class="text-gray-400">Current Running Version: <span class="text-red-400 font-bold">v1.6.0 (UNHEALTHY)</span></div>
+            <div class="text-red-400 font-bold pt-2 font-mono">❌ HEALTH CHECK FAILED: HTTP 500 Internal Server Error!</div>
+            <div class="text-amber-300 pt-2 font-mono">⚠️ INITIATING AUTOMATIC ROLLBACK TO PREVIOUS STABLE VERSION...</div>
+          `;
+
+          setTimeout(() => {
+            box.innerHTML += `
+              <div class="text-emerald-400 font-bold pt-2 font-mono border-t border-gray-800 mt-2">
+                ✓ ROLLBACK SUCCESSFUL! Running Version: <span class="text-white">v1.4.2</span> (System Restored).
+              </div>
+            `;
+          }, 2000);
+
+        } else {
+          box.innerHTML = `
+            <div class="text-gray-400">Current Running Version: <span class="text-emerald-400 font-bold">v1.5.0</span></div>
+            <div class="text-emerald-400 font-bold pt-2 font-mono">✓ HEALTH CHECK PASSED: HTTP 200 OK</div>
+            <div class="text-emerald-300 pt-1 font-mono">Traffic routed successfully to new container!</div>
+          `;
+        }
+      }, 1500);
+    }
+
+    // Quiz Checker
+    function checkQuiz(quizNum, selected) {
+      const answers = {
+        1: 'B',
+        2: 'B',
+        3: 'B',
+        4: 'A',
+        5: 'A'
+      };
+
+      const ansDiv = document.getElementById(`quiz-ans-${quizNum}`);
+      if (selected === answers[quizNum]) {
+        ansDiv.className = 'font-bold text-xs text-emerald-400 mt-2';
+        ansDiv.innerHTML = '<i class="fa-solid fa-circle-check"></i> Tepat sekali! Jawapan anda BETUL.';
+      } else {
+        ansDiv.className = 'font-bold text-xs text-red-400 mt-2';
+        ansDiv.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Kurang tepat. Sila cuba lagi!';
+      }
+    }
+
+    // Initialize on page load
+    window.onload = function() {
+      updateSlide();
+    };
+  </script>
+</body>
+</html>

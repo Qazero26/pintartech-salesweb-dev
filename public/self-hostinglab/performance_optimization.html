@@ -1,0 +1,2956 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Performance & Optimization — Slide Deck</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"Fira Code"', 'monospace'],
+          },
+          colors: {
+            noc: {
+              bg: '#0b0f19',
+              card: '#111827',
+              border: '#1f2937',
+              accent: '#3b82f6',
+              healthy: '#10b981',
+              warning: '#f59e0b',
+              critical: '#ef4444',
+              cpu: '#f97316',
+              ram: '#a855f7',
+              net: '#06b6d4',
+              db: '#14b8a6',
+              storage: '#84cc16'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #060913;
+      color: #f3f4f6;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0b0f19;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1f2937;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glow-box-blue {
+      box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.25);
+    }
+    .glow-box-green {
+      box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
+    }
+    .slide-transition {
+      transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between select-none">
+
+  <!-- TOP NAVIGATION / HEADER -->
+  <header class="w-full bg-noc-card/90 border-b border-noc-border px-4 py-3 flex items-center justify-between z-30 sticky top-0 backdrop-blur">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-lg">
+        ⚡
+      </div>
+      <div>
+        <h1 class="text-sm font-bold text-gray-100 tracking-wide uppercase">Performance & Optimization</h1>
+        <p class="text-xs text-gray-400 hidden md:block">Bila Server Lambat — Cari Bottleneck Sebelum Upgrade Hardware</p>
+      </div>
+    </div>
+
+    <!-- Quick Slide Controls & Modal Trigger -->
+    <div class="flex items-center gap-2">
+      <button onclick="toggleOverviewModal()" class="px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold flex items-center gap-1.5 transition border border-gray-700">
+        <i class="fa-solid fa-grid-2"></i> <span class="hidden sm:inline">Overview (O)</span>
+      </button>
+
+      <div class="flex items-center bg-gray-900 border border-gray-800 rounded-lg px-2 py-1">
+        <span id="current-slide-num" class="text-xs font-bold text-blue-400">1</span>
+        <span class="text-xs text-gray-500 mx-1">/</span>
+        <span id="total-slide-num" class="text-xs text-gray-400">96</span>
+      </div>
+
+      <button onclick="toggleFullscreen()" class="p-2 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs transition border border-gray-700" title="Fullscreen (F)">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SLIDE CONTAINER -->
+  <main class="flex-1 flex items-center justify-center p-3 md:p-6 lg:p-8 max-w-7xl w-full mx-auto relative">
+    <div id="slide-viewport" class="w-full glass-card rounded-2xl border border-noc-border p-6 md:p-10 min-h-[620px] flex flex-col justify-between relative shadow-2xl overflow-hidden slide-transition">
+      <!-- Active slide content rendered dynamically via JS -->
+      <div id="slide-content-container" class="flex-1 flex flex-col justify-center">
+        <!-- JS mounts content here -->
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER NAVIGATION BAR -->
+  <footer class="w-full bg-noc-card border-t border-noc-border px-4 py-3 z-30">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- Progress Bar -->
+      <div class="w-full md:w-1/3 flex items-center gap-2">
+        <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden border border-gray-700">
+          <div id="progress-bar-fill" class="bg-gradient-to-r from-blue-500 to-teal-400 h-full transition-all duration-300 w-0"></div>
+        </div>
+        <span id="progress-percentage" class="text-xs font-mono text-gray-400 w-12 text-right">1%</span>
+      </div>
+
+      <!-- Center Key Hints -->
+      <div class="hidden lg:flex items-center gap-3 text-xs text-gray-400 font-mono">
+        <span class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-gray-300">← / →</span> Navigasi
+        <span class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-gray-300">Space</span> Seterusnya
+        <span class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-gray-300">O</span> Overview
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+        <button id="btn-prev" onclick="prevSlide()" class="flex-1 md:flex-initial px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 border border-gray-700 transition disabled:opacity-40">
+          <i class="fa-solid fa-arrow-left"></i> SEBELUM
+        </button>
+
+        <button id="btn-next" onclick="nextSlide()" class="flex-1 md:flex-initial px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition disabled:opacity-40">
+          SETERUSNYA <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- SLIDE OVERVIEW MODAL -->
+  <div id="overview-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col p-6 overflow-hidden">
+    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-shapes text-blue-400"></i> Indeks Slide & Navigasi Pantas
+        </h2>
+        <p class="text-xs text-gray-400">Pilih slide untuk lompat secara terus</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="text" id="slide-search" onkeyup="filterSlides()" placeholder="Cari tajuk slide..." class="bg-gray-900 border border-gray-700 text-xs text-white px-3 py-2 rounded-lg w-64 focus:outline-none focus:border-blue-500" />
+        <button onclick="toggleOverviewModal()" class="text-gray-400 hover:text-white p-2 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid Container -->
+    <div id="overview-grid" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 custom-scrollbar pr-2">
+      <!-- Generated dynamically -->
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-16 right-6 bg-blue-600 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex items-center gap-2">
+    <i class="fa-solid fa-circle-check"></i> <span id="toast-msg">Command disalin!</span>
+  </div>
+
+  <script>
+    /* Toast Helper */
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      toastMsg.innerText = msg;
+      toast.classList.remove('opacity-0');
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+      }, 2000);
+    }
+
+    /* Copy Command Helper */
+    function copyCommand(cmdText) {
+      navigator.clipboard.writeText(cmdText).then(() => {
+        showToast(`Command disalin: "${cmdText}"`);
+      });
+    }
+
+    /* SLIDE DATA MASTER LIST (96 Slides) */
+    const slides = [
+      // SLIDE 1
+      {
+        id: 1,
+        category: "Intro",
+        title: "Performance & Optimization",
+        subtitle: "Bila Server Lambat — Cari Bottleneck Sebelum Upgrade Hardware",
+        content: `
+          <div class="text-center max-w-3xl mx-auto space-y-6">
+            <span class="px-3 py-1 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full text-xs uppercase font-semibold tracking-wider">
+              Modul Lanjutan Home Server & DevOps
+            </span>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight">
+              Performance & Optimization
+            </h1>
+            <p class="text-lg text-gray-300">
+              Bila Server Lambat — Cari Bottleneck Sebelum Upgrade Hardware
+            </p>
+
+            <div class="my-8 p-6 bg-noc-card rounded-xl border border-gray-800 flex flex-wrap items-center justify-center gap-2 md:gap-4 text-xs font-mono">
+              <span class="px-3 py-1.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Slow Request</span>
+              <i class="fa-solid fa-arrow-right text-gray-600"></i>
+              <span class="px-3 py-1.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Measure</span>
+              <i class="fa-solid fa-arrow-right text-gray-600"></i>
+              <span class="px-3 py-1.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Find Bottleneck</span>
+              <i class="fa-solid fa-arrow-right text-gray-600"></i>
+              <span class="px-3 py-1.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">Optimize</span>
+              <i class="fa-solid fa-arrow-right text-gray-600"></i>
+              <span class="px-3 py-1.5 rounded bg-teal-500/20 text-teal-400 border border-teal-500/30">Test</span>
+              <i class="fa-solid fa-arrow-right text-gray-600"></i>
+              <span class="px-3 py-1.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">Fast Request</span>
+            </div>
+
+            <div class="p-4 bg-blue-950/40 border-l-4 border-blue-500 text-left rounded-r-lg">
+              <p class="text-blue-200 font-semibold text-base italic">
+                "Jangan optimize apa yang kita belum ukur."
+              </p>
+              <p class="text-xs text-blue-400 mt-1">
+                Ref: Sambungan daripada topik Home Network Design, Docker, & Monitoring
+              </p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 2
+      {
+        id: 2,
+        category: "Fundamental",
+        title: "Apa Itu Performance?",
+        subtitle: "Performance mempunyai banyak dimensi — bukan sekadar kelajuan kasar.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-gauge-high text-blue-400"></i> Dimensi Performance
+              </h3>
+              <ul class="space-y-2 text-sm text-gray-300">
+                <li class="p-2.5 bg-gray-900/80 rounded border border-gray-800 flex justify-between items-center">
+                  <span><strong>Response Time:</strong> Masa lengkap proses</span>
+                  <span class="text-xs font-mono text-blue-400">ms / sec</span>
+                </li>
+                <li class="p-2.5 bg-gray-900/80 rounded border border-gray-800 flex justify-between items-center">
+                  <span><strong>Latency:</strong> Masa tunggu/perjalanan packet</span>
+                  <span class="text-xs font-mono text-cyan-400">ms</span>
+                </li>
+                <li class="p-2.5 bg-gray-900/80 rounded border border-gray-800 flex justify-between items-center">
+                  <span><strong>Throughput:</strong> Isipadu kerja diselesaikan</span>
+                  <span class="text-xs font-mono text-emerald-400">req/s, MB/s</span>
+                </li>
+                <li class="p-2.5 bg-gray-900/80 rounded border border-gray-800 flex justify-between items-center">
+                  <span><strong>Error Rate:</strong> Peratusan kegagalan request</span>
+                  <span class="text-xs font-mono text-red-400">%</span>
+                </li>
+                <li class="p-2.5 bg-gray-900/80 rounded border border-gray-800 flex justify-between items-center">
+                  <span><strong>Resource Usage:</strong> Penggunaan perkakas</span>
+                  <span class="text-xs font-mono text-purple-400">CPU/RAM/IO</span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-gray-900/90 rounded-xl p-5 border border-gray-800 flex flex-col justify-between">
+              <div>
+                <span class="text-xs font-mono text-amber-400 uppercase font-semibold">Contoh Metric Sebenar</span>
+                <div class="mt-3 space-y-3 font-mono text-xs">
+                  <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">Website response:</span>
+                    <span class="text-emerald-400 font-bold">120 ms</span>
+                  </div>
+                  <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">API Throughput:</span>
+                    <span class="text-blue-400 font-bold">50 requests/sec</span>
+                  </div>
+                  <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">Database query:</span>
+                    <span class="text-amber-400 font-bold">80 ms</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded text-amber-300 text-xs">
+                ⚠️ <strong>PENTING:</strong> Jangan gunakan hanya SATU metric untuk menentukan "performance" sesebuah sistem.
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 3
+      {
+        id: 3,
+        category: "Fundamental",
+        title: "Performance vs Availability",
+        subtitle: "Dua kriteria utama kesihatan sistem yang berbeza.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-5 bg-blue-950/30 border border-blue-500/30 rounded-xl space-y-3">
+              <div class="flex items-center gap-2 text-blue-400 font-bold text-lg">
+                <i class="fa-solid fa-stopwatch"></i> Performance
+              </div>
+              <p class="text-2xl font-extrabold text-white">"Seberapa Cepat?"</p>
+              <p class="text-xs text-gray-300">
+                Mengukur kepantasan tindak balas dan pemprosesan semasa sistem memproses permintaan.
+              </p>
+            </div>
+
+            <div class="p-5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-3">
+              <div class="flex items-center gap-2 text-emerald-400 font-bold text-lg">
+                <i class="fa-solid fa-server"></i> Availability
+              </div>
+              <p class="text-2xl font-extrabold text-white">"Adakah Boleh Digunakan?"</p>
+              <p class="text-xs text-gray-300">
+                Mengukur peratusan masa sistem beroperasi dan sedia menerima trafik tanpa down (uptime).
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-6 p-4 bg-gray-900 border border-gray-800 rounded-xl space-y-3 text-xs">
+            <h4 class="font-bold text-gray-200 uppercase tracking-wider">Contoh Perbandingan Senario:</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
+              <div class="p-3 bg-noc-card rounded border border-gray-800 flex items-center justify-between">
+                <span>Available ✅</span>
+                <span class="text-red-400">Performance ❌ (Response 10s)</span>
+              </div>
+              <div class="p-3 bg-noc-card rounded border border-gray-800 flex items-center justify-between">
+                <span>Performance Cepat ✅</span>
+                <span class="text-red-400">Availability ❌ (Frequent 500 Err)</span>
+              </div>
+            </div>
+            <p class="text-gray-400 italic text-center pt-2">
+              Kesimpulan: Sistem yang baik memerlukan kedua-duanya seimbang mengikut Service Level Agreement (SLA).
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 4
+      {
+        id: 4,
+        category: "Metrics",
+        title: "Latency",
+        subtitle: "Berapa lama sesuatu operasi mengambil masa sebelum bermula atau selesai.",
+        content: `
+          <div class="space-y-6">
+            <div class="bg-noc-card p-5 rounded-xl border border-gray-800">
+              <p class="text-lg text-gray-200">
+                <strong>Latency</strong> ialah masa lengah (delay) bagi perjalan isyarat atau pemprosesan operasi.
+              </p>
+            </div>
+
+            <!-- Visual Flow -->
+            <div class="p-6 bg-gray-900 rounded-xl border border-gray-800 flex items-center justify-between max-w-2xl mx-auto font-mono text-xs">
+              <div class="text-center">
+                <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center mx-auto text-base">📤</div>
+                <span class="mt-2 block text-gray-300">Request</span>
+              </div>
+              <div class="flex-1 px-4 text-center">
+                <div class="h-1 bg-gradient-to-r from-blue-500 via-amber-500 to-emerald-500 rounded my-1 animate-pulse"></div>
+                <span class="text-amber-400 font-bold">Waiting Time (Latency)</span>
+              </div>
+              <div class="text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto text-base">📥</div>
+                <span class="mt-2 block text-gray-300">Response</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center font-mono text-xs">
+              <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg">
+                <span class="text-emerald-400 text-base font-bold">50 ms</span>
+                <p class="text-gray-400 text-[10px]">Sangat Laju</p>
+              </div>
+              <div class="p-3 bg-blue-950/30 border border-blue-500/30 rounded-lg">
+                <span class="text-blue-400 text-base font-bold">100 ms</span>
+                <p class="text-gray-400 text-[10px]">Normal</p>
+              </div>
+              <div class="p-3 bg-amber-950/30 border border-amber-500/30 rounded-lg">
+                <span class="text-amber-400 text-base font-bold">500 ms</span>
+                <p class="text-gray-400 text-[10px]">Terasa Perlahan</p>
+              </div>
+              <div class="p-3 bg-red-950/30 border border-red-500/30 rounded-lg">
+                <span class="text-red-400 text-base font-bold">2.0 sec</span>
+                <p class="text-gray-400 text-[10px]">Kritikal / Bottleneck</p>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 5
+      {
+        id: 5,
+        category: "Metrics",
+        title: "Response Time Breakdown",
+        subtitle: "Memecahkan komponen kitaran hayat satu request.",
+        content: `
+          <div class="space-y-5">
+            <p class="text-sm text-gray-300">
+              Response Time ialah jumlah masa keseluruhan dari saat pelayar menghantar request sehingga menerima balasan lengkap.
+            </p>
+
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 space-y-3 font-mono text-xs">
+              <div class="flex items-center justify-between text-gray-400 pb-2 border-b border-gray-800">
+                <span>Peringkat Operasi</span>
+                <span>Latensi Individu</span>
+              </div>
+
+              <div class="flex items-center justify-between p-2 bg-noc-card rounded">
+                <span class="text-cyan-400">1. DNS Lookup</span>
+                <span>10 ms</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-noc-card rounded">
+                <span class="text-blue-400">2. Network RTT & TLS</span>
+                <span>20 ms</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-noc-card rounded">
+                <span class="text-purple-400">3. Application Logic Processing</span>
+                <span>80 ms</span>
+              </div>
+              <div class="flex items-center justify-between p-2 bg-noc-card rounded">
+                <span class="text-teal-400">4. Database Query Execution</span>
+                <span class="text-amber-400 font-bold">120 ms</span>
+              </div>
+
+              <div class="pt-3 flex justify-between items-center text-sm font-bold border-t border-gray-800 text-emerald-400">
+                <span>TOTAL RESPONSE TIME:</span>
+                <span>250 ms</span>
+              </div>
+            </div>
+
+            <p class="text-xs text-gray-400 italic">
+              💡 Memecahkan Response Time memudahkan pengesanan punca utama (root cause) server lambat.
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 6
+      {
+        id: 6,
+        category: "Metrics",
+        title: "Throughput",
+        subtitle: "Berapa banyak kerja dapat diproses dalam satu unit masa?",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <h3 class="text-xl font-bold text-white">Definisi Throughput</h3>
+              <p class="text-sm text-gray-300">
+                Kadar pemprosesan data atau bilangan transaksi yang boleh ditampung oleh server dalam tempoh 1 saat.
+              </p>
+
+              <div class="space-y-2 font-mono text-xs">
+                <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                  <span>Web Requests:</span>
+                  <span class="text-blue-400 font-bold">100 requests / sec</span>
+                </div>
+                <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                  <span>Network Bandwidth:</span>
+                  <span class="text-cyan-400 font-bold">10 MB / sec</span>
+                </div>
+                <div class="p-3 bg-noc-card rounded border border-gray-800 flex justify-between">
+                  <span>Database Transactions:</span>
+                  <span class="text-teal-400 font-bold">100 TPS</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col justify-between">
+              <div>
+                <span class="text-amber-400 font-bold uppercase text-xs tracking-wider">Peraturan Emas Metric</span>
+                <h4 class="text-lg font-bold text-white mt-2">Throughput Tinggi ≠ Latency Rendah</h4>
+                <p class="text-xs text-gray-300 mt-2 leading-relaxed">
+                  Sebuah sistem mungkin boleh memproses 1,000 request/sec (Throughput tinggi), tetapi setiap request mengambil masa 5 saat untuk siap (Latency teruk).
+                </p>
+              </div>
+
+              <div class="mt-4 p-3 bg-gray-900 rounded border border-gray-800 text-[11px] text-gray-400">
+                🎯 Sentiasa ukur Throughput bersandarkan Latency P95/P99.
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 7
+      {
+        id: 7,
+        category: "Metrics",
+        title: "Concurrency",
+        subtitle: "Berapa banyak tugasan aktif yang berlaku pada masa yang sama.",
+        content: `
+          <div class="space-y-6">
+            <div class="bg-noc-card p-4 rounded-xl border border-gray-800 text-sm text-gray-300">
+              <strong>Concurrency</strong> mengukur keupayaan infrastruktur mengendalikan berbilang pengguna atau pemprosesan yang bertindih serentak.
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 text-center font-mono text-xs">
+              <div class="p-4 bg-gray-900 rounded-xl border border-gray-800">
+                <div class="text-2xl font-bold text-emerald-400 mb-1">1</div>
+                <div class="text-gray-400">Single User</div>
+                <div class="text-[10px] text-emerald-500 mt-2">Resource Minimal</div>
+              </div>
+
+              <div class="p-4 bg-gray-900 rounded-xl border border-gray-800">
+                <div class="text-2xl font-bold text-amber-400 mb-1">100</div>
+                <div class="text-gray-400">Concurrent Users</div>
+                <div class="text-[10px] text-amber-500 mt-2">Sederhana</div>
+              </div>
+
+              <div class="p-4 bg-gray-900 rounded-xl border border-gray-800">
+                <div class="text-2xl font-bold text-red-400 mb-1">1,000</div>
+                <div class="text-gray-400">Concurrent Users</div>
+                <div class="text-[10px] text-red-500 mt-2">High Load / Queue</div>
+              </div>
+            </div>
+
+            <div class="p-4 bg-blue-950/30 border border-blue-500/30 rounded-xl font-mono text-xs text-center text-blue-300">
+              Users → Concurrent Requests → Application Queue → Workers Execution
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 8
+      {
+        id: 8,
+        category: "Architecture",
+        title: "Performance Funnel",
+        subtitle: "Setiap lapisan dalam corong laluan request boleh menjadi bottleneck.",
+        content: `
+          <div class="space-y-4">
+            <p class="text-xs text-gray-400 text-center">
+              Apabila pengguna klik link, request melalui pelbagai lapisan. Mana-mana lapisan boleh melambatkan keseluruhan jawapan.
+            </p>
+
+            <div class="max-w-md mx-auto space-y-1.5 font-mono text-xs">
+              <div class="p-2 bg-blue-600/30 border border-blue-500/40 rounded text-center text-blue-200">USER / BROWSER</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-cyan-900/40 border border-cyan-700/40 rounded text-center text-cyan-300">DNS RESOLUTION</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-indigo-900/40 border border-indigo-700/40 rounded text-center text-indigo-300">NETWORK / ROUTER / TUNNEL</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-purple-900/40 border border-purple-700/40 rounded text-center text-purple-300">TLS HANDSHAKE</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-teal-900/40 border border-teal-700/40 rounded text-center text-teal-300">REVERSE PROXY (Nginx/Caddy)</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-amber-900/40 border border-amber-700/40 rounded text-center text-amber-300">APPLICATION (Python/Node/Docker)</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-red-900/40 border border-red-700/40 rounded text-center text-red-300">DATABASE (PostgreSQL/MySQL)</div>
+              <div class="text-center text-gray-500 text-[10px]">↓</div>
+              <div class="p-2 bg-emerald-900/40 border border-emerald-700/40 rounded text-center text-emerald-300">PHYSICAL STORAGE (NVMe/SSD/HDD)</div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 9
+      {
+        id: 9,
+        category: "Methodology",
+        title: "Golden Rule Performance",
+        subtitle: "Metodologi kejuruteraan saintifik vs tekaan melulu.",
+        content: `
+          <div class="space-y-6">
+            <div class="p-6 bg-gradient-to-r from-blue-900/40 to-teal-900/40 border border-blue-500/40 rounded-2xl text-center">
+              <span class="text-xs text-blue-400 uppercase font-mono tracking-widest font-bold">PERATURAN EMAS OPTIMIZATION</span>
+              <h2 class="text-2xl md:text-3xl font-extrabold text-white mt-2 font-mono">
+                Measure → Diagnose → Optimize → Verify
+              </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl space-y-2">
+                <h4 class="text-red-400 font-bold text-sm flex items-center gap-2">
+                  <i class="fa-solid fa-xmark-circle"></i> AMALAN BURUK (Tekaan)
+                </h4>
+                <div class="font-mono text-xs text-gray-400 space-y-1">
+                  <p>Guess (Teka punca)</p>
+                  <p>↓ Change everything (Ubah semua benda)</p>
+                  <p>↓ Hope (Berdoa agar laju)</p>
+                </div>
+              </div>
+
+              <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+                <h4 class="text-emerald-400 font-bold text-sm flex items-center gap-2">
+                  <i class="fa-solid fa-check-circle"></i> AMALAN DEVOPS ( Saintifik )
+                </h4>
+                <div class="font-mono text-xs text-gray-300 space-y-1">
+                  <p class="text-blue-400">1. Measure baseline metrics</p>
+                  <p class="text-amber-400">2. Diagnose exact bottleneck</p>
+                  <p class="text-purple-400">3. Apply targeted optimization</p>
+                  <p class="text-emerald-400">4. Verify result with load test</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 10
+      {
+        id: 10,
+        category: "Bottleneck",
+        title: "Apa Itu Bottleneck?",
+        subtitle: "Komponen paling perlahan yang menghadkan prestasi keseluruhan sistem.",
+        content: `
+          <div class="space-y-6">
+            <p class="text-sm text-gray-300">
+              Umpama leher botol (bottleneck), walaupun badan botol sangat besar, cecair hanya boleh keluar mengikut kelebaran lehernya.
+            </p>
+
+            <!-- Interactive Bar Example -->
+            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 space-y-4 font-mono text-xs">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-orange-400">CPU Usage</span>
+                  <span class="text-red-400 font-bold">100% (BOTTLENECK 🔥)</span>
+                </div>
+                <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                  <div class="bg-red-500 h-full w-[100%]"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-purple-400">RAM Usage</span>
+                  <span class="text-emerald-400">40%</span>
+                </div>
+                <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                  <div class="bg-purple-500 h-full w-[40%]"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-emerald-400">Disk I/O</span>
+                  <span class="text-emerald-400">25%</span>
+                </div>
+                <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                  <div class="bg-emerald-500 h-full w-[25%]"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-cyan-400">Network Bandwidth</span>
+                  <span class="text-emerald-400">15%</span>
+                </div>
+                <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
+                  <div class="bg-cyan-500 h-full w-[15%]"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-amber-300 text-xs">
+              💡 <strong>PENGAJARAN:</strong> Jika CPU sudah 100%, menambah RAM daripada 8GB ke 64GB <u>TIDAK AKAN</u> menyelesaikan masalah.
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 11
+      {
+        id: 11,
+        category: "Theory",
+        title: "Little's Law (Sistem Antrian)",
+        subtitle: "Model konseptual berasaskan teori antrian berasaskan matematik mudah.",
+        content: `
+          <div class="space-y-6">
+            <div class="p-6 bg-gray-900 rounded-xl border border-gray-800 text-center space-y-3 font-mono">
+              <span class="text-xs text-blue-400">FORMULA ASAS SISTEM</span>
+              <div class="text-3xl font-extrabold text-white tracking-widest">
+                L = λ × W
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-xs text-gray-400 pt-2 border-t border-gray-800">
+                <div><strong class="text-blue-400">L</strong> = Bilangan Item Dalam Sistem</div>
+                <div><strong class="text-emerald-400">λ</strong> = Throughput (req/s)</div>
+                <div><strong class="text-amber-400">W</strong> = Masa Purata Dalam Sistem</div>
+              </div>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2 text-xs">
+              <h4 class="font-bold text-white">Contoh Pengiraan Mudah:</h4>
+              <p class="text-gray-300">
+                Jika server menerima <span class="text-emerald-400 font-mono">100 req/sec</span> (λ) dan setiap request mengambil masa <span class="text-amber-400 font-mono">0.2 saat</span> (W):
+              </p>
+              <div class="p-2.5 bg-gray-900 rounded font-mono text-blue-300 border border-gray-800">
+                L = 100 × 0.2 = 20 concurrent requests secara purata.
+              </div>
+            </div>
+
+            <p class="text-[11px] text-gray-400 italic">
+              Nota: Little's Law dijadikan kerangka konsep mental untuk memahami perkaitan antara penambahan latensi dan kepadatan antrian (concurrency).
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 12
+      {
+        id: 12,
+        category: "CPU",
+        title: "CPU Bottleneck — Symptoms & Causes",
+        subtitle: "Mengenal pasti tanda-tanda sesak pemproses.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <h3 class="text-base font-bold text-red-400 flex items-center gap-2">
+                <i class="fa-solid fa-microchip"></i> Simptom Utama
+              </h3>
+              <ul class="space-y-2 text-xs text-gray-300">
+                <li class="p-2.5 bg-red-950/20 rounded border border-red-500/30">
+                  🔥 CPU Usage konsisten pada <strong>95% – 100%</strong>
+                </li>
+                <li class="p-2.5 bg-red-950/20 rounded border border-red-500/30">
+                  ⌛ Load average melebihi jumlah bilangan CPU cores
+                </li>
+                <li class="p-2.5 bg-red-950/20 rounded border border-red-500/30">
+                  🐌 Response time melambat bagi semua jenis request
+                </li>
+              </ul>
+
+              <h3 class="text-base font-bold text-amber-400 pt-2">Punca Biasa (Causes)</h3>
+              <ul class="text-xs text-gray-300 space-y-1 list-disc pl-4">
+                <li>Pengiraan berat (Heavy computation / Regex)</li>
+                <li>Kod algoritma tidak cekap (Loop dalam loop)</li>
+                <li>Encryption / Compression on-the-fly</li>
+                <li>Background job yang tidak terhad</li>
+              </ul>
+            </div>
+
+            <div class="p-5 bg-noc-card rounded-xl border border-gray-800 space-y-4">
+              <h3 class="text-sm font-bold text-blue-400">Terminal Command Semakan CPU</h3>
+              
+              <div class="space-y-3 font-mono text-xs">
+                <div class="bg-gray-900 p-3 rounded border border-gray-800 flex justify-between items-center">
+                  <code>top</code>
+                  <button onclick="copyCommand('top')" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]">Copy</button>
+                </div>
+                <div class="bg-gray-900 p-3 rounded border border-gray-800 flex justify-between items-center">
+                  <code>htop</code>
+                  <button onclick="copyCommand('htop')" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]">Copy</button>
+                </div>
+                <div class="bg-gray-900 p-3 rounded border border-gray-800 flex justify-between items-center">
+                  <code>docker stats</code>
+                  <button onclick="copyCommand('docker stats')" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-[10px]">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 13
+      {
+        id: 13,
+        category: "CPU",
+        title: "CPU Optimization — Langkah Bertindat",
+        subtitle: "Langkah penambahbaikan sebelum terus membeli CPU baharu.",
+        content: `
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <span class="text-blue-400 font-bold block mb-1">1. Cari Process</span>
+                Gunakan <code>htop</code> untuk mengesan PID yang makan CPU paling tinggi.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <span class="text-amber-400 font-bold block mb-1">2. Profiling</span>
+                Jalankan profiler kod untuk mengesan function mana paling lambat.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <span class="text-emerald-400 font-bold block mb-1">3. Cache Result</span>
+                Simpan hasil pengiraan yang sama ke dalam memory (Redis).
+              </div>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2 text-xs">
+              <h4 class="font-bold text-white uppercase text-xs">Langkah Lanjutan:</h4>
+              <ul class="space-y-1.5 text-gray-300 list-disc pl-5">
+                <li>Optimize algorithm (Ubah daripada O(N²) kepada O(N log N)).</li>
+                <li>Matikan atau jadualkan background jobs ke waktu kurang trafik.</li>
+                <li>Parallelize kerja menggunakan multi-threading jika bersesuaian.</li>
+              </ul>
+            </div>
+
+            <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded text-emerald-300 text-xs text-center font-mono">
+              Selesai optimize → Jalankan Benchmark semula untuk pengesahan bukti!
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 14
+      {
+        id: 14,
+        category: "RAM",
+        title: "RAM Bottleneck & Memory Usage",
+        subtitle: "Memahami Swap, OOM Killer, dan penggunaan ingatan fizikal.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4 text-xs">
+              <h3 class="text-sm font-bold text-purple-400 flex items-center gap-2">
+                <i class="fa-solid fa-memory"></i> Simptom Kehabisan RAM
+              </h3>
+              <ul class="space-y-2 text-gray-300">
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">
+                  ⚠️ Penggunaan Swap melonjak tinggi (Disk Swap amat lambat!)
+                </li>
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">
+                  💥 Linux Out-Of-Memory (OOM) Killer membunuh process / container
+                </li>
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">
+                  🐌 Container Docker tiba-tiba terhenti secara mendadak (Exit 137)
+                </li>
+              </ul>
+            </div>
+
+            <div class="p-5 bg-noc-card rounded-xl border border-gray-800 space-y-3 text-xs">
+              <h3 class="font-bold text-blue-400">Command Diagnostik RAM</h3>
+              <div class="space-y-2 font-mono">
+                <div class="p-2 bg-gray-900 rounded border border-gray-800 flex justify-between">
+                  <code>free -h</code>
+                  <button onclick="copyCommand('free -h')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+                </div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800 flex justify-between">
+                  <code>docker stats</code>
+                  <button onclick="copyCommand('docker stats')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+                </div>
+              </div>
+
+              <div class="p-3 bg-blue-950/40 border border-blue-500/30 rounded text-blue-200 text-[11px]">
+                ℹ️ <strong>CATATAN KONSISTEN:</strong> High RAM usage tidak semestinya masalah jika Linux menggunakannya sebagai Page Cache buffer dan memori masih mencukupi.
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 15
+      {
+        id: 15,
+        category: "RAM",
+        title: "Memory Optimization",
+        subtitle: "Cara mengawal ketagihan memori aplikasi.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+                <h4 class="font-bold text-purple-400">1. Kesan Memory Leak</h4>
+                <p class="text-gray-300">
+                  Aplikasi yang tidak melepaskan pembolehubah (object) akan menyebabkan RAM bertambah secara berterusan sehingga crash.
+                </p>
+              </div>
+
+              <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+                <h4 class="font-bold text-blue-400">2. Tetapkan Docker Limits</h4>
+                <p class="text-gray-300">
+                  Gunakan tetapan <code>mem_limit</code> pada docker-compose agar satu container tidak melahap semua RAM server host.
+                </p>
+              </div>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-white">Tindakan Pengurangan Memori:</h4>
+              <ul class="list-disc pl-5 space-y-1 text-gray-300">
+                <li>Kurangkan jumlah worker process jika melampaui keupayaan hardware.</li>
+                <li>Hada saiz data cache Redis/Memcached agar tidak memenuhi RAM fizikal.</li>
+                <li>Gunakan streaming response untuk muat turun fail besar berbanding membaca keseluruhan fail ke dalam RAM.</li>
+              </ul>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 16
+      {
+        id: 16,
+        category: "Storage",
+        title: "Disk I/O Bottleneck",
+        subtitle: "Kesesakan laluan baca & tulis pada storan fizikal.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3 text-xs">
+              <h3 class="font-bold text-emerald-400 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-hard-drive"></i> Simptom Disk I/O Wait
+              </h3>
+              <ul class="space-y-2 text-gray-300">
+                <li class="p-2.5 bg-gray-900 rounded border border-gray-800">
+                  ⏳ High <code>%wa</code> (iowait) pada paparan <code>top</code>
+                </li>
+                <li class="p-2.5 bg-gray-900 rounded border border-gray-800">
+                  🐌 Database query terasa perlahan walaupun CPU usage rendah
+                </li>
+                <li class="p-2.5 bg-gray-900 rounded border border-gray-800">
+                  📦 Proses backup atau penulisan log mengambil masa yang sangat lama
+                </li>
+              </ul>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <h3 class="font-bold text-amber-400 text-sm">Punca Utama</h3>
+              <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2 text-gray-300">
+                <p>• Menggunakan HDD tradisional berbanding NVMe/SSD bagi sistem aktif.</p>
+                <p>• Penulisan log tanpa kawalan (unbuffered logging / debug level).</p>
+                <p>• Terlalu banyak random write pada operasi database.</p>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 17
+      {
+        id: 17,
+        category: "Storage",
+        title: "Disk Optimization",
+        subtitle: "Langkah praktikal mempercepatkan storan.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="p-3 bg-gray-900 rounded border border-gray-800 text-center">
+                <i class="fa-solid fa-bolt text-xl text-emerald-400 mb-2"></i>
+                <h4 class="font-bold text-white">Tukar HDD ke SSD/NVMe</h4>
+                <p class="text-gray-400 text-[10px] mt-1">Seketika meningkatkan IOPS sehingga 100x ganda.</p>
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800 text-center">
+                <i class="fa-solid fa-rotate text-xl text-blue-400 mb-2"></i>
+                <h4 class="font-bold text-white">Log Rotation</h4>
+                <p class="text-gray-400 text-[10px] mt-1">Gunakan logrotate & kurangkan disk write berlebihan.</p>
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800 text-center">
+                <i class="fa-solid fa-layer-group text-xl text-purple-400 mb-2"></i>
+                <h4 class="font-bold text-white">Asingkan Workload</h4>
+                <p class="text-gray-400 text-[10px] mt-1">Asingkan pemacu Database dengan pemacu Backup.</p>
+              </div>
+            </div>
+
+            <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200">
+              ⚡ <strong>PENTING:</strong> Optimize penulisan log dan query terlebih dahulu sebelum menukar hardware storan fizikal.
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 18
+      {
+        id: 18,
+        category: "Network",
+        title: "Network Bottleneck",
+        subtitle: "Halangan laluan rangkaian dan kualiti sambungan.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="space-y-3">
+              <h3 class="font-bold text-cyan-400 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-network-wired"></i> Simptom Rangkaian
+              </h3>
+              <ul class="space-y-2 text-gray-300">
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">High Latency (Ping melonjak tinggi)</li>
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">Packet Loss (Data tercicir dalam perjalanan)</li>
+                <li class="p-2 bg-gray-900 rounded border border-gray-800">Interface Saturation (Bandwidth port 1Gbps penuh)</li>
+              </ul>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-3">
+              <h3 class="font-bold text-blue-400">Command Diagnostik Rangkaian</h3>
+              <div class="space-y-2 font-mono">
+                <div class="p-2 bg-gray-900 rounded border border-gray-800 flex justify-between">
+                  <code>ping &lt;HOST&gt;</code>
+                  <button onclick="copyCommand('ping 1.1.1.1')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+                </div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800 flex justify-between">
+                  <code>ss -tulpn</code>
+                  <button onclick="copyCommand('ss -tulpn')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+                </div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800 flex justify-between">
+                  <code>ip -s link</code>
+                  <button onclick="copyCommand('ip -s link')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 19
+      {
+        id: 19,
+        category: "Network",
+        title: "Wi-Fi vs Ethernet",
+        subtitle: "Perbandingan kestabilan sambungan server tetap.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-3">
+              <h3 class="font-bold text-amber-400 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-wifi"></i> Wi-Fi (Tanpa Wayar)
+              </h3>
+              <ul class="space-y-1.5 text-gray-300">
+                <li>❌ Shared medium (Gangguan frekuensi jiran/perkakas)</li>
+                <li>❌ Latensi berubah-ubah (Jitter tinggi)</li>
+                <li>❌ Rentan kepada masalah kualiti isyarat</li>
+                <li>✅ Sesuai untuk peranti bergerak (Mobile/Laptop)</li>
+              </ul>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-3">
+              <h3 class="font-bold text-emerald-400 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-ethernet"></i> Ethernet (Kabel LAN)
+              </h3>
+              <ul class="space-y-1.5 text-gray-300">
+                <li>✅ Kestabilan tinggi & latency sangat konsisten (&lt;1ms local)</li>
+                <li>✅ Tiada isu gangguan frekuensi radio</li>
+                <li>✅ Dedicated bandwidth (Full duplex)</li>
+                <li>✅ Pilihan WAJIB untuk Production / Home Server</li>
+              </ul>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 20
+      {
+        id: 20,
+        category: "Network",
+        title: "DNS Performance",
+        subtitle: "Impak kelajuan DNS lookup kepada latensi awal pengguna.",
+        content: `
+          <div class="space-y-5 text-xs">
+            <p class="text-gray-300">
+              Sebelum browser menghubungkan ke IP server, ia WAJIB menterjemahkan domain terlebih dahulu. Jika DNSResolver lambat, sambungan akan terhenti pada saat pertama.
+            </p>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono flex items-center justify-between text-center">
+              <span>Browser</span>
+              <span class="text-gray-500">→</span>
+              <span class="text-amber-400 font-bold">DNS Lookup (Delay?)</span>
+              <span class="text-gray-500">→</span>
+              <span>IP Address</span>
+              <span class="text-gray-500">→</span>
+              <span class="text-emerald-400 font-bold">Connect Server</span>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-blue-400">Command Ujian Kelajuan DNS:</h4>
+              <div class="p-2.5 bg-gray-900 rounded font-mono flex justify-between items-center">
+                <code>dig mydomain.com</code>
+                <button onclick="copyCommand('dig google.com')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 21
+      {
+        id: 21,
+        category: "Network",
+        title: "TLS Performance & Connection Reuse",
+        subtitle: "Mengurangkan overhead pertukaran kunci HTTPS.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Setiap sambungan HTTPS memerlukan beberapa pusingan (Round Trips) untuk melakukan TLS Handshake sebelum data boleh dihantar.
+            </p>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-[11px] space-y-1 text-center">
+              <div class="text-cyan-400">DNS Lookup</div>
+              <div class="text-gray-500">↓</div>
+              <div class="text-blue-400">TCP Handshake (SYN/ACK)</div>
+              <div class="text-gray-500">↓</div>
+              <div class="text-purple-400">TLS Handshake (Cert / Key Exchange)</div>
+              <div class="text-gray-500">↓</div>
+              <div class="text-emerald-400 font-bold">HTTP Data Transfer</div>
+            </div>
+
+            <p class="text-gray-400 italic text-center">
+              Solusi: Connection reuse (Keep-alive) mengelakkan TLS handshake diulang pada setiap request berikutnya.
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 22
+      {
+        id: 22,
+        category: "Network",
+        title: "HTTP Keep-Alive",
+        subtitle: "Gunakan semula sambungan TCP yang sedia ada.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-red-400">Tanpa Keep-Alive</h4>
+              <p class="text-gray-300 font-mono">
+                Request 1 → New Connection → Close<br/>
+                Request 2 → New Connection → Close<br/>
+                Request 3 → New Connection → Close
+              </p>
+              <p class="text-[10px] text-red-400">⚠️ Overhead latensi yang amat sangat tinggi.</p>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-emerald-400">Dengan Keep-Alive</h4>
+              <p class="text-gray-300 font-mono">
+                Connection Open<br/>
+                ↓ Request 1<br/>
+                ↓ Request 2<br/>
+                ↓ Request 3
+              </p>
+              <p class="text-[10px] text-emerald-400">✅ Menjimatkan masa persediaan sambungan.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 23
+      {
+        id: 23,
+        category: "Network",
+        title: "HTTP/2 — Multiplexing",
+        subtitle: "Hantar berbilang request serentak dalam satu sambungan.",
+        content: `
+          <div class="space-y-5 text-xs">
+            <p class="text-gray-300">
+              HTTP/2 membenarkan pelbagai request dan response dihantar serentak secara selari (Multiplexing) menerusi SATU sambungan TCP sahaja.
+            </p>
+
+            <div class="p-5 bg-noc-card rounded-xl border border-gray-800 font-mono text-center space-y-3">
+              <span class="text-blue-400 font-bold block">Single TCP Connection (HTTP/2)</span>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="p-2 bg-blue-900/40 border border-blue-700/40 rounded text-blue-300">Request A (HTML)</div>
+                <div class="p-2 bg-purple-900/40 border border-purple-700/40 rounded text-purple-300">Request B (CSS)</div>
+                <div class="p-2 bg-teal-900/40 border border-teal-700/40 rounded text-teal-300">Request C (JS)</div>
+              </div>
+            </div>
+
+            <p class="text-gray-400 text-center">
+              Menghapuskan isu Head-of-Line Blocking pada peringkat protokol HTTP.
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 24
+      {
+        id: 24,
+        category: "Network",
+        title: "HTTP/3 & QUIC",
+        subtitle: "Generasi baru pengangkutan web berasaskan UDP.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-cyan-400">Konsep HTTP/3 (QUIC)</h4>
+              <p class="text-gray-300">
+                HTTP/3 menggantikan TCP dengan UDP melalui protokol QUIC. Ia menggabungkan sambungan dan handshake keselamatan ke dalam pusingan minimum.
+              </p>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-center text-blue-300">
+              Application → HTTP/3 → QUIC → UDP
+            </div>
+
+            <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-amber-200">
+              ⚠️ <strong>PERINGATAN:</strong> HTTP/3 tidak sentiasa lebih laju dalam semua rangkaian tempatan, tetapi sangat cemerlang bagi rangkaian bergerak (Mobile / Wi-Fi tidak stabil).
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 25
+      {
+        id: 25,
+        category: "Application",
+        title: "Application Bottleneck",
+        subtitle: "Ketiadaan kecekapan pada kod aplikasi backend.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <h3 class="font-bold text-amber-400 text-sm">Punca Biasa Perlahan di Lapisan Aplikasi:</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-red-400 block mb-1">Blocking Synchronous I/O</strong>
+                Membuat panggilan external API yang mengambil masa tanpa async/await.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-red-400 block mb-1">Excessive Serialization</strong>
+                Parsing JSON bersaiz puluhan Megabyte secara berulang-ulang.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-red-400 block mb-1">Algoritma O(N²)</strong>
+                Nested loop pemprosesan array data bersaiz besar.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-red-400 block mb-1">Database Queries Berlebihan</strong>
+                Memanggil database 100x dalam satu HTTP request.
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 26
+      {
+        id: 26,
+        category: "Application",
+        title: "Profiling Application Code",
+        subtitle: "Menjawab soalan: Function mana mengandungi masa paling lama?",
+        content: `
+          <div class="space-y-5 text-xs">
+            <p class="text-gray-300">
+              Profiling membolehkan pemaju mengukur tempoh masa execution bagi setiap fungsi aplikasi secara terperinci.
+            </p>
+
+            <div class="p-5 bg-gray-900 rounded-xl border border-gray-800 space-y-3 font-mono">
+              <div class="text-gray-400 pb-2 border-b border-gray-800">Request Flow Profiler View:</div>
+              <div class="p-2 bg-noc-card rounded flex justify-between">
+                <span>Function A (Validate Token)</span>
+                <span class="text-emerald-400">20 ms</span>
+              </div>
+              <div class="p-2 bg-red-950/40 border border-red-500/40 rounded flex justify-between text-red-300 font-bold">
+                <span>Function B (Process Image Resize)</span>
+                <span>600 ms 🔥 (TARGET OPTIMIZE)</span>
+              </div>
+              <div class="p-2 bg-noc-card rounded flex justify-between">
+                <span>Function C (Format Response)</span>
+                <span class="text-emerald-400">30 ms</span>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 27
+      {
+        id: 27,
+        category: "Database",
+        title: "Database Bottleneck",
+        subtitle: "Isu paling kerap ditemui dalam aplikasi berasaskan data.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="space-y-3">
+              <h3 class="font-bold text-teal-400 text-sm">Senario Kesilapan Biasa</h3>
+              <div class="p-3 bg-noc-card rounded border border-gray-800 font-mono space-y-1">
+                <div>API Response Time Total: <span class="text-red-400">2.05 sec</span></div>
+                <div class="pl-3 text-gray-400">├─ Application Logic: 50 ms</div>
+                <div class="pl-3 text-red-400 font-bold">└─ DB Query Execution: 2,000 ms 🔥</div>
+              </div>
+              <p class="text-gray-300">Punca sebenar melambatkan bukannya aplikasi, tetapi pangkalan data.</p>
+            </div>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h3 class="font-bold text-amber-400 text-sm">Punca Database Slow:</h3>
+              <ul class="list-disc pl-4 space-y-1 text-gray-300">
+                <li>Missing Index (Carian Sequential Table Scan)</li>
+                <li>Locking & Deadlock antara transaksi</li>
+                <li>Terlalu banyak sambungan serentak (Connection limit)</li>
+                <li>Dataset terlalu besar tanpa Pagination</li>
+              </ul>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 28
+      {
+        id: 28,
+        category: "Database",
+        title: "Database Indexing",
+        subtitle: "Meningkatkan kelajuan bacaan (Reads) dengan struktur index.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-2">
+              <div class="text-blue-400">SELECT * FROM users WHERE email = 'user@example.com';</div>
+              <p class="text-gray-400 text-[11px]">
+                Tanpa Index: Database menyemak 1,000,000 baris satu demi satu (Sequential Scan).
+              </p>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-emerald-400">Solusi: Cipta Index pada kolum email</h4>
+              <p class="text-gray-300 font-mono">CREATE INDEX idx_users_email ON users(email);</p>
+              <p class="text-gray-300">Pencarian bertukar menjadi B-Tree lookup (Masa carian O(log N)).</p>
+            </div>
+
+            <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-amber-200">
+              ⚖️ <strong>TRADE-OFF:</strong> Index mempercepatkan READ, tetapi menggunakan ruang storan tambahan & menambah sedikit masa bagi penulisan (WRITE/INSERT/UPDATE).
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 29
+      {
+        id: 29,
+        category: "Database",
+        title: "Query Optimization — EXPLAIN ANALYZE",
+        subtitle: "Melihat Query Execution Plan pangkalan data.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Gunakan perkataan <code>EXPLAIN ANALYZE</code> sebelum SQL query untuk menyemak kos dan kaedah database melaksanakannya.
+            </p>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <div class="flex justify-between items-center text-teal-400">
+                <code>EXPLAIN ANALYZE SELECT * FROM orders WHERE status = 'pending';</code>
+                <button onclick="copyCommand('EXPLAIN ANALYZE SELECT * FROM orders;')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-200">Copy</button>
+              </div>
+            </div>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-1 text-gray-300">
+              <p>• Perhatikan perkataan <strong class="text-red-400">Seq Scan</strong> (Petanda tiada Index).</p>
+              <p>• Sasarkan <strong class="text-emerald-400">Index Scan</strong> atau <strong class="text-emerald-400">Bitmap Index Scan</strong>.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 30
+      {
+        id: 30,
+        category: "Database",
+        title: "Connection Pooling",
+        subtitle: "Menjimatkan masa membuka & menutup sambungan pangkalan data.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-red-400">Tanpa Connection Pool</h4>
+              <p class="text-gray-300">
+                Setiap HTTP request membuka sambungan DB baharu & menutupnya semula.
+              </p>
+              <p class="text-red-400 font-mono">100 Requests = 100 Connection Setup Overhead!</p>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-emerald-400">Dengan Connection Pool (PgBouncer)</h4>
+              <p class="text-gray-300">
+                Aplikasi guna semula kolam sambungan yang sedia sedia terbuka.
+              </p>
+              <p class="text-emerald-400 font-mono">100 Requests → Connection Pool → 10 DB Conns</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 31
+      {
+        id: 31,
+        category: "Caching",
+        title: "Database vs Application Caching",
+        subtitle: "Menyimpan jawapan sementara untuk bacaan ulangan pantas.",
+        content: `
+          <div class="space-y-5 text-xs">
+            <p class="text-gray-300">
+              Memandangkan capaian ke RAM adalah beribu kali lebih pantas daripada disk, data yang kerap dibaca patut disimpan di lapisan Cache.
+            </p>
+
+            <div class="p-5 bg-gray-900 rounded-xl border border-gray-800 font-mono flex items-center justify-between text-center">
+              <span class="text-blue-400">App</span>
+              <span>→</span>
+              <span class="text-amber-400 font-bold">Cache (RAM)</span>
+              <span>→</span>
+              <span class="text-teal-400">Database (Disk)</span>
+            </div>
+
+            <p class="text-gray-400 text-center">
+              Jika data ditemui di Cache (HIT), database tidak perlu dipanggil langsung!
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 32
+      {
+        id: 32,
+        category: "Caching",
+        title: "Application Caching Tools",
+        subtitle: "Redis & Memcached dalam seni bina aplikasi.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h3 class="font-bold text-red-400 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-database"></i> Redis
+              </h3>
+              <p class="text-gray-300">In-memory key-value store dengan sokongan data structure (Strings, Hashes, Lists, Sets).</p>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h3 class="font-bold text-blue-400 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-bolt"></i> Memcached
+              </h3>
+              <p class="text-gray-300">In-memory caching berprestasi tinggi yang sangat ringkas untuk caching data mentah.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 33
+      {
+        id: 33,
+        category: "Caching",
+        title: "Cache Hit vs Cache Miss",
+        subtitle: "Aliran kerja dua laluan carian cache.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-emerald-400">Cache HIT ✅</h4>
+              <p class="text-gray-300 font-mono">
+                Request → Cache Check (Found) → Return Data Instant (&lt;5ms)
+              </p>
+            </div>
+
+            <div class="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-amber-400">Cache MISS ❌</h4>
+              <p class="text-gray-300 font-mono">
+                Request → Cache Check (Not Found) → Query DB → Save to Cache → Return Data (150ms)
+              </p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 34
+      {
+        id: 34,
+        category: "Caching",
+        title: "Cache Problems & Invalidation",
+        subtitle: "Cabaran utama mengurus data lapuk.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-red-400">Masalah Cache Invalidation</h4>
+              <p class="text-gray-300">
+                Bila data di database berubah, data di cache menjadi basi (Stale Data). Mengemaskini atau memadam cache pada masa yang betul adalah perkara sukar dalam Seni Bina Software.
+              </p>
+            </div>
+
+            <div class="p-4 bg-gray-900 border border-gray-800 rounded-xl text-amber-300 text-center font-semibold">
+              "Cache invalidation ialah trade-off architecture antara kelajuan & ketepatan data."
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 35
+      {
+        id: 35,
+        category: "Web",
+        title: "Static Assets Optimization",
+        subtitle: "Pengurusan aset statik HTML, CSS, JS, Images, dan Fonts.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Aset statik tidak memerlukan pemprosesan dinamik oleh kod backend (Python/Node). Hantar aset ini terus melalui Reverse Proxy atau CDN!
+            </p>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-center text-emerald-300">
+              Reverse Proxy (Nginx) / CDN → Direct Serve Static Files (Bypass Node/Python App)
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 36
+      {
+        id: 36,
+        category: "CDN",
+        title: "Content Delivery Network (CDN)",
+        subtitle: "Mendekatkan kandungan kepada lokasi fizikal pengguna.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-cyan-400">Konsep CDN Edge Server</h4>
+              <p class="text-gray-300">
+                Pengguna di KL mengakses pelayan CDN di KL, bukannya terus ke Server Asal (Origin) di Eropah.
+              </p>
+            </div>
+
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-center text-blue-300">
+              User → Nearest CDN Edge Node → (Cache Hit) Instant Response
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 37
+      {
+        id: 37,
+        category: "CDN",
+        title: "Cloudflare + Performance",
+        subtitle: "Pengoptimuman automatik di peringkat Edge.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-orange-400 block mb-1">Auto Minify</strong>
+                Membuang ruang kosong dalam CSS/JS.
+              </div>
+              <div class="p-3 bg-gray-900 rounded border border-gray-800">
+                <strong class="text-cyan-400 block mb-1">HTTP/3 Support</strong>
+                Mengaktifkan transport QUIC secara automatik.
+              </div>
+            </div>
+
+            <div class="p-3 bg-blue-950/40 border border-blue-500/30 rounded text-blue-200">
+              ℹ️ Jangan anggap semua ciri Cloudflare sesuai diaktifkan secara membuta bingi tanpa menguji fungsi aplikasi anda.
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 38
+      {
+        id: 38,
+        category: "Web",
+        title: "Reverse Proxy Performance",
+        subtitle: "Kecekapan Nginx / Caddy dalam menguruskan trafik.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-teal-400">Tugas Reverse Proxy Untuk Performance:</h4>
+              <ul class="list-disc pl-5 space-y-1 text-gray-300">
+                <li>TLS Offloading (Menguruskan HTTPS encryption)</li>
+                <li>Static asset caching & Compression (Gzip/Brotli)</li>
+                <li>Buffering request & Connection pooling ke backend</li>
+              </ul>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 39
+      {
+        id: 39,
+        category: "Web",
+        title: "Compression — Gzip vs Brotli",
+        subtitle: "Mengecilkan saiz fail tindak balas web.",
+        content: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-blue-400">Mengecilkan Saiz Data</h4>
+              <p class="text-gray-300 font-mono">1 MB Uncompressed Payload → 200 KB Compressed</p>
+              <p class="text-gray-400">Jimat penggunaan bandwidth rangkaian!</p>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-emerald-400">Gzip vs Brotli</h4>
+              <p class="text-gray-300">
+                Brotli memberikan nisbah mampatan lebih tinggi berbanding Gzip bagi fail teks (HTML/CSS/JS).
+              </p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 40
+      {
+        id: 40,
+        category: "Web",
+        title: "Compression Trade-off",
+        subtitle: "Pengimbangan antara saiz bandwidth dan beban CPU.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-amber-400">CPU vs Bandwidth</h4>
+              <p class="text-gray-200">
+                Mampatan yang terlalu tinggi (contoh: Brotli level 11) menggunakan CPU yang amat banyak pada server!
+              </p>
+            </div>
+
+            <p class="text-gray-400 text-center">
+              💡 Tetapkan paras mampatan sederhana (Gzip level 5/6 atau Brotli level 4/5) untuk keseimbangan terbaik.
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 41
+      {
+        id: 41,
+        category: "Media",
+        title: "Image Optimization",
+        subtitle: "Format modern WebP / AVIF & Responsive Images.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-emerald-400">Amalan Terbaik Gambar Web:</h4>
+              <ul class="list-disc pl-5 space-y-1 text-gray-300">
+                <li>Gunakan format moden: Tukar PNG/JPEG kepada WebP atau AVIF.</li>
+                <li>Resize ikut saiz paparan: Jangan hantar gambar 5MB (4K) untuk thumbnail 200px!</li>
+              </ul>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 42
+      {
+        id: 42,
+        category: "Media",
+        title: "Lazy Loading Images",
+        subtitle: "Muat turun gambar hanya apabila muncul pada skrin.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <div class="text-blue-400">&lt;img src="image.jpg" loading="lazy" alt="Demo" /&gt;</div>
+              <p class="text-gray-300 text-[11px]">
+                Browser tidak akan memuat turun gambar ini sehingga pengguna scroll mendekatinya.
+              </p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 43
+      {
+        id: 43,
+        category: "Code",
+        title: "Database N+1 Query Problem",
+        subtitle: "Punca kelewatan popular dalam ORM (Object-Relational Mapping).",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-red-400">Masalah N+1</h4>
+              <p class="text-gray-300 font-mono">
+                1 Query untuk ambil 100 users<br/>
+                + 100 Query berasingan untuk ambil profil setiap user<br/>
+                = 101 Total Queries! 🔥
+              </p>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2">
+              <h4 class="font-bold text-emerald-400">Solusi: Eager Loading / SQL JOIN</h4>
+              <p class="text-gray-300 font-mono">Gunakan JOIN atau JOINEDLOAD untuk ambil semua data dalam 1 Query sahaja.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 44
+      {
+        id: 44,
+        category: "Code",
+        title: "Batching Operations",
+        subtitle: "Kumpulkan pelbagai transaksi dalam satu gabungan operasi.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Menggantikan 100 operasi INSERT individu dengan 1 operasi BATCH INSERT mengurangkan overhead pertukaran soket secara drastik.
+            </p>
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-center text-teal-300">
+              INSERT INTO logs (val) VALUES (...), (...), (...); [Single Operations]
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 45
+      {
+        id: 45,
+        category: "Application",
+        title: "Concurrency Workers Tuning",
+        subtitle: "Menetapkan jumlah worker process aplikasi.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Menambah bilangan worker (Gunicorn/Uvicorn/PM2) meningkatkan keupayaan menampung trafik, tetapi memerlukan RAM & CPU tambahan.
+            </p>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-center text-purple-300">
+              Formula Am Worker = (2 × CPU Cores) + 1
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 46
+      {
+        id: 46,
+        category: "Application",
+        title: "Worker Tuning Measurement",
+        subtitle: "Ukur batas titik pulangan berkurangan (Diminishing returns).",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-3 text-xs font-mono">
+            <div class="p-2 bg-noc-card rounded flex justify-between">
+              <span>2 Workers:</span>
+              <span>100 req/s</span>
+            </div>
+            <div class="p-2 bg-noc-card rounded flex justify-between">
+              <span>4 Workers:</span>
+              <span class="text-emerald-400 font-bold">160 req/s (Optimum)</span>
+            </div>
+            <div class="p-2 bg-noc-card rounded flex justify-between text-red-400">
+              <span>8 Workers:</span>
+              <span>155 req/s (Terlalu banyak context switching & RAM sesak)</span>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 47
+      {
+        id: 47,
+        category: "Testing",
+        title: "Load Testing",
+        subtitle: "Mengenakan beban trafik terkawal untuk menguji daya tahan.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Load Testing mensimulasikan ratusan pengguna serentak untuk memerhatikan perilaku sistem sebelum dilancarkan kepada awam.
+            </p>
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-center text-blue-300">
+              Simulated Users → Web App → Ukur Latency, Throughput & Error Rate
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 48
+      {
+        id: 48,
+        category: "Testing",
+        title: "Benchmarking",
+        subtitle: "Mengukur tanda aras sebelum dan selepas perubahan.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-center space-y-2">
+              <div>Sebelum Optimization: <span class="text-red-400">200ms</span></div>
+              <div>Selepas Optimization: <span class="text-emerald-400">120ms</span></div>
+              <div class="text-blue-400 font-bold pt-2 border-t border-gray-800">Peningkatan Prestasi: +40%</div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 49
+      {
+        id: 49,
+        category: "Testing",
+        title: "Load Testing Tools",
+        subtitle: "Alat-alat ujian beban standard industri.",
+        content: `
+          <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="text-emerald-400 font-bold block mb-1">k6</span>
+              Scriptable load test berasaskan JavaScript.
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="text-blue-400 font-bold block mb-1">ApacheBench (ab)</span>
+              Alat ujian HTTP CLI yang sangat pantas.
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="text-purple-400 font-bold block mb-1">wrk</span>
+              HTTP benchmarking tool bertahap gigabit.
+            </div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">
+              <span class="text-amber-400 font-bold block mb-1">hey</span>
+              Alat CLI moden ditulis dalam Go.
+            </div>
+          </div>
+          <p class="text-[10px] text-red-400 mt-3 text-center">
+            ⚠️ Guna alat ini HANYA pada server milik sendiri atau yang mendapat kebenaran khas!
+          </p>
+        `
+      },
+
+      // SLIDE 50
+      {
+        id: 50,
+        category: "Testing",
+        title: "Load Test Scenario",
+        subtitle: "Peringkat beban ujian secara bertahap.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs space-y-2">
+            <p>10 Users → Baseline Normal</p>
+            <p>50 Users → Medium Load</p>
+            <p>100 Users → Peak Hours</p>
+            <p>500 Users → Observe Saturation Point 🔥</p>
+          </div>
+        `
+      },
+
+      // SLIDE 51
+      {
+        id: 51,
+        category: "Testing",
+        title: "Performance Graph Curve",
+        subtitle: "Lengkung hubungan antara Trafik dan Latensi.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">
+              Apabila bilangan pengguna meningkat, latensi akan mula bertambah secara perlahan sehingga mencapai titik Tepu (Saturation Point), di mana latensi melonjak menegak.
+            </p>
+          </div>
+        `
+      },
+
+      // SLIDE 52
+      {
+        id: 52,
+        category: "Metrics",
+        title: "System Saturation",
+        subtitle: "Tanda-tanda sistem sudah mencapai had keupayaan maksimum.",
+        content: `
+          <div class="p-4 bg-red-950/30 border border-red-500/40 rounded-xl space-y-2 text-xs font-mono">
+            <div class="text-red-400 font-bold">SYMPTOMS SATURATION:</div>
+            <p>• CPU: &gt;95%</p>
+            <p>• RAM: &gt;92%</p>
+            <p>• DB Connections: &gt;98%</p>
+            <p>• Latency: High Spikes & 504 Gateway Timeouts</p>
+          </div>
+        `
+      },
+
+      // SLIDE 53
+      {
+        id: 53,
+        category: "Scaling",
+        title: "Vertical Scaling (Scale Up)",
+        subtitle: "Menambah perkakas pada pelayan tunggal yang sedia ada.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-blue-400">Vertical Scaling</h4>
+              <p class="text-gray-300">Tukar spec server dari 2 Core / 4GB RAM kepada 16 Core / 64GB RAM.</p>
+              <p class="text-emerald-400">✅ Kelebihan: Sangat mudah, tiada perubahan kod.</p>
+              <p class="text-red-400">❌ Kekurangan: Terhad pada kemampuan fizikal & kos mahal secara eksponen.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 54
+      {
+        id: 54,
+        category: "Scaling",
+        title: "Horizontal Scaling (Scale Out)",
+        subtitle: "Menambah bilangan pelayan secara selari.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+              <h4 class="font-bold text-purple-400">Horizontal Scaling</h4>
+              <p class="text-gray-300">Menambah Server 1, Server 2, Server 3 dibelakang Load Balancer.</p>
+              <p class="text-emerald-400">✅ Kelebihan: Skala tanpa had & redundansi tinggi.</p>
+              <p class="text-amber-400">❌ Kekurangan: Kompleksiti seni bina aplikasi (Stateless requirement).</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 55
+      {
+        id: 55,
+        category: "Scaling",
+        title: "Load Balancer Architecture",
+        subtitle: "Mengagihkan trafik secara adil ke pelbagai server.",
+        content: `
+          <div class="p-5 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs text-center space-y-3">
+            <div class="text-blue-400">Users Traffic</div>
+            <div class="text-gray-500">↓</div>
+            <div class="p-2 bg-purple-900/40 border border-purple-700/40 rounded text-purple-300">LOAD BALANCER</div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="p-2 bg-gray-900 border border-gray-800 text-emerald-400">App Server A</div>
+              <div class="p-2 bg-gray-900 border border-gray-800 text-emerald-400">App Server B</div>
+              <div class="p-2 bg-gray-900 border border-gray-800 text-emerald-400">App Server C</div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 56
+      {
+        id: 56,
+        category: "Scaling",
+        title: "Health Check & Failover",
+        subtitle: "Load balancer secara automatik mengelak server yang rosak.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-2">
+            <p>Server A: Healthy ✅ → Menerima Trafik</p>
+            <p>Server B: Unhealthy ❌ → Dikeluarkan dari Rotation</p>
+          </div>
+        `
+      },
+
+      // SLIDE 57
+      {
+        id: 57,
+        category: "Database",
+        title: "Scaling Database Architecture",
+        subtitle: "Pendekatan berfasa sebelum membina Database Cluster kompleks.",
+        content: `
+          <div class="space-y-3 text-xs">
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">1. Optimize Query & Index</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">2. Tambah Caching Layer (Redis)</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">3. Connection Pooling (PgBouncer)</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">4. Read Replicas (Asingkan Read & Write)</div>
+          </div>
+        `
+      },
+
+      // SLIDE 58
+      {
+        id: 58,
+        category: "Architecture",
+        title: "CDN + Cache + Origin Integration",
+        subtitle: "Gabungan aliran trafik pengoptimuman penuh.",
+        content: `
+          <div class="p-5 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs text-center space-y-2">
+            <div>User Request → CDN Edge</div>
+            <div class="text-emerald-400">├─ HIT: Pulangkan serta merta</div>
+            <div class="text-amber-400">└─ MISS: Forward ke Origin App Cache → DB</div>
+          </div>
+        `
+      },
+
+      // SLIDE 59
+      {
+        id: 59,
+        category: "Metrics",
+        title: "Performance Budget",
+        subtitle: "Menetapkan tanda aras sasaran minimum projek.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-2">
+            <p class="text-blue-400 font-bold">SASARAN BUDGET PRESTASI:</p>
+            <p>• Page Load Total: &lt; 500 ms</p>
+            <p>• API Latency P95: &lt; 300 ms</p>
+            <p>• Error Rate: &lt; 0.1 %</p>
+          </div>
+        `
+      },
+
+      // SLIDE 60
+      {
+        id: 60,
+        category: "Metrics",
+        title: "P95 vs Average Latency",
+        subtitle: "Sebab purata (Average) boleh memperdayakan jurutera.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <p>Purata (Average): <span class="text-emerald-400">200 ms</span> (Nampak bagus!)</p>
+              <p>P50 (Median): <span class="text-emerald-400">150 ms</span></p>
+              <p>P95 Percentile: <span class="text-amber-400">500 ms</span></p>
+              <p>P99 Percentile: <span class="text-red-400">1.5 sec</span> (5% pengguna alami lag teruk!)</p>
+            </div>
+            <p class="text-gray-400">Gunakan P95/P99 untuk mengesan masalah latency sebenar.</p>
+          </div>
+        `
+      },
+
+      // SLIDE 61
+      {
+        id: 61,
+        category: "DevOps",
+        title: "Performance Regression",
+        subtitle: "Masa kemerosotan prestasi selepas pengeluaran versi baru.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-2">
+            <p>Release v1.0 → P95: 300ms ✅</p>
+            <p class="text-red-400">Release v2.0 → P95: 800ms ❌ (REGRESSION DETECTED)</p>
+          </div>
+        `
+      },
+
+      // SLIDE 62
+      {
+        id: 62,
+        category: "DevOps",
+        title: "CI/CD + Performance Benchmarking",
+        subtitle: "Menghentikan binaan kod jika melepasi budget latency.",
+        content: `
+          <div class="p-5 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs text-center space-y-2">
+            <div>Git Push → CI Pipeline → Load Benchmark → Check Threshold</div>
+            <div class="text-red-400">Jika P95 &gt; Budget → ❌ Fail Pipeline (Hentikan Deployment)</div>
+          </div>
+        `
+      },
+
+      // SLIDE 63
+      {
+        id: 63,
+        category: "Observability",
+        title: "Monitoring Performance Metrics",
+        subtitle: "Prometheus & Grafana untuk visualisasi waktu nyata.",
+        content: `
+          <div class="space-y-3 text-xs">
+            <p class="text-gray-300">Pantau 4 Golden Signals:</p>
+            <div class="grid grid-cols-2 gap-2 font-mono">
+              <div class="p-2 bg-gray-900 border border-gray-800 text-blue-400">1. Latency</div>
+              <div class="p-2 bg-gray-900 border border-gray-800 text-emerald-400">2. Traffic</div>
+              <div class="p-2 bg-gray-900 border border-gray-800 text-red-400">3. Errors</div>
+              <div class="p-2 bg-gray-900 border border-gray-800 text-amber-400">4. Saturation</div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 64
+      {
+        id: 64,
+        category: "Observability",
+        title: "Distributed Tracing (Jaeger / Tempo)",
+        subtitle: "Menjejak laluan tunggal request merentasi microservices.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs space-y-2">
+            <p>Request Trace #88291:</p>
+            <p class="pl-2">├─ Nginx Proxy: 10ms</p>
+            <p class="pl-2">├─ Auth Service: 25ms</p>
+            <p class="pl-2 text-red-400 font-bold">└─ DB Query Service: 850ms 🔥 (Bottleneck Found)</p>
+          </div>
+        `
+      },
+
+      // SLIDE 65
+      {
+        id: 65,
+        category: "Caching",
+        title: "Multi-Layer Caching Architecture",
+        subtitle: "Lapisan jawapan sementara dari browser ke storage.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-1">
+            <p>1. Browser Cache (HTTP Headers)</p>
+            <p>2. CDN Edge Cache (Cloudflare)</p>
+            <p>3. Reverse Proxy Cache (Nginx FastCGI)</p>
+            <p>4. Application Cache (Redis)</p>
+            <p>5. Database Query Cache</p>
+          </div>
+        `
+      },
+
+      // SLIDE 66
+      {
+        id: 66,
+        category: "Security",
+        title: "Performance & Security Trade-offs",
+        subtitle: "Jangan sesekali mematikan kawalan keselamatan demi kelajuan.",
+        content: `
+          <div class="p-4 bg-red-950/30 border border-red-500/40 rounded-xl space-y-3 text-xs">
+            <h4 class="font-bold text-red-400">AMARAN KESELAMATAN:</h4>
+            <p>❌ Caching Private API Response → Risiko kebocoran data pengguna lain.</p>
+            <p>❌ Disable Firewall / TLS → Berisiko tinggi digodam.</p>
+            <p class="text-white font-semibold">"Optimization mesti sentiasa mengekalkan keselamatan & integriti data."</p>
+          </div>
+        `
+      },
+
+      // SLIDE 67
+      {
+        id: 67,
+        category: "Cost",
+        title: "Performance vs Cost Optimization",
+        subtitle: "Mencari titik keseimbangan ROI infrastruktur.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 text-center font-mono">
+              Objektif: Performance + Reliability + Security + Cost Efficiency
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 68
+      {
+        id: 68,
+        category: "Hardware",
+        title: "Raspberry Pi Performance Optimization",
+        subtitle: "Memaksimumkan kemampuan komputer papan tunggal (SBC).",
+        content: `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">✅ Gunakan Ethernet (Elak Wi-Fi)</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">✅ Boot & Simpan Data pada SSD USB3 (Elak SD Card)</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">✅ Pasang Active Cooling / Heatsink (Elak Thermal Throttling)</div>
+            <div class="p-3 bg-gray-900 rounded border border-gray-800">✅ Limitkan background container berlebihan</div>
+          </div>
+        `
+      },
+
+      // SLIDE 69
+      {
+        id: 69,
+        category: "Docker",
+        title: "Docker Container Performance",
+        subtitle: "Pengurusan sumber kontena yang cekap.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <div class="flex justify-between">
+                <code>docker stats</code>
+                <button onclick="copyCommand('docker stats')" class="text-[10px] bg-gray-800 px-2 py-0.5 rounded">Copy</button>
+              </div>
+              <p class="text-gray-400">Gunakan Alpine base images & kurangkan saiz imej kontena.</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 70
+      {
+        id: 70,
+        category: "Checklist",
+        title: "Database Performance Checklist",
+        subtitle: "Senarai semak kesihatan pangkalan data.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 text-xs space-y-2 font-mono">
+            <p>□ Semak slow query log</p>
+            <p>□ Pastikan kolum carian ada Index</p>
+            <p>□ Guna Connection Pooling</p>
+            <p>□ Semak peratusan RAM Shared Buffers</p>
+          </div>
+        `
+      },
+
+      // SLIDE 71
+      {
+        id: 71,
+        category: "Checklist",
+        title: "Network Performance Checklist",
+        subtitle: "Senarai semak kualiti sambungan.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 text-xs space-y-2 font-mono">
+            <p>□ Uji ping latency & packet loss</p>
+            <p>□ Aktifkan HTTP Keep-Alive pada Reverse Proxy</p>
+            <p>□ Pastikan DNS Resolution di bawah 20ms</p>
+          </div>
+        `
+      },
+
+      // SLIDE 72
+      {
+        id: 72,
+        category: "Checklist",
+        title: "Storage Performance Checklist",
+        subtitle: "Senarai semak kelajuan storan.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 text-xs space-y-2 font-mono">
+            <p>□ Semak I/O wait %wa dalam top</p>
+            <p>□ Pastikan SSD tidak melebihi 85% kapasiti</p>
+            <p>□ Lakukan log rotation secara konsisten</p>
+          </div>
+        `
+      },
+
+      // SLIDE 73
+      {
+        id: 73,
+        category: "Mistakes",
+        title: "10 Common Optimization Mistakes",
+        subtitle: "Kesilapan kerap dilakukan oleh sistem pentadbir pemula.",
+        content: `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-red-300">
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">1. Optimize tanpa mengukur baseline.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">2. Terus upgrade hardware awal-awal.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">3. Cache semua benda tanpa strategi.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">4. Tambah worker terlalu banyak.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">5. Abaikan query database.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">6. Abaikan latensi rangkaian.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">7. Lakukan load test tidak realistik.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">8. Optimize 1 metric tetapi merosakkan yang lain.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">9. Mematikan security demi kelajuan.</div>
+            <div class="p-2 bg-red-950/20 border border-red-500/30 rounded">10. Tidak mendokumentasikan perubahan.</div>
+          </div>
+        `
+      },
+
+      // SLIDE 74
+      {
+        id: 74,
+        category: "Workflow",
+        title: "Optimization Workflow (8 Steps)",
+        subtitle: "Langkah kerja bersistem DevOps.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-1 text-center">
+            <p class="text-blue-400">1. Define Target → 2. Measure Baseline → 3. Identify Bottleneck</p>
+            <p class="text-amber-400">4. Make ONE Change → 5. Test → 6. Compare</p>
+            <p class="text-emerald-400">7. Monitor → 8. Document</p>
+          </div>
+        `
+      },
+
+      // SLIDE 75
+      {
+        id: 75,
+        category: "Case Study",
+        title: "Before vs After Optimization",
+        subtitle: "Bukti kejayaan perubahan berasaskan data.",
+        content: `
+          <div class="grid grid-cols-2 gap-4 font-mono text-xs">
+            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl">
+              <div class="text-red-400 font-bold mb-2">BEFORE:</div>
+              <p>P95 Latency: 800 ms</p>
+              <p>CPU Usage: 90%</p>
+              <p>DB Latency: 600 ms</p>
+            </div>
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl">
+              <div class="text-emerald-400 font-bold mb-2">AFTER:</div>
+              <p>P95 Latency: 320 ms</p>
+              <p>CPU Usage: 70%</p>
+              <p>DB Latency: 180 ms</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 76
+      {
+        id: 76,
+        category: "Workflow",
+        title: "Optimization Priority Hierarchy",
+        subtitle: "Susun atur keutamaan tindakan.",
+        content: `
+          <div class="space-y-2 text-xs font-mono">
+            <div class="p-2 bg-blue-900/40 border border-blue-700/40 rounded">1. Buang Bottleneck Ketara (Obvious Bottleneck)</div>
+            <div class="p-2 bg-teal-900/40 border border-teal-700/40 rounded">2. Optimize Aplikasi & Algoritma</div>
+            <div class="p-2 bg-emerald-900/40 border border-emerald-700/40 rounded">3. Optimize Query & Index Database</div>
+            <div class="p-2 bg-purple-900/40 border border-purple-700/40 rounded">4. Tambah Caching Layer</div>
+            <div class="p-2 bg-amber-900/40 border border-amber-700/40 rounded">5. Scale Hardware / Architecture</div>
+          </div>
+        `
+      },
+
+      // SLIDE 77
+      {
+        id: 77,
+        category: "Incident",
+        title: "Performance Incident Case #1",
+        subtitle: "Website Tiba-tiba Slow.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 text-xs font-mono space-y-2">
+            <p class="text-amber-400">DATA MONITORING:</p>
+            <p>CPU: 45% | RAM: 50% | Network: Normal | DB Latency: 1.8 sec 🔥</p>
+            <p class="text-emerald-400 font-bold pt-2 border-t border-gray-800">KESIMPULAN: Database Bottleneck (Missing Index pada table transaksi baru).</p>
+          </div>
+        `
+      },
+
+      // SLIDE 78
+      {
+        id: 78,
+        category: "Incident",
+        title: "Performance Incident Case #2",
+        subtitle: "API Slow Merentasi Rangkaian.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 text-xs font-mono space-y-2">
+            <p class="text-amber-400">DATA MONITORING:</p>
+            <p>DB: 100ms | App: 100ms | Network Latency: 900ms 🔥</p>
+            <p class="text-emerald-400 font-bold pt-2 border-t border-gray-800">KESIMPULAN: Network Bottleneck (Masalah routing Wi-Fi / Tunnel packet loss).</p>
+          </div>
+        `
+      },
+
+      // SLIDE 79
+      {
+        id: 79,
+        category: "Incident",
+        title: "Performance Incident Case #3",
+        subtitle: "CPU Spikes 100%.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 text-xs font-mono space-y-2">
+            <p class="text-amber-400">DATA TRACING:</p>
+            <p>Image Processing Function: 800ms 🔥</p>
+            <p class="text-emerald-400 font-bold pt-2 border-t border-gray-800">KESIMPULAN: Optimize kod pemprosesan imej / Asynchronous background worker queue.</p>
+          </div>
+        `
+      },
+
+      // SLIDE 80
+      {
+        id: 80,
+        category: "Interactive",
+        title: "Interactive Architecture Bottleneck Inspector",
+        subtitle: "Klik pada mana-mana nod untuk memeriksa status kesihatan dan latensi.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">Uji kefahaman anda. Klik nod di bawah untuk mengesan mana satu Bottleneck utama:</p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono">
+              <button onclick="inspectNode('User', '10ms', 'Healthy ✅', 'Tiada isu pada pelayar client.')" class="p-3 bg-gray-900 border border-gray-800 rounded hover:border-blue-500 text-center">
+                User / Browser
+              </button>
+              <button onclick="inspectNode('Network', '20ms', 'Healthy ✅', 'Latensi rangkaian sangat stabil.')" class="p-3 bg-gray-900 border border-gray-800 rounded hover:border-blue-500 text-center">
+                Network
+              </button>
+              <button onclick="inspectNode('Reverse Proxy', '15ms', 'Healthy ✅', 'Nginx mengendalikan SSL dengan baik.')" class="p-3 bg-gray-900 border border-gray-800 rounded hover:border-blue-500 text-center">
+                Reverse Proxy
+              </button>
+              <button onclick="inspectNode('Application', '50ms', 'Healthy ✅', 'Python API berjalan dengan lancar.')" class="p-3 bg-gray-900 border border-gray-800 rounded hover:border-blue-500 text-center">
+                Application
+              </button>
+              <button onclick="inspectNode('Database', '1,800ms', '🔥 CRITICAL BOTTLENECK', 'Query missing index! Memerlukan masa 1.8s!')" class="p-3 bg-red-950/40 border border-red-500/50 rounded hover:border-red-400 text-center text-red-300 font-bold animate-pulse">
+                Database (CLICK ME)
+              </button>
+              <button onclick="inspectNode('Storage', '10ms', 'Healthy ✅', 'NVMe SSD I/O wait sangat rendah.')" class="p-3 bg-gray-900 border border-gray-800 rounded hover:border-blue-500 text-center">
+                Storage
+              </button>
+            </div>
+
+            <div id="inspector-result" class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono hidden">
+              <!-- Dynamically updated -->
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 81
+      {
+        id: 81,
+        category: "Interactive",
+        title: "Interactive CPU / RAM Saturation Simulator",
+        subtitle: "Lariskan slider untuk melihat amaran beban tepu.",
+        content: `
+          <div class="space-y-5 text-xs">
+            <div class="space-y-3 bg-gray-900 p-4 rounded-xl border border-gray-800">
+              <div class="flex justify-between font-mono">
+                <span>CPU Load: <strong id="sim-cpu-val" class="text-orange-400">45%</strong></span>
+              </div>
+              <input type="range" id="sim-cpu-slider" min="10" max="100" value="45" oninput="updateSimMetrics()" class="w-full accent-orange-500" />
+
+              <div class="flex justify-between font-mono pt-2">
+                <span>RAM Load: <strong id="sim-ram-val" class="text-purple-400">50%</strong></span>
+              </div>
+              <input type="range" id="sim-ram-slider" min="10" max="100" value="50" oninput="updateSimMetrics()" class="w-full accent-purple-500" />
+            </div>
+
+            <div id="sim-status-box" class="p-4 rounded-xl font-mono text-center bg-emerald-950/30 border border-emerald-500/30 text-emerald-300">
+              Sistem Dalam Keadaan Sihat & Normal ✅
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 82
+      {
+        id: 82,
+        category: "Interactive",
+        title: "Interactive Cache Hit/Miss Simulator",
+        subtitle: "Simulasi 100 Request mengikut kadar kejayaan cache.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 space-y-3 font-mono">
+              <div class="flex justify-between">
+                <span>Kadar Cache Hit Rate: <strong id="cache-rate-val" class="text-emerald-400">80%</strong></span>
+              </div>
+              <input type="range" id="cache-rate-slider" min="0" max="100" value="80" oninput="updateCacheSim()" class="w-full accent-emerald-500" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 font-mono text-center">
+              <div class="p-3 bg-noc-card rounded border border-gray-800">
+                <span class="text-gray-400 block text-[10px]">Total Requests</span>
+                <span class="text-lg font-bold text-white">100</span>
+              </div>
+              <div class="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded">
+                <span class="text-emerald-400 block text-[10px]">Cache HIT (RAM)</span>
+                <span id="cache-hit-count" class="text-lg font-bold text-emerald-400">80</span>
+              </div>
+              <div class="p-3 bg-amber-950/30 border border-amber-500/30 rounded">
+                <span class="text-amber-400 block text-[10px]">DB Queries (Disk)</span>
+                <span id="cache-miss-count" class="text-lg font-bold text-amber-400">20</span>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 83
+      {
+        id: 83,
+        category: "Interactive",
+        title: "Interactive Scaling Efficiency Simulator",
+        subtitle: "Menambah Server vs Diminishing Returns.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 space-y-3 font-mono">
+              <div class="flex justify-between">
+                <span>Bilangan App Server: <strong id="scale-server-val" class="text-blue-400">1 Server</strong></span>
+              </div>
+              <input type="range" id="scale-server-slider" min="1" max="8" value="1" oninput="updateScalingSim()" class="w-full accent-blue-500" />
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <div class="flex justify-between">
+                <span>Estimated Throughput:</span>
+                <span id="scale-throughput" class="text-emerald-400 font-bold">100 req/s</span>
+              </div>
+              <div class="flex justify-between text-gray-400 text-[11px]">
+                <span>Kecekaparan Skala:</span>
+                <span id="scale-efficiency">100% (Linear)</span>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 84
+      {
+        id: 84,
+        category: "Interactive",
+        title: "Interactive Load Tester Simulator",
+        subtitle: "Pilih beban pengguna dan lihat respon simulasi waktu nyata.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <p class="text-gray-300">Pilih tahap simulasi beban Concurrent Users:</p>
+
+            <div class="grid grid-cols-4 gap-2 font-mono">
+              <button onclick="runLoadTestSim(10)" class="p-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded text-center">10 Users</button>
+              <button onclick="runLoadTestSim(50)" class="p-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded text-center">50 Users</button>
+              <button onclick="runLoadTestSim(100)" class="p-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded text-center">100 Users</button>
+              <button onclick="runLoadTestSim(500)" class="p-2.5 bg-red-950/40 hover:bg-red-900/40 border border-red-500/40 rounded text-center text-red-300 font-bold">500 Users</button>
+            </div>
+
+            <div id="load-sim-results" class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono space-y-2">
+              <p class="text-gray-400 text-center">Tekan butang di atas untuk memulakan ujian beban...</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 85
+      {
+        id: 85,
+        category: "Quiz",
+        title: "Ujian Minda #1",
+        subtitle: "Menguji kebolehan mengesan Bottleneck.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-1">
+              <p class="text-amber-400 font-bold">SOALAN:</p>
+              <p>CPU: 30% | RAM: 40% | Network: 20% | Database Latency: 2.0s</p>
+              <p class="text-white mt-2">Apakah Bottleneck utama sistem ini?</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 font-mono">
+              <button onclick="checkQuiz(85, 'A')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">A. CPU</button>
+              <button onclick="checkQuiz(85, 'B')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">B. RAM</button>
+              <button onclick="checkQuiz(85, 'C')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">C. Network</button>
+              <button onclick="checkQuiz(85, 'D')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">D. Database</button>
+            </div>
+
+            <div id="quiz-85-feedback" class="p-3 rounded font-mono hidden"></div>
+          </div>
+        `
+      },
+
+      // SLIDE 86
+      {
+        id: 86,
+        category: "Quiz",
+        title: "Ujian Minda #2",
+        subtitle: "Kefahaman Maksud P95 Latency.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-1">
+              <p class="text-amber-400 font-bold">SOALAN:</p>
+              <p class="text-white">Apakah maksud tepat bagi "P95 Latency = 300ms"?</p>
+            </div>
+
+            <div class="space-y-2 font-mono">
+              <button onclick="checkQuiz(86, 'A')" class="w-full p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">A. Purata latensi ialah 300ms.</button>
+              <button onclick="checkQuiz(86, 'B')" class="w-full p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">B. 95% daripada jumlah requests berada pada atau di bawah 300ms.</button>
+              <button onclick="checkQuiz(86, 'C')" class="w-full p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">C. 5% request telah gagal sepenuhnya.</button>
+            </div>
+
+            <div id="quiz-86-feedback" class="p-3 rounded font-mono hidden"></div>
+          </div>
+        `
+      },
+
+      // SLIDE 87
+      {
+        id: 87,
+        category: "Quiz",
+        title: "Ujian Minda #3",
+        subtitle: "Peningkatan Concurrency Worker.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-1">
+              <p class="text-amber-400 font-bold">SOALAN:</p>
+              <p class="text-white">Adakah menambah worker aplikasi sentiasa meningkatkan prestasi?</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 font-mono">
+              <button onclick="checkQuiz(87, 'A')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-center">A. Ya, Sentiasa</button>
+              <button onclick="checkQuiz(87, 'B')" class="p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-center">B. Tidak (Boleh sebabkan RAM/CPU contention)</button>
+            </div>
+
+            <div id="quiz-87-feedback" class="p-3 rounded font-mono hidden"></div>
+          </div>
+        `
+      },
+
+      // SLIDE 88
+      {
+        id: 88,
+        category: "Quiz",
+        title: "Ujian Minda #4",
+        subtitle: "Tujuan Utama Load Testing.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-1">
+              <p class="text-amber-400 font-bold">SOALAN:</p>
+              <p class="text-white">Apakah tujuan utama melakukan Load Test?</p>
+            </div>
+
+            <div class="space-y-2 font-mono">
+              <button onclick="checkQuiz(88, 'A')" class="w-full p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">A. Merosakkan server secara sengaja.</button>
+              <button onclick="checkQuiz(88, 'B')" class="w-full p-3 bg-noc-card border border-gray-800 rounded hover:border-blue-500 text-left">B. Mengukur perilaku & batas keupayaan sistem di bawah beban terkawal.</button>
+            </div>
+
+            <div id="quiz-88-feedback" class="p-3 rounded font-mono hidden"></div>
+          </div>
+        `
+      },
+
+      // SLIDE 89
+      {
+        id: 89,
+        category: "Challenge",
+        title: "Cabaran Akhir — Siasatan Raspberry Pi",
+        subtitle: "Selesaikan senario masalah server lambat berasaskan bukti.",
+        content: `
+          <div class="space-y-4 text-xs">
+            <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono space-y-1">
+              <p class="text-amber-400 font-bold">SENARIO APEX:</p>
+              <p>Raspberry Pi Home Server (Cloudflare Tunnel → Docker → Python API → PostgreSQL)</p>
+              <p>• CPU: 45% | RAM: 60% | Network: Normal</p>
+              <p>• API P95: 1.2 sec | DB Query Time: 950ms 🔥</p>
+            </div>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 space-y-2">
+              <p class="text-white font-bold">Langkah Tindakan Anda:</p>
+              <p class="text-gray-300">1. Identify Bottleneck → <strong>Database Query</strong></p>
+              <p class="text-gray-300">2. Measure Further → Run <code>EXPLAIN ANALYZE</code></p>
+              <p class="text-gray-300">3. Optimize → Cipta Index & Tambah Redis Caching</p>
+              <p class="text-emerald-400 font-bold">4. Result → API P95 bertukar kepada 150ms! 🎉</p>
+            </div>
+          </div>
+        `
+      },
+
+      // SLIDE 90
+      {
+        id: 90,
+        category: "Architecture",
+        title: "Peta Seni Bina Performance Production",
+        subtitle: "Cetak biru lengkap pengoptimuman enterprise.",
+        content: `
+          <div class="p-5 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs text-center space-y-2">
+            <div class="text-blue-400">USERS → CLOUDFLARE EDGE (CDN)</div>
+            <div class="text-gray-500">↓</div>
+            <div class="text-purple-400">LOAD BALANCER</div>
+            <div class="text-gray-500">↓</div>
+            <div class="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+              <div class="p-1 bg-gray-900 border border-gray-800 text-emerald-400">APP SERVER 1</div>
+              <div class="p-1 bg-gray-900 border border-gray-800 text-emerald-400">APP SERVER 2</div>
+            </div>
+            <div class="text-gray-500">↓</div>
+            <div class="text-amber-400">REDIS CACHE</div>
+            <div class="text-gray-500">↓</div>
+            <div class="text-teal-400">POSTGRESQL DATABASE (WITH PGBOUNCER)</div>
+          </div>
+        `
+      },
+
+      // SLIDE 91
+      {
+        id: 91,
+        category: "Checklist",
+        title: "Master Performance Checklist",
+        subtitle: "Ringkasan senarai semak merentasi semua lapisan.",
+        content: `
+          <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">APP: Profiling & Caching</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">DB: Index & Connection Pool</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">SERVER: CPU & RAM Limits</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">DOCKER: Resource Constraints</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">NET: Ethernet & HTTP/2</div>
+            <div class="p-2 bg-gray-900 rounded border border-gray-800">OPS: Load Test & Alerting</div>
+          </div>
+        `
+      },
+
+      // SLIDE 92
+      {
+        id: 92,
+        category: "Mental Model",
+        title: "Performance Mental Model",
+        subtitle: "Kerangka minda jurutera kanan.",
+        content: `
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono text-xs">
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-blue-400 block">LATENCY</strong>"How long?"</div>
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-emerald-400 block">THROUGHPUT</strong>"How much?"</div>
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-amber-400 block">SATURATION</strong>"How close to limit?"</div>
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-red-400 block">BOTTLENECK</strong>"What limits it?"</div>
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-purple-400 block">OPTIMIZATION</strong>"What improves it?"</div>
+            <div class="p-3 bg-noc-card rounded border border-gray-800"><strong class="text-teal-400 block">SCALING</strong>"How to grow?"</div>
+          </div>
+        `
+      },
+
+      // SLIDE 93
+      {
+        id: 93,
+        category: "Synthesis",
+        title: "Hubungan Dengan Modul Lepas",
+        subtitle: "Bagaimana topik ini menyatukan ilmu modul terdahulu.",
+        content: `
+          <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 font-mono text-xs space-y-1">
+            <p>Home Network → Rangkaian fizikal & Ethernet</p>
+            <p>Docker → Had memori & CPU kontena</p>
+            <p>Database → SQL query & Indexing</p>
+            <p>Monitoring → Prometheus Golden Signals</p>
+          </div>
+        `
+      },
+
+      // SLIDE 94
+      {
+        id: 94,
+        category: "Workflow",
+        title: "Master Performance Workflow",
+        subtitle: "Kitaran berterusan peningkatan prestasi.",
+        content: `
+          <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs text-center space-y-1">
+            <p class="text-blue-400">MEASURE → BASELINE → IDENTIFY BOTTLENECK</p>
+            <p class="text-amber-400">HYPOTHESIS → CHANGE → BENCHMARK</p>
+            <p class="text-emerald-400">VERIFY → MONITOR → DOCUMENT</p>
+          </div>
+        `
+      },
+
+      // SLIDE 95
+      {
+        id: 95,
+        category: "Next Topic",
+        title: "Topik Seterusnya",
+        subtitle: "Preview modul akan datang.",
+        content: `
+          <div class="p-6 bg-gradient-to-r from-blue-950 to-indigo-950 border border-blue-500/40 rounded-2xl text-center space-y-3">
+            <span class="text-xs text-blue-400 uppercase font-mono font-bold">MODUL AKAN DATANG</span>
+            <h2 class="text-2xl font-bold text-white">"Cloud vs VPS vs Home Server"</h2>
+            <p class="text-xs text-gray-300">Mana Satu Sesuai Untuk Workload Anda?</p>
+          </div>
+        `
+      },
+
+      // SLIDE 96
+      {
+        id: 96,
+        category: "Conclusion",
+        title: "Penutup",
+        subtitle: "Prinsip utama yang perlu diingati selamanya.",
+        content: `
+          <div class="text-center max-w-2xl mx-auto space-y-6">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white font-mono leading-tight">
+              "Performance Is A Measurement, Not A Feeling."
+            </h1>
+
+            <div class="p-4 bg-noc-card rounded-xl border border-gray-800 font-mono text-xs flex justify-center gap-2 text-blue-400">
+              <span>MEASURE</span> → <span>FIND</span> → <span>OPTIMIZE</span> → <span>TEST</span> → <span>MONITOR</span>
+            </div>
+
+            <p class="text-base text-gray-300 italic">
+              "Jangan terus upgrade hardware. Cari bottleneck dahulu."
+            </p>
+          </div>
+        `
+      }
+    ];
+
+    /* Presentation State */
+    let currentSlideIndex = 0;
+
+    /* Initialize Presentation */
+    function initPresentation() {
+      document.getElementById('total-slide-num').innerText = slides.length;
+      renderSlide(currentSlideIndex);
+      buildOverviewGrid();
+
+      // Keyboard Controls
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          nextSlide();
+        } else if (e.key === 'ArrowLeft') {
+          prevSlide();
+        } else if (e.key === 'Home') {
+          goToSlide(0);
+        } else if (e.key === 'End') {
+          goToSlide(slides.length - 1);
+        } else if (e.key === 'o' || e.key === 'O') {
+          toggleOverviewModal();
+        } else if (e.key === 'f' || e.key === 'F') {
+          toggleFullscreen();
+        }
+      });
+    }
+
+    /* Render Active Slide */
+    function renderSlide(index) {
+      if (index < 0 || index >= slides.length) return;
+      currentSlideIndex = index;
+
+      const slide = slides[index];
+      const container = document.getElementById('slide-content-container');
+
+      // Update Header Numbers
+      document.getElementById('current-slide-num').innerText = slide.id;
+
+      // Update Progress Bar
+      const percentage = Math.round(((index + 1) / slides.length) * 100);
+      document.getElementById('progress-bar-fill').style.width = `${percentage}%`;
+      document.getElementById('progress-percentage').innerText = `${percentage}%`;
+
+      // Update Disabled Buttons
+      document.getElementById('btn-prev').disabled = index === 0;
+      document.getElementById('btn-next').disabled = index === slides.length - 1;
+
+      // Render Content HTML
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-gray-800/80 pb-3">
+            <span class="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] uppercase font-mono font-bold tracking-wider">
+              ${slide.category}
+            </span>
+            <span class="text-xs font-mono text-gray-500">SLIDE ${slide.id} OF ${slides.length}</span>
+          </div>
+
+          <div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">${slide.title}</h2>
+            <p class="text-xs md:text-sm text-gray-400 mt-1">${slide.subtitle}</p>
+          </div>
+
+          <div class="pt-2">
+            ${slide.content}
+          </div>
+        </div>
+      `;
+
+      // Re-trigger slide animation
+      const viewport = document.getElementById('slide-viewport');
+      viewport.classList.add('opacity-80', 'scale-[0.99]');
+      setTimeout(() => {
+        viewport.classList.remove('opacity-80', 'scale-[0.99]');
+      }, 150);
+    }
+
+    /* Navigation Handlers */
+    function nextSlide() {
+      if (currentSlideIndex < slides.length - 1) {
+        renderSlide(currentSlideIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        renderSlide(currentSlideIndex - 1);
+      }
+    }
+
+    function goToSlide(index) {
+      renderSlide(index);
+      closeOverviewModal();
+    }
+
+    /* Overview Modal Handlers */
+    function toggleOverviewModal() {
+      const modal = document.getElementById('overview-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    function closeOverviewModal() {
+      document.getElementById('overview-modal').classList.add('hidden');
+    }
+
+    function buildOverviewGrid() {
+      const grid = document.getElementById('overview-grid');
+      grid.innerHTML = '';
+
+      slides.forEach((slide, idx) => {
+        const item = document.createElement('button');
+        item.onclick = () => goToSlide(idx);
+        item.className = `p-3 text-left rounded-xl border transition flex flex-col justify-between h-28 ${
+          idx === currentSlideIndex
+            ? 'bg-blue-950/60 border-blue-500 text-white font-bold'
+            : 'bg-noc-card border-gray-800 text-gray-300 hover:border-gray-600 hover:bg-gray-800'
+        }`;
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between w-full text-[10px] font-mono text-gray-400">
+            <span>#${slide.id}</span>
+            <span class="px-1.5 py-0.5 rounded bg-gray-900 border border-gray-700 text-blue-400">${slide.category}</span>
+          </div>
+          <p class="text-xs line-clamp-2 mt-1 font-semibold">${slide.title}</p>
+          <span class="text-[9px] text-gray-500 line-clamp-1">${slide.subtitle}</span>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    function filterSlides() {
+      const query = document.getElementById('slide-search').value.toLowerCase();
+      const grid = document.getElementById('overview-grid');
+      const buttons = grid.getElementsByTagName('button');
+
+      Array.from(buttons).forEach((btn, idx) => {
+        const slide = slides[idx];
+        const match = slide.title.toLowerCase().includes(query) || slide.category.toLowerCase().includes(query);
+        btn.style.display = match ? 'flex' : 'none';
+      });
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    /* Slide 80 Inspector */
+    function inspectNode(name, latency, status, desc) {
+      const box = document.getElementById('inspector-result');
+      box.classList.remove('hidden');
+      box.innerHTML = `
+        <div class="space-y-1">
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-blue-400 font-bold">${name}</span>
+            <span class="text-xs">${status}</span>
+          </div>
+          <p class="text-gray-300 text-xs">Latensi Pilihan: <strong class="text-white">${latency}</strong></p>
+          <p class="text-gray-400 text-xs">${desc}</p>
+        </div>
+      `;
+    }
+
+    /* Slide 81 CPU/RAM Sim */
+    function updateSimMetrics() {
+      const cpu = document.getElementById('sim-cpu-slider').value;
+      const ram = document.getElementById('sim-ram-slider').value;
+
+      document.getElementById('sim-cpu-val').innerText = `${cpu}%`;
+      document.getElementById('sim-ram-val').innerText = `${ram}%`;
+
+      const statusBox = document.getElementById('sim-status-box');
+
+      if (cpu > 85 || ram > 85) {
+        statusBox.className = "p-4 rounded-xl font-mono text-center bg-red-950/40 border border-red-500/50 text-red-300 font-bold animate-pulse";
+        statusBox.innerHTML = "⚠️ WARNING: SATURATION DETECTED! Latency Melonjak Tinggi!";
+      } else if (cpu > 70 || ram > 70) {
+        statusBox.className = "p-4 rounded-xl font-mono text-center bg-amber-950/30 border border-amber-500/30 text-amber-300";
+        statusBox.innerHTML = "⚡ Amaran Beban Tinggi (High Load)";
+      } else {
+        statusBox.className = "p-4 rounded-xl font-mono text-center bg-emerald-950/30 border border-emerald-500/30 text-emerald-300";
+        statusBox.innerHTML = "Sistem Dalam Keadaan Sihat & Normal ✅";
+      }
+    }
+
+    /* Slide 82 Cache Sim */
+    function updateCacheSim() {
+      const val = parseInt(document.getElementById('cache-rate-slider').value);
+      document.getElementById('cache-rate-val').innerText = `${val}%`;
+      document.getElementById('cache-hit-count').innerText = val;
+      document.getElementById('cache-miss-count').innerText = 100 - val;
+    }
+
+    /* Slide 83 Scaling Sim */
+    function updateScalingSim() {
+      const count = parseInt(document.getElementById('scale-server-slider').value);
+      document.getElementById('scale-server-val').innerText = `${count} Server${count > 1 ? 's' : ''}`;
+
+      // Non-linear scaling formula
+      const throughput = Math.round(count * 100 * Math.pow(0.92, count - 1));
+      const efficiency = Math.round((throughput / (count * 100)) * 100);
+
+      document.getElementById('scale-throughput').innerText = `${throughput} req/s`;
+      document.getElementById('scale-efficiency').innerText = `${efficiency}% (Diminishing Returns)`;
+    }
+
+    /* Slide 84 Load Test Sim */
+    function runLoadTestSim(users) {
+      const box = document.getElementById('load-sim-results');
+      let latency = '100 ms';
+      let error = '0.0%';
+      let cpu = '25%';
+
+      if (users === 50) {
+        latency = '150 ms';
+        error = '0.0%';
+        cpu = '45%';
+      } else if (users === 100) {
+        latency = '280 ms';
+        error = '0.2%';
+        cpu = '75%';
+      } else if (users === 500) {
+        latency = '1,850 ms 🔥';
+        error = '4.8% ❌';
+        cpu = '99% 🔥';
+      }
+
+      box.innerHTML = `
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div><span class="text-gray-400 text-[10px]">P95 Latency</span><p class="font-bold text-blue-400">${latency}</p></div>
+          <div><span class="text-gray-400 text-[10px]">Error Rate</span><p class="font-bold text-amber-400">${error}</p></div>
+          <div><span class="text-gray-400 text-[10px]">CPU Saturation</span><p class="font-bold text-purple-400">${cpu}</p></div>
+        </div>
+      `;
+    }
+
+    /* Quiz Checker Helper */
+    function checkQuiz(slideNum, option) {
+      const box = document.getElementById(`quiz-${slideNum}-feedback`);
+      box.classList.remove('hidden');
+
+      let isCorrect = false;
+      let text = '';
+
+      if (slideNum === 85 && option === 'D') isCorrect = true;
+      if (slideNum === 86 && option === 'B') isCorrect = true;
+      if (slideNum === 87 && option === 'B') isCorrect = true;
+      if (slideNum === 88 && option === 'B') isCorrect = true;
+
+      if (isCorrect) {
+        box.className = "p-3 rounded font-mono text-xs bg-emerald-950/40 border border-emerald-500/40 text-emerald-300";
+        box.innerHTML = "✅ TEPAT SEKALI! Jawapan anda betul berasaskan bukti metrics.";
+      } else {
+        box.className = "p-3 rounded font-mono text-xs bg-red-950/40 border border-red-500/40 text-red-300";
+        box.innerHTML = "❌ Kurang Tepat. Sila semak semula data metric utama.";
+      }
+    }
+
+    // Initialize presentation on startup
+    window.onload = initPresentation;
+  </script>
+</body>
+</html>

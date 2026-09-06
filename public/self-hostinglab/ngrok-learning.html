@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ngrok — Dari Localhost Terus Ke Internet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            ngrok: '#1f2937',
+                            ngrokBlue: '#2563eb',
+                            cloudflare: '#f97316',
+                            purple: '#8b5cf6',
+                            cyberDark: '#0b0f19',
+                            cyberCard: '#111827',
+                            cyberBorder: '#1f2937'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'flow-right': 'flowRight 2s linear infinite',
+                        'flow-down': 'flowDown 2s linear infinite',
+                    },
+                    keyframes: {
+                        flowRight: {
+                            '0%': { transform: 'translateX(-100%)', opacity: '0.1' },
+                            '50%': { opacity: '1' },
+                            '100%': { transform: 'translateX(100%)', opacity: '0.1' },
+                        },
+                        flowDown: {
+                            '0%': { transform: 'translateY(-100%)', opacity: '0.1' },
+                            '50%': { opacity: '1' },
+                            '100%': { transform: 'translateY(100%)', opacity: '0.1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #07090e;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .slide {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.35s ease-in-out, transform 0.35s ease-in-out;
+            transform: translateY(8px);
+        }
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .glow-blue {
+            box-shadow: 0 0 25px -5px rgba(37, 99, 235, 0.3);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.3);
+        }
+        .glow-orange {
+            box-shadow: 0 0 25px -5px rgba(249, 115, 22, 0.3);
+        }
+        .glow-purple {
+            box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.3);
+        }
+        
+        /* Custom scrollbar for grid overview modal */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+        
+        /* Code highlight line */
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            user-select: text;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between font-sans antialiased bg-[#07090e] text-slate-100 overflow-hidden">
+
+    <header class="h-16 px-6 border-b border-gray-800/80 glass-panel flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
+                <i class="fa-solid font-mono text-sm">ng</i>
+            </div>
+            <div>
+                <h1 class="text-sm font-semibold text-slate-200 tracking-wide flex items-center gap-2">
+                    Ngrok — Dari Localhost Terus Ke Internet
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-normal">Panduan Beginner</span>
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Counter -->
+            <button onclick="toggleOverviewModal()" title="Lihat Semua Slide (Grid Overview)" class="px-3 py-1.5 rounded-md bg-gray-800/80 hover:bg-gray-700 text-xs font-mono text-gray-300 border border-gray-700 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-border-all text-xs"></i>
+                <span id="slide-counter" class="text-blue-400 font-bold">1</span> / 38
+            </button>
+
+            <!-- Keyboard shortcut hint -->
+            <div class="hidden md:flex items-center gap-1 text-[11px] text-gray-500 font-mono bg-gray-900/60 px-2.5 py-1 rounded border border-gray-800">
+                <kbd class="px-1 py-0.5 bg-gray-800 rounded text-gray-400">←</kbd>
+                <kbd class="px-1 py-0.5 bg-gray-800 rounded text-gray-400">→</kbd>
+                <span>Navigate</span>
+            </div>
+
+            <!-- Fullscreen Toggle -->
+            <button onclick="toggleFullScreen()" class="w-8 h-8 rounded-md bg-gray-800/80 hover:bg-gray-700 text-gray-300 flex items-center justify-center text-xs transition-colors border border-gray-700" title="Skrin Penuh">
+                <i class="fa-solid fa-expand" id="fullscreen-icon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Top Progress Bar -->
+    <div class="w-full h-1 bg-gray-900 shrink-0">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-300 ease-out" style="width: 2.63%;"></div>
+    </div>
+
+    <main class="flex-1 relative overflow-hidden flex items-center justify-center p-4 md:p-8">
+
+        <!-- ==================== SLIDE 1 ==================== -->
+        <div class="slide active w-full max-w-5xl h-full flex-col justify-center items-center text-center space-y-8" data-slide="1">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm font-medium">
+                <i class="fa-solid fa-bolt text-yellow-400"></i> Dev Tools 101
+            </div>
+            
+            <div class="space-y-4 max-w-3xl">
+                <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-blue-400">
+                    Ngrok
+                </h1>
+                <p class="text-2xl md:text-3xl font-medium text-slate-300">
+                    Dari Localhost Terus Ke Internet
+                </p>
+            </div>
+
+            <p class="text-base md:text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
+                Belajar expose local server tanpa Public IP dan Port Forwarding.
+            </p>
+
+            <!-- Visual Flow Graphic -->
+            <div class="w-full max-w-3xl glass-panel rounded-2xl p-6 glow-blue border border-blue-500/20">
+                <div class="grid grid-cols-5 gap-2 items-center">
+                    <div class="flex flex-col items-center space-y-2">
+                        <div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-emerald-400 border border-slate-700 text-xl">
+                            <i class="fa-brands fa-windows"></i>
+                        </div>
+                        <span class="text-xs font-mono text-emerald-400 font-semibold">💻 Windows</span>
+                        <span class="text-[11px] font-mono text-gray-400">🐍 Python :8080</span>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <i class="fa-solid fa-arrow-right text-blue-400 animate-pulse text-lg"></i>
+                    </div>
+
+                    <div class="flex flex-col items-center space-y-2">
+                        <div class="w-12 h-12 rounded-xl bg-blue-950 flex items-center justify-center text-blue-400 border border-blue-700 text-xl">
+                            <i class="fa-solid fa-network-wired"></i>
+                        </div>
+                        <span class="text-xs font-bold text-blue-300">ngrok agent</span>
+                    </div>
+
+                    <div class="flex flex-col items-center">
+                        <i class="fa-solid fa-arrow-right text-blue-400 animate-pulse text-lg"></i>
+                    </div>
+
+                    <div class="flex flex-col items-center space-y-2">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-950 flex items-center justify-center text-indigo-400 border border-indigo-700 text-xl">
+                            <i class="fa-solid fa-cloud"></i>
+                        </div>
+                        <span class="text-xs font-bold text-indigo-300">☁️ ngrok Cloud</span>
+                        <span class="text-[11px] font-mono text-emerald-400">🌍 Internet User</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 2 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="2">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 02 — HARI PERTAMA DEVELOPER</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kita Bermula Dengan Localhost</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-slate-300 text-base leading-relaxed">
+                    Bayangkan anda baru siap membina sebuah Python Web Server pada komputer Windows anda:
+                </p>
+
+                <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-mono text-gray-400">Command Prompt / PowerShell</span>
+                        <button onclick="copyCode(this)" data-code="python -m http.server 8080 --bind 0.0.0.0" class="text-xs text-gray-400 hover:text-white flex items-center gap-1 bg-gray-800 px-2 py-1 rounded">
+                            <i class="fa-regular fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <code class="code-block text-emerald-400 text-sm">python -m http.server 8080 --bind 0.0.0.0</code>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-globe"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-semibold text-white">Local URL Server Anda:</div>
+                        <div class="text-xs font-mono text-emerald-400">http://localhost:8080</div>
+                    </div>
+                </div>
+
+                <ul class="space-y-2 text-sm text-slate-300 list-disc list-inside pt-2">
+                    <li>Python sedang me-run sebuah web server secara lokal.</li>
+                    <li>Server ini hidup & berjalan hanya pada komputer anda.</li>
+                    <li>Port yang digunakan ialah <code class="font-mono text-blue-400 bg-blue-950/60 px-1.5 py-0.5 rounded">8080</code>.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 3 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="3">
+            <div class="text-xs font-mono text-red-400 uppercase tracking-widest">SLIDE 03 — CABARAN TEKNIKAL</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Masalah Utama Localhost</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Laptop User (Success) -->
+                <div class="glass-panel p-6 rounded-2xl border border-emerald-500/30 flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-2 py-1 rounded bg-emerald-500/20 text-emerald-400">Komputer Anda</span>
+                            <i class="fa-solid fa-circle-check text-emerald-400 text-xl"></i>
+                        </div>
+                        <div class="font-mono text-sm text-gray-300">http://localhost:8080</div>
+                        <p class="text-xs text-gray-400">Komputer anda sendiri memanggil web server yang berjalan pada peranti yang sama.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-800 text-xs text-emerald-400 font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Berjaya Diakses!
+                    </div>
+                </div>
+
+                <!-- Internet User (Fail) -->
+                <div class="glass-panel p-6 rounded-2xl border border-red-500/30 flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-2 py-1 rounded bg-red-500/20 text-red-400">Kawan / Client di Internet</span>
+                            <i class="fa-solid fa-circle-xmark text-red-400 text-xl"></i>
+                        </div>
+                        <div class="font-mono text-sm text-gray-300">http://localhost:8080</div>
+                        <p class="text-xs text-gray-400">Kawan anda menaip link tersebut pada peranti/telefon mereka di Internet.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-800 text-xs text-red-400 font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Gagal! (Page Not Found)
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-red-950/40 border border-red-500/20 p-4 rounded-xl text-center">
+                <p class="text-red-300 font-semibold text-base">
+                    "localhost hanya merujuk kepada komputer tempatan itu sendiri!"
+                </p>
+                <p class="text-xs text-gray-400 mt-1">
+                    Bagi kawan anda, `localhost` pada telefon mereka merujuk kepada telefon mereka sendiri, bukan komputer anda.
+                </p>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 4 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="4">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 04 — MATLAMAT KITA</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Apa Yang Kita Mahu Capai?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <p class="text-slate-300 text-base">
+                    Kita mahu sesiapa sahaja dari seluruh pelusuk Internet boleh membuka link awam (Public URL) kita, dan request tersebut masuk terus ke Python local server kita!
+                </p>
+
+                <!-- Target URL Box -->
+                <div class="bg-slate-900 border border-blue-500/40 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-lock text-emerald-400"></i>
+                        <span class="font-mono text-blue-300 font-bold text-sm md:text-base">https://example.ngrok-free.app</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-400 font-mono">
+                        <span>Melencong ke →</span>
+                        <span class="text-emerald-400 font-bold bg-emerald-950 px-2 py-1 rounded">http://localhost:8080</span>
+                    </div>
+                </div>
+
+                <!-- Visual Flow -->
+                <div class="flex justify-around items-center pt-2 text-center">
+                    <div class="space-y-1">
+                        <div class="text-2xl text-blue-400"><i class="fa-solid fa-user"></i></div>
+                        <div class="text-xs font-mono text-gray-300">Pengguna Internet</div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-gray-600"></i>
+                    <div class="space-y-1">
+                        <div class="text-2xl text-indigo-400"><i class="fa-solid fa-link"></i></div>
+                        <div class="text-xs font-mono text-gray-300">Public HTTPS URL</div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-gray-600"></i>
+                    <div class="space-y-1">
+                        <div class="text-2xl text-purple-400"><i class="fa-solid fa-bolt"></i></div>
+                        <div class="text-xs font-mono text-gray-300">ngrok</div>
+                    </div>
+                    <i class="fa-solid fa-angle-right text-gray-600"></i>
+                    <div class="space-y-1">
+                        <div class="text-2xl text-emerald-400"><i class="fa-brands fa-python"></i></div>
+                        <div class="text-xs font-mono text-gray-300">Python :8080</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 5 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="5">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 05 — PENGENALAN</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Apa Itu Ngrok?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <blockquote class="text-lg text-blue-200 border-l-4 border-blue-500 pl-4 py-1 italic">
+                    "ngrok ialah platform yang menyediakan <span class="text-white font-semibold underline decoration-blue-500">secure tunnels</span> untuk menghubungkan local service (pada komputer anda) kepada Internet secara selamat."
+                </blockquote>
+
+                <!-- Analogy Box -->
+                <div class="bg-gray-900/80 rounded-xl p-5 border border-gray-800 space-y-3">
+                    <div class="flex items-center gap-2 text-yellow-400 font-semibold text-sm">
+                        <i class="fa-solid fa-lightbulb"></i> Analogi Mudah:
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-300">
+                        <div class="p-3 bg-gray-950 rounded-lg border border-gray-800">
+                            <span class="font-bold text-emerald-400 block mb-1">🏠 Localhost = Bilik Dalam Rumah</span>
+                            Semua barang ada di dalam bilik anda, tetapi pintu rumah bertutup rapat dari luar.
+                        </div>
+                        <div class="p-3 bg-gray-950 rounded-lg border border-gray-800">
+                            <span class="font-bold text-blue-400 block mb-1">🚇 ngrok = Tunnel Selamat</span>
+                            Laluan khas (tunnel) yang menghubungkan bilik anda terus ke stesen luar tanpa perlu membuka pintu utama rumah.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-center gap-6 pt-2 text-center text-xs font-mono">
+                    <div class="text-emerald-400"><i class="fa-solid fa-laptop text-xl block mb-1"></i> Local Computer</div>
+                    <div class="text-blue-400"><i class="fa-solid fa-arrow-right-arrow-left text-xl block mb-1"></i> Secure Tunnel</div>
+                    <div class="text-indigo-400"><i class="fa-solid fa-globe text-xl block mb-1"></i> Dunia Internet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 6 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="6">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 06 — RAHSIA TEKNIKAL #1</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kenapa Tak Perlu Public IP Rumah?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300 leading-relaxed">
+                    Biasanya, untuk membenarkan akses luar masuk, anda memerlukan Public IP static dari ISP. Namun dengan ngrok, peranti anda yang <span class="text-emerald-400 font-semibold">memulakan sambungan ke luar (Outbound)</span>.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <!-- Standard (Inbound) -->
+                    <div class="p-4 bg-red-950/30 border border-red-500/20 rounded-xl space-y-2">
+                        <div class="font-bold text-red-400 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-xmark"></i> Cara Tradisional (Inbound Direct)
+                        </div>
+                        <p class="text-gray-400 font-mono text-[11px]">Internet → Public IP → Router → Port Forwarding → Server</p>
+                        <p class="text-gray-300">Memerlukan pendedahan Public IP rumah secara langsung kepada ancaman imbasan Internet.</p>
+                    </div>
+
+                    <!-- Ngrok (Outbound) -->
+                    <div class="p-4 bg-emerald-950/30 border border-emerald-500/20 rounded-xl space-y-2">
+                        <div class="font-bold text-emerald-400 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> Cara Ngrok (Outbound Tunnel)
+                        </div>
+                        <p class="text-gray-400 font-mono text-[11px]">Server Local → Connection KELUAR → ngrok Cloud</p>
+                        <p class="text-gray-300">Server membuat sambungan selamat ke awan ngrok, mengelakkan keperluan mendedahkan Public IP rumah.</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-500/20 text-xs text-blue-200">
+                    <span class="font-bold text-yellow-300">📌 Nota Penting:</span> Sambungan rumah masih mempunyai IP awam dari ISP, tetapi aplikasi tempatan anda <span class="underline">tidak perlu didedahkan</span> melalui IP awam rumah atau inbound port forwarding!
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 7 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="7">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 07 — RAHSIA TEKNIKAL #2</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kenapa Tak Perlu Port Forwarding?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase">Perbandingan Aliran Trafik:</h3>
+
+                    <!-- Traditional Flow -->
+                    <div class="p-3 bg-gray-950 rounded-xl border border-gray-800 space-y-1">
+                        <div class="text-xs font-bold text-red-400">1. Port Forwarding Biasa (Rumit & Berisiko)</div>
+                        <div class="text-xs font-mono text-gray-400 flex items-center gap-2 overflow-x-auto">
+                            <span>Internet</span> <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                            <span>Router House</span> <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                            <span class="text-red-400">Buka Port (8080)</span> <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                            <span>Server Local</span>
+                        </div>
+                    </div>
+
+                    <!-- Ngrok Flow -->
+                    <div class="p-3 bg-gray-950 rounded-xl border border-emerald-500/30 space-y-1">
+                        <div class="text-xs font-bold text-emerald-400">2. Menggunakan ngrok Tunnel (Pantas & Selamat)</div>
+                        <div class="text-xs font-mono text-gray-300 flex items-center gap-2 overflow-x-auto">
+                            <span>Server Local</span> <i class="fa-solid fa-arrow-right text-emerald-400"></i>
+                            <span class="text-blue-400">ngrok agent</span> <i class="fa-solid fa-arrow-right text-emerald-400"></i>
+                            <span>ngrok Cloud</span> <i class="fa-solid fa-arrow-right text-emerald-400"></i>
+                            <span>Internet</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-xs text-gray-300 leading-relaxed bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-info-circle text-blue-400 mr-1"></i>
+                    <span class="font-bold text-white">Mengapa ini berlaku?</span> Kerana firewall router membenarkan peranti tempatan membuat sambungan <span class="text-emerald-400 font-semibold">Outbound</span> (keluar) secara lalai. Local agent menumpangkan data inbound di dalam saluran tunnel outbound tersebut.
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 8 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="8">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 08 — KOMPONEN UTAMA</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Apa Itu Ngrok Agent?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <p class="text-sm text-slate-300">
+                    <span class="font-bold text-blue-400">ngrok agent</span> ialah aplikasi kecil (binary/executable) yang berjalan pada komputer atau server tempatan anda.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-start gap-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">1</span>
+                        <div>
+                            <span class="font-bold text-white block">Sambung ke ngrok</span>
+                            Membuka sambungan TLS selamat ke pelayan ngrok Cloud.
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-start gap-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">2</span>
+                        <div>
+                            <span class="font-bold text-white block">Membina Tunnel</span>
+                            Menghubungkan sesi unik komputer anda dengan URL awam.
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-start gap-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">3</span>
+                        <div>
+                            <span class="font-bold text-white block">Menerima Trafik</span>
+                            Mendengar sebarang request daripada ngrok Cloud melalui tunnel.
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-start gap-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">4</span>
+                        <div>
+                            <span class="font-bold text-white block">Forward Traffic</span>
+                            Menghantar request tersebut ke local application (Python :8080).
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Small diagram -->
+                <div class="flex items-center justify-center gap-4 pt-2 font-mono text-xs">
+                    <span class="px-3 py-1 bg-indigo-950 text-indigo-300 rounded border border-indigo-800">ngrok Cloud</span>
+                    <i class="fa-solid fa-arrows-up-down text-blue-400"></i>
+                    <span class="px-3 py-1 bg-blue-950 text-blue-300 rounded border border-blue-800">ngrok Agent</span>
+                    <i class="fa-solid fa-arrow-right text-emerald-400"></i>
+                    <span class="px-3 py-1 bg-emerald-950 text-emerald-300 rounded border border-emerald-800">localhost:8080</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 9 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="9">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 09 — LANGKAH 1</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Install Ngrok Pada Windows</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-sm text-gray-300">
+                    Muat turun ngrok untuk Windows dari laman rasmi atau guna pakej manager (Chocolatey / Winget / direct zip).
+                </p>
+
+                <div class="space-y-3">
+                    <div class="text-xs font-semibold text-gray-400">Semak Pemasangan Melalui Command Prompt:</div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <code class="code-block text-emerald-400 text-sm">ngrok version</code>
+                        <button onclick="copyCode(this)" data-code="ngrok version" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Copy</button>
+                    </div>
+
+                    <div class="text-xs font-semibold text-gray-400">Jika anda meletakkan `ngrok.exe` terus dalam folder projek:</div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <code class="code-block text-emerald-400 text-sm">ngrok.exe version</code>
+                        <button onclick="copyCode(this)" data-code="ngrok.exe version" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Copy</button>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-yellow-950/30 border border-yellow-500/20 rounded-xl text-xs text-yellow-200">
+                    <i class="fa-solid fa-circle-exclamation mr-1"></i> Gunakan kaedah atau arahan yang paling sesuai dengan versi dan persekitaran OS anda.
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 10 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="10">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 10 — LANGKAH 2</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Login & Konfigurasi Authtoken</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300 leading-relaxed">
+                    Untuk keselamatan dan membuka kunci ciri tunnel, ngrok memerlukan token pengesahan (Authtoken) daripada akaun percuma anda.
+                </p>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-mono text-gray-400">Sediakan Token (Gantikan &lt;TOKEN&gt; dengan token anda)</span>
+                        <button onclick="copyCode(this)" data-code="ngrok config add-authtoken <TOKEN>" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <code class="code-block text-emerald-400 text-sm">ngrok config add-authtoken &lt;TOKEN&gt;</code>
+                </div>
+
+                <div class="bg-red-950/40 border border-red-500/30 p-4 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-red-400 font-bold text-sm">
+                        <i class="fa-solid fa-shield-halved"></i> AMARAN KESELAMATAN PENTING:
+                    </div>
+                    <p class="text-xs text-gray-300">
+                        <strong class="text-white">Jangan sesekali berkongsi Authtoken anda kepada orang lain!</strong> Token ini ialah credential sulit yang mengesahkan identiti akaun anda pada pelayan ngrok.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 11 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="11">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 11 — LANGKAH 3</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Jalankan Tunnel Ke Port Python</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300">
+                    Memandangkan Python local server kita sedang berjalan pada port <code class="text-blue-400 font-mono">8080</code>, kita mengarahkan ngrok untuk expose port ini:
+                </p>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-blue-500/30 space-y-2 glow-blue">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-mono text-blue-400 font-bold">Command Utama</span>
+                        <button onclick="copyCode(this)" data-code="ngrok http 8080" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <code class="code-block text-emerald-400 text-base font-bold">ngrok http 8080</code>
+                </div>
+
+                <div class="flex justify-between items-center text-center text-xs font-mono pt-4 border-t border-gray-800">
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 w-1/3">
+                        <div class="text-emerald-400 font-bold mb-1">localhost:8080</div>
+                        <div class="text-gray-400">Python Server</div>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-blue-400 text-lg"></i>
+                    <div class="p-3 bg-blue-950 rounded-lg border border-blue-800 w-1/3">
+                        <div class="text-blue-300 font-bold mb-1">ngrok http 8080</div>
+                        <div class="text-gray-400">Agent Windows</div>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-indigo-400 text-lg"></i>
+                    <div class="p-3 bg-indigo-950 rounded-lg border border-indigo-800 w-1/3">
+                        <div class="text-indigo-300 font-bold mb-1">ngrok Cloud</div>
+                        <div class="text-gray-400">Awan Awam</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 12 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="12">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 12 — HASIL UTAMA</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Ngrok Memberikan Public URL</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <p class="text-sm text-gray-300">
+                    Paparan Terminal/Command Prompt anda akan bertukar menunjukkan status laluan tunnel yang baru dibuka:
+                </p>
+
+                <!-- Mock Terminal Window -->
+                <div class="bg-black rounded-xl p-4 border border-gray-800 font-mono text-xs space-y-2 text-gray-300">
+                    <div class="flex items-center gap-1.5 pb-2 border-b border-gray-800">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                        <span class="text-gray-500 text-[10px] ml-2">ngrok terminal output</span>
+                    </div>
+                    <div>Session Status &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-emerald-400 font-bold">online</span></div>
+                    <div>Account &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Developer (Free)</div>
+                    <div>Version &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.x.x</div>
+                    <div class="pt-2 text-yellow-300">
+                        Forwarding &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;https://&lt;NGROK-URL&gt; -&gt; http://localhost:8080
+                    </div>
+                    <div class="text-gray-500">Connections &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ttl: 0 opn: 0 rt1: 0.00</div>
+                </div>
+
+                <ul class="space-y-2 text-xs text-gray-300 list-disc list-inside">
+                    <li>URL HTTPS (contoh: <code class="text-blue-300 font-mono">https://&lt;NGROK-URL&gt;</code>) ialah <strong class="text-white">Public Endpoint</strong> awam anda.</li>
+                    <li>URL ini sedia dikongsi & diakses oleh sesiapa sahaja di seluruh Internet.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 13 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="13">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 13 — UJIAN REALITI</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Ujian Akses Dari Telefon Bimbit</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300">
+                    Mari buat ujian praktikal untuk membuktikan server tempatan anda kini sudah berada di Internet:
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                        <span class="text-blue-400 font-bold text-sm block">1. Matikan Wi-Fi</span>
+                        <p class="text-gray-400">Pada telefon pintar anda, matikan Wi-Fi rumah dan gunakan **Mobile Data (4G/5G)**.</p>
+                    </div>
+
+                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                        <span class="text-blue-400 font-bold text-sm block">2. Buka Browser</span>
+                        <p class="text-gray-400">Masukkan link HTTPS ngrok anda contoh: <code class="text-blue-300 font-mono">https://&lt;NGROK-URL&gt;</code></p>
+                    </div>
+
+                    <div class="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-xl space-y-2">
+                        <span class="text-emerald-400 font-bold text-sm block">3. Result! 🎉</span>
+                        <p class="text-gray-300">Halaman Python Server anda berjaya dipaparkan pada skrin telefon!</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-500/20 text-xs text-blue-200">
+                    <strong class="text-white">Kenapa guna Mobile Data?</strong> Supaya kita benar-benar menguji capaian dari luar rangkaian Wi-Fi/LAN rumah!
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 14 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="14">
+            <div class="text-xs font-mono text-purple-400 uppercase tracking-widest">SLIDE 14 — DIAGRAM SENIBINA</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Carta Aliran Lengkap Request</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <div class="flex flex-col space-y-3 font-mono text-xs">
+                    <!-- Step 1 -->
+                    <div class="flex items-center gap-3 p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                        <span class="px-2 py-1 bg-blue-500 text-white font-bold rounded">USER</span>
+                        <span class="text-gray-300">Pengguna membuka link <code class="text-blue-300">https://&lt;NGROK-URL&gt;</code></span>
+                    </div>
+                    <div class="text-center text-blue-400"><i class="fa-solid fa-arrow-down"></i></div>
+
+                    <!-- Step 2 -->
+                    <div class="flex items-center gap-3 p-2.5 bg-indigo-950 rounded-lg border border-indigo-800">
+                        <span class="px-2 py-1 bg-indigo-600 text-white font-bold rounded">ngrok Cloud</span>
+                        <span class="text-gray-300">Pelayan Cloud ngrok menerima HTTP/HTTPS request</span>
+                    </div>
+                    <div class="text-center text-indigo-400"><i class="fa-solid fa-arrow-down"></i></div>
+
+                    <!-- Step 3 -->
+                    <div class="flex items-center gap-3 p-2.5 bg-purple-950 rounded-lg border border-purple-800">
+                        <span class="px-2 py-1 bg-purple-600 text-white font-bold rounded">Encrypted Tunnel</span>
+                        <span class="text-gray-300">Data dihantar melalui laluan tunnel terenkripsi</span>
+                    </div>
+                    <div class="text-center text-purple-400"><i class="fa-solid fa-arrow-down"></i></div>
+
+                    <!-- Step 4 -->
+                    <div class="flex items-center gap-3 p-2.5 bg-emerald-950 rounded-lg border border-emerald-800">
+                        <span class="px-2 py-1 bg-emerald-600 text-white font-bold rounded">ngrok Agent & Python</span>
+                        <span class="text-gray-300">Agent terima → Forward ke <code class="text-emerald-300">localhost:8080</code> → Python pulangkan index.html</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 15 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="15">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 15 — PERJALANAN PROSES</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Apa Berlaku Apabila User Buka URL?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4">
+                <ol class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-gray-300">
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">1.</b> User buka Public URL.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">2.</b> Request sampai ke Cloud ngrok.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">3.</b> ngrok cari tunnel berkaitan.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">4.</b> Traffic dihantar menerusi tunnel.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">5.</b> ngrok Agent terima request.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">6.</b> Forward ke localhost:8080.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">7.</b> Python jana HTTP response.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">8.</b> Response kembali lalu tunnel.</li>
+                    <li class="p-2 bg-slate-900 rounded border border-slate-800"><b class="text-blue-400">9.</b> User terima webpage di skrin.</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 16 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="16">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 16 — SEKURITI ASAS</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Public HTTPS vs Local HTTP Origin</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300">
+                    ngrok secara automatik menyediakan TLS/SSL Certificate untuk endpoint awam anda:
+                </p>
+
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-900 rounded-xl border border-slate-800">
+                    <div class="text-center space-y-1">
+                        <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold rounded-full">HTTPS (Ter-enkripsi)</span>
+                        <div class="text-xs font-mono text-gray-400 pt-1">Internet → ngrok Cloud</div>
+                    </div>
+
+                    <div class="text-xl text-blue-400"><i class="fa-solid fa-shield-halved"></i></div>
+
+                    <div class="text-center space-y-1">
+                        <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-mono font-bold rounded-full">HTTP (Tempatan)</span>
+                        <div class="text-xs font-mono text-gray-400 pt-1">ngrok Agent → localhost:8080</div>
+                    </div>
+                </div>
+
+                <div class="text-xs text-gray-300 bg-slate-950 p-4 rounded-xl border border-slate-800 leading-relaxed">
+                    <i class="fa-solid fa-circle-info text-blue-400 mr-1"></i> Public connection & local origin ialah dua bahagian berbeza. Anda tidak perlu pening menguruskan SSL Certificate pada Python server tempatan anda.
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 17 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="17">
+            <div class="text-xs font-mono text-amber-400 uppercase tracking-widest">SLIDE 17 — Mitos & SEBAB</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Ngrok TIDAK Memindahkan Website Anda</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="p-4 bg-red-950/30 border border-red-500/30 rounded-xl space-y-2">
+                    <span class="text-xs font-bold text-red-400 uppercase tracking-wider block">Fahamkan Konsep Ini:</span>
+                    <div class="grid grid-cols-3 gap-2 text-xs font-mono text-gray-300">
+                        <span class="line-through text-red-400">❌ index.html</span>
+                        <span class="line-through text-red-400">❌ Python Code</span>
+                        <span class="line-through text-red-400">❌ Database File</span>
+                    </div>
+                    <p class="text-xs text-gray-300 pt-1">Tiada satu pun fail kod anda yang di-upload ke pelayan ngrok.</p>
+                </div>
+
+                <div class="p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-2">
+                    <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Apa yang Ngrok Buat:</span>
+                    <p class="text-sm text-white font-medium">
+                        "ngrok hanya <span class="text-emerald-400">menghubungkan</span> pengguna Internet terus ke local service yang sedang berjalan pada komputer anda."
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 18 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="18">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 18 — PERBANDINGAN STRUKTUR</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Ngrok Bukan Hosting Tradisional</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <!-- Traditional -->
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <span class="font-bold text-blue-400 text-sm block">1. Hosting Tradisional (VPS/Cloud)</span>
+                    <p class="text-gray-400">Kod di-upload ke server cloud (AWS/DigitalOcean). Server sentiasa hidup 24/7 di datacenter.</p>
+                    <div class="p-2 bg-slate-950 rounded font-mono text-gray-400 text-[11px]">
+                        Website → Cloud Server → Internet
+                    </div>
+                </div>
+
+                <!-- Ngrok -->
+                <div class="glass-panel p-5 rounded-2xl space-y-3 border border-blue-500/30">
+                    <span class="font-bold text-emerald-400 text-sm block">2. Ngrok Tunneling</span>
+                    <p class="text-gray-400">Kod kekal pada komputer peribadi. Sangat sesuai untuk staging, testing, webhook & demo sekejap.</p>
+                    <div class="p-2 bg-slate-950 rounded font-mono text-emerald-400 text-[11px]">
+                        Website → Local PC → ngrok → Internet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 19 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="19">
+            <div class="text-xs font-mono text-amber-400 uppercase tracking-widest">SLIDE 19 — CIKU & DOMAIN</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Public URL Boleh Bersifat Sementara</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <div class="text-xs font-mono text-amber-400">https://&lt;NGROK-URL&gt;</div>
+                    <p class="text-xs text-gray-300">
+                        Pada pelan percuma standard, URL ini dimanifestasikan secara rawak setiap kali anda membuka sesi tunnel baru.
+                    </p>
+                </div>
+
+                <div class="text-xs text-gray-300 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                        <span>Jangan assume URL percuma ini akan kekal selamanya.</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                        <span>Jika memerlukan Static Domain atau Custom Domain, konfigurasi atau pelan ngrok khas diperlukan.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 20 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="20">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 20 — USE CASES</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">6 Contoh Kegunaan Utama Ngrok</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-desktop text-blue-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">1. Demo Website Local</span>
+                    <span class="text-gray-400 text-[11px]">Tunjuk hasil kerja kepada client secara terus dari PC.</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-bolt text-yellow-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">2. Testing Webhook</span>
+                    <span class="text-gray-400 text-[11px]">Terima callback Stripe / Telegram / WhatsApp API.</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-code text-emerald-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">3. Testing REST API</span>
+                    <span class="text-gray-400 text-[11px]">Uji endpoint backend tempatan dari mana-mana tempat.</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-mobile-screen text-indigo-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">4. Mobile App Integration</span>
+                    <span class="text-gray-400 text-[11px]">Sambung app peranti ke localhost backend.</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-users text-purple-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">5. Kongsi Dev Env</span>
+                    <span class="text-gray-400 text-[11px]">Bagi rakan sepasukan cuba feature baru.</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                    <i class="fa-solid fa-cloud-arrow-down text-pink-400 text-lg mb-1 block"></i>
+                    <span class="font-bold text-white block">6. Integration Testing</span>
+                    <span class="text-gray-400 text-[11px]">Integrasi perkhidmatan luar dengan localhost.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 21 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="21">
+            <div class="text-xs font-mono text-yellow-400 uppercase tracking-widest">SLIDE 21 — CONTOH IMPAK</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kenapa Webhook Perlukan Ngrok?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <!-- Without ngrok -->
+                    <div class="p-4 bg-red-950/30 border border-red-500/20 rounded-xl space-y-2">
+                        <span class="font-bold text-red-400 block">❌ TANPA NGROK</span>
+                        <p class="text-gray-400">Stripe / Telegram send HTTP callback ke `http://localhost:8080/webhook`.</p>
+                        <div class="text-red-400 font-mono text-[11px]">Failed! Localhost tak boleh dicapai dari luar server Stripe.</div>
+                    </div>
+
+                    <!-- With ngrok -->
+                    <div class="p-4 bg-emerald-950/30 border border-emerald-500/20 rounded-xl space-y-2">
+                        <span class="font-bold text-emerald-400 block">✅ DENGAN NGROK</span>
+                        <p class="text-gray-400">Stripe send callback ke `https://&lt;NGROK-URL&gt;/webhook`.</p>
+                        <div class="text-emerald-400 font-mono text-[11px]">Success! ngrok forward request terus ke local Python server!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 22 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="22">
+            <div class="text-xs font-mono text-red-400 uppercase tracking-widest">SLIDE 22 — PENTING MENGENAI KESELAMATAN</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Security: Tunnel Bukan Magic Shield</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="bg-gradient-to-r from-red-950/60 to-purple-950/60 border border-red-500/40 p-5 rounded-2xl text-center space-y-2">
+                    <h3 class="text-xl font-bold text-white">
+                        "Tunnel memudahkan connectivity, bukan menggantikan security!"
+                    </h3>
+                    <p class="text-xs text-gray-300">Apabila anda expose local port, sesiapa yang ada link boleh mengakses app anda.</p>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Authentication</div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Secure Application</div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Validate Input</div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Protect Secrets</div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Update Software</div>
+                    <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-gray-300">✓ Access Control</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 23 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="23">
+            <div class="text-xs font-mono text-gray-400 uppercase tracking-widest">SLIDE 23 — OPERATION</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Menutup Ngrok Session</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <p class="text-sm text-gray-300">
+                    Jika ngrok dijalankan secara manual pada terminal Windows anda:
+                </p>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-xs font-mono text-gray-400">Tekan Pintasan Papan Kekunci:</span>
+                    <kbd class="px-3 py-1.5 bg-red-900/60 text-red-300 border border-red-700 rounded font-mono font-bold text-sm">Ctrl + C</kbd>
+                </div>
+
+                <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-gray-300 space-y-2">
+                    <span class="font-bold text-amber-400 block">Apa yang berlaku selepas itu?</span>
+                    <p>Apabila agent berhenti, tunnel terputus secara automatik dan public URL tersebut tidak lagi boleh digunakan untuk mengakses peranti anda.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 24 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="24">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 24 — RINGKASAN PANTAS NGROK</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Quick Summary Ngrok</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6">
+                <!-- Flow -->
+                <div class="flex justify-between items-center text-center font-mono text-xs">
+                    <span class="px-2 py-1 bg-emerald-950 text-emerald-400 rounded">Python :8080</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 bg-blue-950 text-blue-400 rounded">ngrok http 8080</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 bg-indigo-950 text-indigo-400 rounded">ngrok Cloud</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 bg-purple-950 text-purple-400 rounded">HTTPS URL</span>
+                </div>
+
+                <!-- 3 Big NOs -->
+                <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                    <div class="p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 font-bold">
+                        ❌ NO Port Forwarding
+                    </div>
+                    <div class="p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 font-bold">
+                        ❌ NO Router Config
+                    </div>
+                    <div class="p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 font-bold">
+                        ❌ NO Inbound Exposure
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 25 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="25">
+            <div class="text-xs font-mono text-orange-400 uppercase tracking-widest">SLIDE 25 — SAINGAN UTAMA</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Ngrok vs Cloudflare Tunnel</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <!-- Ngrok -->
+                <div class="glass-panel p-5 rounded-2xl border border-blue-500/30 space-y-3">
+                    <div class="flex items-center gap-2 font-bold text-blue-400 text-sm">
+                        <i class="fa-solid fa-bolt"></i> NGROK TUNNEL
+                    </div>
+                    <div class="space-y-1 font-mono text-gray-300 text-[11px]">
+                        <div>Python → ngrok agent → ngrok Cloud → Public URL → User</div>
+                    </div>
+                </div>
+
+                <!-- Cloudflare -->
+                <div class="glass-panel p-5 rounded-2xl border border-orange-500/30 space-y-3">
+                    <div class="flex items-center gap-2 font-bold text-orange-400 text-sm">
+                        <i class="fa-solid fa-cloud"></i> CLOUDFLARE TUNNEL
+                    </div>
+                    <div class="space-y-1 font-mono text-gray-300 text-[11px]">
+                        <div>Python → cloudflared → Cloudflare Edge → Custom Domain → User</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 26 ==================== -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-4" data-slide="26">
+            <div class="text-xs font-mono text-orange-400 uppercase tracking-widest">SLIDE 26 — MATRIX PERBANDINGAN</div>
+            <h2 class="text-2xl md:text-3xl font-bold text-white">Perbandingan Asas Matriks Feature</h2>
+
+            <div class="glass-panel p-4 rounded-xl overflow-x-auto">
+                <table class="w-full text-left text-xs text-gray-300">
+                    <thead class="bg-slate-900 text-gray-200 border-b border-gray-800 font-mono">
+                        <tr>
+                            <th class="p-2.5">Ciri-ciri / Feature</th>
+                            <th class="p-2.5 text-blue-400">ngrok</th>
+                            <th class="p-2.5 text-orange-400">Cloudflare Tunnel</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/60">
+                        <tr><td class="p-2">Local Tunneling</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td></tr>
+                        <tr><td class="p-2">Tanpa Port Forwarding</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td></tr>
+                        <tr><td class="p-2">HTTPS Automatik</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td><td class="p-2 font-bold text-emerald-400">✅ Ya</td></tr>
+                        <tr><td class="p-2">Custom Domain Integration</td><td class="p-2">Bergantung plan/config</td><td class="p-2 font-bold text-emerald-400">✅ Sangat Mudah</td></tr>
+                        <tr><td class="p-2">DNS Integration</td><td class="p-2">Ada</td><td class="p-2 font-bold text-emerald-400">Sangat Kuat</td></tr>
+                        <tr><td class="p-2">Quick Testing (Developer)</td><td class="p-2 text-yellow-400 font-bold">⭐⭐⭐⭐⭐</td><td class="p-2 text-yellow-400 font-bold">⭐⭐⭐⭐</td></tr>
+                        <tr><td class="p-2">Production / Home Server</td><td class="p-2">Ikut use-case/plan</td><td class="p-2 text-yellow-400 font-bold">⭐⭐⭐⭐⭐</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 27 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="27">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 27 — KEKUATAN NGROK</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kelebihan Ngrok</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-gray-300">
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-check text-emerald-400 text-base"></i>
+                    <span>Sangat mudah dimulakan dalam beberapa saat sahaja.</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-check text-emerald-400 text-base"></i>
+                    <span>Satu CLI command ringkas: <code class="text-blue-400 font-mono">ngrok http 8080</code></span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-check text-emerald-400 text-base"></i>
+                    <span>Pilihan #1 pembangun perisian untuk testing webhook & API pantas.</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-check text-emerald-400 text-base"></i>
+                    <span>Dapat public URL HTTPS serta-merta tanpa sebarang persediaan DNS.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 28 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="28">
+            <div class="text-xs font-mono text-amber-400 uppercase tracking-widest">SLIDE 28 — PERTIMBANGAN NGROK</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kekangan Umum Ngrok</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-gray-300">
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Ciri lanjutan (seperti custom domain kekal) bergantung kepada pelan dan akaun semasa.
+                </div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Public URL percuma bersifat sementara mengikut sesi tunnel.
+                </div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Had bandwidth dan permintaan dikawal mengikut struktur akaun semasa.
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 29 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="29">
+            <div class="text-xs font-mono text-orange-400 uppercase tracking-widest">SLIDE 29 — KEKUATAN CLOUDFLARE</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kelebihan Cloudflare Tunnel</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-gray-300">
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-circle-check text-orange-400"></i>
+                    <span>Integrasi terus dengan Domain DNS Cloudflare anda sendiri.</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-circle-check text-orange-400"></i>
+                    <span>Disepadukan dengan ekosistem Cloudflare Zero Trust & Access Control.</span>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-circle-check text-orange-400"></i>
+                    <span>Sangat sesuai untuk hosting aplikasi pelayan rumah (Home Server / Homelab).</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 30 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="30">
+            <div class="text-xs font-mono text-amber-400 uppercase tracking-widest">SLIDE 30 — CABARAN CLOUDFLARE</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Kekangan Cloudflare Tunnel</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-3 text-xs text-gray-300">
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Persediaan awal memerlukan domain berdaftar dan pengurusan DNS Cloudflare.
+                </div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Kurang praktikal jika anda hanya ingin testing ad-hoc 5 minit tanpa domain.
+                </div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                    • Memerlukan kefahaman dashboard Cloudflare Zero Trust yang lebih kompleks.
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 31 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="31">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 31 — PANDUAN KEPUTUSAN #1</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Bila Patut Guna Ngrok?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="p-4 bg-blue-950/40 border border-blue-500/40 rounded-xl">
+                    <h3 class="text-lg font-bold text-blue-300">
+                        "Saya nak expose localhost SEKARANG JUGA untuk ujian pantas!"
+                    </h3>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs text-gray-300">
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">⚡ Demo projek sekejap kepada client</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">⚡ Test Webhook Stripe / Telegram</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">⚡ Uji API dari aplikasi telefon</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">⚡ URL sementara secara serta-merta</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 32 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="32">
+            <div class="text-xs font-mono text-orange-400 uppercase tracking-widest">SLIDE 32 — PANDUAN KEPUTUSAN #2</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Bila Guna Cloudflare Tunnel?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-5">
+                <div class="p-4 bg-orange-950/40 border border-orange-500/40 rounded-xl">
+                    <h3 class="text-lg font-bold text-orange-300">
+                        "Saya mahu setup tersusun jangka panjang dengan domain sendiri."
+                    </h3>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs text-gray-300">
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">🌐 Web / App peribadi jangka panjang</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">🏠 Home Server / Media Server rumah</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">🛡️ Guna Cloudflare Access / Authentication</div>
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800">🏷️ Domain sendiri (app.domainbos.com)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 33 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="33">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 33 — KAJIAN SENARIO</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Contoh Senario Pilihan</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-gray-400 font-bold block">Senario 1: Demo 10 Minit</span>
+                    <p class="text-gray-300">"Tunjuk website local kepada client sekejap."</p>
+                    <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded font-mono font-bold">👉 ngrok</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-gray-400 font-bold block">Senario 2: Host Several Home Apps</span>
+                    <p class="text-gray-300">"Host pelayan rumah guna domain sendiri."</p>
+                    <span class="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded font-mono font-bold">👉 Cloudflare Tunnel</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-gray-400 font-bold block">Senario 3: Uji Webhook Payment</span>
+                    <p class="text-gray-300">"Sedang test webhook API kedai online."</p>
+                    <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded font-mono font-bold">👉 ngrok</span>
+                </div>
+
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-gray-400 font-bold block">Senario 4: Cloudflare Access Policies</span>
+                    <p class="text-gray-300">"Mahu kawal login SSO Google."</p>
+                    <span class="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded font-mono font-bold">👉 Cloudflare Tunnel</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 34 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="34">
+            <div class="text-xs font-mono text-purple-400 uppercase tracking-widest">SLIDE 34 — VISUAL FLOW</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Perbandingan Aliran Sistem</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <!-- Option A -->
+                <div class="glass-panel p-4 rounded-xl border border-blue-500/30 space-y-2 text-center">
+                    <div class="font-bold text-blue-400 text-sm">OPTION A — NGROK</div>
+                    <div class="space-y-1 text-gray-300 pt-2">
+                        <div class="p-1 bg-slate-950 rounded">localhost:8080</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-blue-950 text-blue-300 rounded">ngrok Agent</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-indigo-950 text-indigo-300 rounded">ngrok Cloud</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-purple-950 text-purple-300 rounded">Public URL</div>
+                    </div>
+                </div>
+
+                <!-- Option B -->
+                <div class="glass-panel p-4 rounded-xl border border-orange-500/30 space-y-2 text-center">
+                    <div class="font-bold text-orange-400 text-sm">OPTION B — CLOUDFLARE</div>
+                    <div class="space-y-1 text-gray-300 pt-2">
+                        <div class="p-1 bg-slate-950 rounded">localhost:8080</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-orange-950 text-orange-300 rounded">cloudflared</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-amber-950 text-amber-300 rounded">Cloudflare Edge</div>
+                        <div>↓</div>
+                        <div class="p-1 bg-yellow-950 text-yellow-300 rounded">Custom Domain</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 35 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="35">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 35 — KESIMPULAN MUDAH</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Perbandingan Paling Ringkas</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-6 text-center">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="p-4 bg-blue-950/40 border border-blue-500/30 rounded-xl">
+                        <span class="font-bold text-blue-400 block mb-1">NGROK:</span>
+                        "Expose localhost dengan pantas & cepat."
+                    </div>
+                    <div class="p-4 bg-orange-950/40 border border-orange-500/30 rounded-xl">
+                        <span class="font-bold text-orange-400 block mb-1">CLOUDFLARE TUNNEL:</span>
+                        "Hubungkan app local dengan domain sendiri."
+                    </div>
+                </div>
+
+                <p class="text-lg text-slate-200 font-semibold leading-relaxed pt-2">
+                    "Kedua-duanya menggunakan konsep tunnel outbound. Perbezaannya ialah ekosistem dan cara kita menggunakannya."
+                </p>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 36 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="36">
+            <div class="text-xs font-mono text-blue-400 uppercase tracking-widest">SLIDE 36 — PERJALANAN LENGKAP</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Final Flow Pembelajaran</h2>
+
+            <div class="glass-panel p-6 rounded-2xl space-y-4 text-xs font-mono text-center">
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-wrap justify-center items-center gap-2 text-gray-300">
+                    <span class="text-emerald-400">LOCALHOST</span> → 
+                    <span>PYTHON SERVER</span> → 
+                    <span class="text-blue-400">NGROK</span> → 
+                    <span class="text-indigo-400">PUBLIC HTTPS</span> → 
+                    <span class="text-purple-400">INTERNET</span>
+                </div>
+
+                <div class="text-gray-500 font-sans">kemudian...</div>
+
+                <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-wrap justify-center items-center gap-2 text-gray-300">
+                    <span class="text-emerald-400">LOCALHOST</span> → 
+                    <span>PYTHON SERVER</span> → 
+                    <span class="text-orange-400">CLOUDFLARE TUNNEL</span> → 
+                    <span class="text-amber-400">CUSTOM DOMAIN</span> → 
+                    <span class="text-purple-400">INTERNET</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 37 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center space-y-6" data-slide="37">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 37 — SEMAKAN OBJEKTIF</div>
+            <h2 class="text-3xl md:text-4xl font-bold text-white">Apa Yang Kita Dah Belajar?</h2>
+
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-gray-300">
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Python local server</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Concepts of localhost</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Port 8080 binding</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> ngrok agent CLI</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Outbound Tunneling</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Public Endpoints</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Automatic HTTPS</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> No Port Forwarding</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> No Direct Public IP</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Webhook use cases</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> Security basics</div>
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> ngrok vs Cloudflare</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SLIDE 38 ==================== -->
+        <div class="slide w-full max-w-4xl h-full flex-col justify-center items-center text-center space-y-6" data-slide="38">
+            <div class="text-xs font-mono text-emerald-400 uppercase tracking-widest">SLIDE 38 — PENUTUP</div>
+            <h2 class="text-4xl md:text-5xl font-extrabold text-white">
+                Tunnel = Jalan Pintas Dari Localhost Ke Internet
+            </h2>
+
+            <div class="glass-panel p-6 rounded-2xl max-w-2xl space-y-4">
+                <blockquote class="text-base text-gray-300 italic leading-relaxed">
+                    "Kalau Public IP + Port Forwarding ialah kita membuka pintu rumah kepada Internet, tunnel ialah kita membuat sambungan keluar kepada perkhidmatan tunnel dan membiarkan mereka menjadi pintu hadapan."
+                </blockquote>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold pt-2">
+                    <div class="p-3 bg-blue-950/60 border border-blue-500/30 rounded-xl text-blue-300">
+                        NGROK → Sangat mudah untuk testing & development
+                    </div>
+                    <div class="p-3 bg-orange-950/60 border border-orange-500/30 rounded-xl text-orange-300">
+                        CLOUDFLARE TUNNEL → Lebih sesuai untuk domain sendiri
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <button onclick="goToSlide(1)" class="px-6 py-3 rounded-full bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg transition-all transform hover:scale-105">
+                    <i class="fa-solid fa-rotate-left mr-2"></i> Mula Semula Presentation
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="h-16 px-6 border-t border-gray-800/80 glass-panel flex items-center justify-between z-30 shrink-0">
+        <button id="prev-btn" onclick="prevSlide()" class="px-4 py-2 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-200 text-xs font-semibold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-gray-700">
+            <i class="fa-solid fa-chevron-left"></i> Kembali
+        </button>
+
+        <!-- Quick Jump Selector -->
+        <div class="hidden sm:flex items-center gap-2">
+            <label for="slide-select" class="text-xs text-gray-400 font-mono">Pilih Slide:</label>
+            <select id="slide-select" onchange="goToSlide(parseInt(this.value))" class="bg-gray-900 text-xs text-gray-200 border border-gray-700 rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 font-mono">
+                <!-- Javascript will inject option elements -->
+            </select>
+        </div>
+
+        <button id="next-btn" onclick="nextSlide()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-2 transition-all border border-blue-400/30 shadow-lg shadow-blue-600/20">
+            Seterusnya <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </footer>
+
+    <!-- Grid Overview Modal -->
+    <div id="overview-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex-col p-6 overflow-hidden">
+        <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-border-all text-blue-400"></i> Semua Slide (38 Total)
+            </h3>
+            <button onclick="toggleOverviewModal()" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div id="overview-grid" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 py-6">
+            <!-- Grid cards injected by JS -->
+        </div>
+    </div>
+
+    <!-- Toast Notification for Copy -->
+    <div id="toast" class="fixed bottom-20 right-6 bg-emerald-600 text-white text-xs font-mono px-4 py-2 rounded-lg shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex items-center gap-2">
+        <i class="fa-solid fa-check"></i> Code dicopy ke clipboard!
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 38;
+
+        const slideTitles = [
+            "Tajuk Utama",
+            "Kita Bermula Dengan Localhost",
+            "Masalah Utama Localhost",
+            "Apa Yang Kita Mahu Capai?",
+            "Apa Itu Ngrok?",
+            "Kenapa Tak Perlu Public IP?",
+            "Kenapa Tak Perlu Port Forwarding?",
+            "Apa Itu Ngrok Agent?",
+            "Install Ngrok Pada Windows",
+            "Login & Authtoken",
+            "Jalankan Tunnel (Port 8080)",
+            "Ngrok Memberikan Public URL",
+            "Ujian Dari Telefon Bimbit",
+            "Carta Aliran Lengkap Request",
+            "Apa Berlaku Apabila User Buka URL?",
+            "Public HTTPS vs Local HTTP",
+            "Ngrok TIDAK Memindahkan Website",
+            "Ngrok Bukan Hosting Tradisional",
+            "Public URL Bersifat Sementara",
+            "6 Contoh Kegunaan Ngrok",
+            "Webhook Use Case",
+            "Security: Tunnel Bukan Magic Shield",
+            "Menutup Ngrok Session",
+            "Quick Summary Ngrok",
+            "Ngrok vs Cloudflare Tunnel",
+            "Perbandingan Asas Matriks Feature",
+            "Kelebihan Ngrok",
+            "Kekangan Umum Ngrok",
+            "Kelebihan Cloudflare Tunnel",
+            "Kekangan Cloudflare Tunnel",
+            "Bila Patut Guna Ngrok?",
+            "Bila Guna Cloudflare Tunnel?",
+            "Contoh Senario Pilihan",
+            "Perbandingan Aliran Sistem",
+            "Perbandingan Paling Ringkas",
+            "Final Flow Pembelajaran",
+            "Apa Yang Kita Dah Belajar?",
+            "Penutup"
+        ];
+
+        // Initialize presentation elements
+        window.addEventListener('DOMContentLoaded', () => {
+            populateSelectOptions();
+            buildOverviewGrid();
+            showSlide(currentSlide);
+            setupKeyboardNav();
+        });
+
+        function updateProgress() {
+            const percentage = (currentSlide / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+            document.getElementById('slide-counter').innerText = currentSlide;
+            document.getElementById('slide-select').value = currentSlide;
+
+            // Enable/disable buttons
+            document.getElementById('prev-btn').disabled = currentSlide === 1;
+            
+            const nextBtn = document.getElementById('next-btn');
+            if (currentSlide === totalSlides) {
+                nextBtn.innerHTML = `Selesai <i class="fa-solid fa-check"></i>`;
+                nextBtn.classList.remove('bg-blue-600');
+                nextBtn.classList.add('bg-emerald-600');
+            } else {
+                nextBtn.innerHTML = `Seterusnya <i class="fa-solid fa-chevron-right"></i>`;
+                nextBtn.classList.remove('bg-emerald-600');
+                nextBtn.classList.add('bg-blue-600');
+            }
+        }
+
+        function showSlide(slideNum) {
+            if (slideNum < 1 || slideNum > totalSlides) return;
+
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach(slide => slide.classList.remove('active'));
+
+            const targetSlide = document.querySelector(`.slide[data-slide="${slideNum}"]`);
+            if (targetSlide) {
+                targetSlide.classList.add('active');
+                currentSlide = slideNum;
+                updateProgress();
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                goToSlide(currentSlide + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                goToSlide(currentSlide - 1);
+            }
+        }
+
+        function goToSlide(slideNum) {
+            showSlide(slideNum);
+            const modal = document.getElementById('overview-modal');
+            if (!modal.classList.contains('hidden')) {
+                toggleOverviewModal();
+            }
+        }
+
+        function populateSelectOptions() {
+            const select = document.getElementById('slide-select');
+            select.innerHTML = '';
+            for (let i = 1; i <= totalSlides; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i}. ${slideTitles[i - 1]}`;
+                select.appendChild(opt);
+            }
+        }
+
+        function buildOverviewGrid() {
+            const grid = document.getElementById('overview-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= totalSlides; i++) {
+                const card = document.createElement('button');
+                card.onclick = () => goToSlide(i);
+                card.className = `p-3 rounded-xl border text-left flex flex-col justify-between h-24 transition-all hover:border-blue-500 hover:scale-105 ${
+                    i === currentSlide ? 'bg-blue-950/80 border-blue-500' : 'bg-slate-900 border-gray-800'
+                }`;
+                card.innerHTML = `
+                    <span class="text-[10px] font-mono text-gray-500">SLIDE ${i}</span>
+                    <span class="text-xs font-semibold text-gray-200 line-clamp-2">${slideTitles[i - 1]}</span>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+            if (!modal.classList.contains('hidden')) {
+                buildOverviewGrid();
+            }
+        }
+
+        function setupKeyboardNav() {
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'Space') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlide();
+                } else if (e.key === 'Escape') {
+                    const modal = document.getElementById('overview-modal');
+                    if (!modal.classList.contains('hidden')) {
+                        toggleOverviewModal();
+                    }
+                }
+            });
+        }
+
+        function copyCode(btnElement) {
+            const codeToCopy = btnElement.getAttribute('data-code');
+            if (!codeToCopy) return;
+
+            // Fallback copy strategy
+            const textarea = document.createElement('textarea');
+            textarea.value = codeToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            showToast();
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2000);
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {});
+                document.getElementById('fullscreen-icon').className = 'fa-solid fa-compress';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.getElementById('fullscreen-icon').className = 'fa-solid fa-expand';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

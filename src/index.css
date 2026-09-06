@@ -1,0 +1,318 @@
+:root {
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-arabic: 'Amiri', 'Traditional Arabic', serif;
+
+  /* Telegram Brand Blue & Rich Ice-Blue Tint Palette (TafsirBot Theme) */
+  --telegram-blue: #229ED9;
+  --telegram-dark-blue: #0088cc;
+  --telegram-light-blue: #2AABEE;
+  --telegram-ice: #e8f5fe;
+  --telegram-subtle: #f0f8ff;
+
+  /* Telegram Dark Palette (For Pricing Section) */
+  --bg-dark-telegram: #0b131e;
+  --bg-card-dark: #17212b;
+  --border-dark: rgba(34, 158, 217, 0.35);
+
+  --bg-light: #f0f6fc;
+  --bg-white: #f8fafc;
+  --bg-card-light: #ffffff;
+  
+  --amber-600: #d97706;
+  --amber-500: #f59e0b;
+  --amber-100: #fef3c7;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-telegram: #0088cc;
+
+  --border-light: #e2e8f0;
+  --border-telegram: #bbeeef;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 2px 8px rgba(34, 158, 217, 0.08);
+  --shadow-md: 0 10px 30px rgba(34, 158, 217, 0.12);
+  --shadow-lg: 0 20px 40px rgba(34, 158, 217, 0.18);
+  --shadow-telegram: 0 12px 28px rgba(34, 158, 217, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: light;
+}
+
+/* EXACT ORIGINAL TAFSIRBOT BODY THEME */
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 10% 10%, rgba(34, 158, 217, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 40%, rgba(13, 148, 136, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 20% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 45%),
+    linear-gradient(to right, rgba(34, 158, 217, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 158, 217, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+  background-attachment: fixed;
+}
+
+.font-arabic {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  line-height: 1.8;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-light);
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--telegram-blue);
+}
+
+/* Container Utility */
+.container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Typography Utilities */
+.gradient-text-telegram {
+  background: linear-gradient(135deg, #0088cc 0%, #229ED9 50%, #2AABEE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Badge Utility */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1.1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: var(--telegram-ice);
+  border: 1px solid rgba(34, 158, 217, 0.35);
+  color: var(--telegram-dark-blue);
+}
+
+.badge-amber {
+  background: var(--amber-100);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--amber-600);
+}
+
+/* Button Utilities for TafsirBot */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: linear-gradient(135deg, #229ED9 0%, #0088cc 100%);
+  color: #ffffff;
+  padding: 0.9rem 2rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-telegram);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(34, 158, 217, 0.4);
+  background: linear-gradient(135deg, #2AABEE 0%, #0077b5 100%);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: var(--bg-card-light);
+  color: var(--telegram-dark-blue);
+  padding: 0.9rem 2rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-decoration: none;
+  border: 1.5px solid rgba(34, 158, 217, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  background: var(--telegram-ice);
+  border-color: var(--telegram-blue);
+  color: var(--telegram-dark-blue);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* White Clean Card for TafsirBot */
+.clean-card {
+  background: var(--bg-card-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.clean-card:hover {
+  border-color: var(--telegram-blue);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+/* Patterned Dark Background for TafsirBot Pricing */
+.bg-dark-pattern {
+  background-color: #0b131e;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(34, 158, 217, 0.15) 0%, transparent 60%),
+    radial-gradient(circle at 10% 20%, rgba(0, 136, 204, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.08) 0%, transparent 40%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+}
+
+/* Patterned Light Section Background */
+.bg-light-pattern {
+  background-color: #f0f6fc;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(34, 158, 217, 0.08) 0%, transparent 50%),
+    linear-gradient(to right, rgba(34, 158, 217, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 158, 217, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Mockup Frame Styling */
+.mockup-frame {
+  background: #ffffff;
+  border: 2px solid rgba(34, 158, 217, 0.3);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  position: relative;
+}
+
+.mockup-placeholder {
+  background: linear-gradient(135deg, var(--telegram-ice) 0%, #e0f2fe 100%);
+  border: 2px dashed var(--telegram-blue);
+  border-radius: var(--radius-md);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--telegram-dark-blue);
+  font-weight: 700;
+}
+
+/* Keyframe Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   ISOLATED PINTARTECH HOME THEME SCOPE (.pintartech-theme)
+   HARMONIOUS MULTI-ACCENT PALETTE (ROYAL BLUE BASE + AMBER + VIOLET + CORAL)
+   ========================================================================== */
+.pintartech-theme {
+  --pt-navy: #1e3a8a;
+  --pt-blue: #2563eb;
+  --pt-amber: #d97706;
+  --pt-violet: #7c3aed;
+  --pt-rose: #f43f5e;
+
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(37, 99, 235, 0.1) 0%, transparent 45%),
+    radial-gradient(circle at 85% 25%, rgba(245, 158, 11, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 45%),
+    radial-gradient(rgba(37, 99, 235, 0.1) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(37, 99, 235, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px, 48px 48px, 48px 48px;
+  background-attachment: fixed;
+}
+
+.pintartech-theme .bg-tech-pattern {
+  position: relative;
+  background-color: #ffffff;
+  background-image: 
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
+    radial-gradient(rgba(37, 99, 235, 0.1) 1.2px, transparent 1.2px);
+  background-size: 100% 100%, 100% 100%, 20px 20px;
+}
+
+.pintartech-theme .bg-games-pattern {
+  position: relative;
+  background-color: #fff1f2;
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(244, 63, 94, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 40%),
+    linear-gradient(45deg, rgba(244, 63, 94, 0.02) 25%, transparent 25%, transparent 75%, rgba(244, 63, 94, 0.02) 75%),
+    linear-gradient(45deg, rgba(244, 63, 94, 0.02) 25%, transparent 25%, transparent 75%, rgba(244, 63, 94, 0.02) 75%);
+  background-size: 100% 100%, 100% 100%, 40px 48px, 40px 48px;
+  background-position: 0 0, 0 0, 0 0, 20px 24px;
+}
+
+.pintartech-theme .btn-primary {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #7c3aed 100%);
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.28);
+}
+
+.pintartech-theme .btn-primary:hover {
+  background: linear-gradient(135deg, #172554 0%, #1d4ed8 55%, #6d28d9 100%);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.38);
+}
+
+.pintartech-theme .btn-secondary {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.35);
+  background-color: #ffffff;
+}
+
+.pintartech-theme .btn-secondary:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+}

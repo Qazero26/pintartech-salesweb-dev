@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Project — Build Your Own Home Server</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        rpi: '#ec4899',
+                        linux: '#3b82f6',
+                        docker: '#06b6d4',
+                        python: '#eab308',
+                        cloudflare: '#f97316',
+                        security: '#ef4444',
+                        monitoring: '#10b981',
+                        backup: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        .slide {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .slide.active {
+            display: flex;
+            opacity: 1;
+        }
+        pre, code {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom Scrollbar for code blocks & modal */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-box {
+            box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden flex flex-col justify-between select-none">
+
+    <!-- Top Progress Bar -->
+    <div class="w-full bg-slate-900 h-1.5 fixed top-0 left-0 z-50">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-pink-500 via-blue-500 to-emerald-400 transition-all duration-300 w-0"></div>
+    </div>
+
+    <!-- Header / Top Bar -->
+    <header class="w-full pt-4 px-6 flex items-center justify-between text-xs sm:text-sm text-slate-400 z-40">
+        <div class="flex items-center space-x-2 font-mono">
+            <span class="text-pink-500 font-bold">🍓 RPi</span>
+            <span class="text-slate-600">/</span>
+            <span class="text-blue-400 font-semibold">Master Project</span>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <button onclick="toggleGridModal()" class="px-3 py-1.5 rounded-lg glass-card hover:bg-slate-800 text-slate-300 transition flex items-center gap-2">
+                <i class="fa-solid fa-grid-2"></i>
+                <span id="slide-indicator" class="font-mono">Slide 1 / 58</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Slide Display Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 flex items-center justify-center overflow-y-auto">
+
+        <!-- SLIDE 1: TAJUK -->
+        <div class="slide active flex-col items-center justify-center text-center max-w-4xl w-full py-8">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-400 text-sm font-semibold mb-6">
+                <i class="fa-solid fa-trophy"></i> FINAL PROJECT
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+                Build Your Own <span class="bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400 bg-clip-text text-transparent">Home Server</span>
+            </h1>
+            <p class="text-lg sm:text-2xl text-slate-300 mb-10 max-w-2xl font-light">
+                Dari Raspberry Pi Kosong Ke Home Server Yang Secure & Production-Like
+            </p>
+            
+            <!-- Flow Diagram Visual -->
+            <div class="glass-card p-6 rounded-2xl w-full max-w-3xl flex flex-wrap justify-center items-center gap-3 sm:gap-4 font-mono text-sm border-slate-800">
+                <div class="px-3 py-2 rounded-lg bg-pink-950/60 border border-pink-500/30 text-pink-300 flex items-center gap-2">🍓 RPi</div>
+                <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                <div class="px-3 py-2 rounded-lg bg-blue-950/60 border border-blue-500/30 text-blue-300 flex items-center gap-2">🐧 Linux</div>
+                <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                <div class="px-3 py-2 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 flex items-center gap-2">🐳 Docker</div>
+                <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                <div class="px-3 py-2 rounded-lg bg-yellow-950/60 border border-yellow-500/30 text-yellow-300 flex items-center gap-2">🐍 Python</div>
+                <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                <div class="px-3 py-2 rounded-lg bg-orange-950/60 border border-orange-500/30 text-orange-300 flex items-center gap-2">☁️ Cloudflare</div>
+                <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                <div class="px-3 py-2 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">🌐 Internet</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 2: APA YANG AKAN KITA BINA? -->
+        <div class="slide flex-col items-center justify-center w-full max-w-4xl py-6">
+            <h2 class="text-2xl sm:text-4xl font-bold text-white mb-2 text-center">Apa Yang Akan Kita Bina?</h2>
+            <p class="text-slate-400 text-sm mb-6 text-center">Target Full Architecture Stack</p>
+            
+            <div class="glass-card p-6 rounded-2xl w-full font-mono text-xs sm:text-sm text-slate-300 overflow-x-auto">
+                <div class="flex flex-col items-center space-y-1.5 text-center">
+                    <div class="px-6 py-1.5 rounded bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-bold w-64">INTERNET</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-indigo-950 border border-indigo-500/40 text-indigo-300 w-64">DOMAIN / DNS</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-orange-950 border border-orange-500/40 text-orange-300 font-bold w-64">CLOUDFLARE</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-red-950 border border-red-500/40 text-red-300 w-64">HTTPS / WAF</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300 w-64">CLOUDFLARE TUNNEL</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-pink-950 border border-pink-500/40 text-pink-300 font-bold w-64">RASPBERRY PI</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-blue-950 border border-blue-500/40 text-blue-300 w-64">LINUX</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold w-64">DOCKER</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-yellow-950 border border-yellow-500/40 text-yellow-300 w-64">PYTHON APP</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-teal-950 border border-teal-500/40 text-teal-300 w-64">DATABASE</div>
+                    <div class="text-slate-500">↓</div>
+                    <div class="px-6 py-1.5 rounded bg-purple-950 border border-purple-500/40 text-purple-300 w-64">BACKUP</div>
+                </div>
+            </div>
+            <div class="flex gap-4 mt-4 text-xs text-slate-400">
+                <span class="flex items-center gap-1"><i class="fa-solid fa-shield text-red-400"></i> Security</span>
+                <span class="flex items-center gap-1"><i class="fa-solid fa-chart-line text-emerald-400"></i> Monitoring</span>
+                <span class="flex items-center gap-1"><i class="fa-solid fa-file-lines text-blue-400"></i> Logging</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 3: PROJECT REQUIREMENTS -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl sm:text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-list-check text-pink-500"></i> Project Requirements
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-card p-5 rounded-xl border-slate-800">
+                    <h3 class="text-lg font-semibold text-pink-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i> HARDWARE
+                    </h3>
+                    <ul class="space-y-2 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-pink-500"></i> Raspberry Pi</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-pink-500"></i> Power supply yang bersesuaian</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-pink-500"></i> Storage (MicroSD / SSD)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-pink-500"></i> Network connection (Ethernet / Wi-Fi)</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border-slate-800">
+                    <h3 class="text-lg font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-code"></i> SOFTWARE
+                    </h3>
+                    <ul class="space-y-2 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-cyan-500"></i> Raspberry Pi OS (Linux)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-cyan-500"></i> SSH Client & Server</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-cyan-500"></i> Docker Engine</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-cyan-500"></i> Python Web Application</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-cyan-500"></i> cloudflared agent</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border-slate-800">
+                    <h3 class="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud"></i> CLOUD
+                    </h3>
+                    <ul class="space-y-2 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-orange-500"></i> Cloudflare account (Free tier)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-orange-500"></i> Custom Domain registered & linked</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border-slate-800">
+                    <h3 class="text-lg font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-gears"></i> OPERATIONS
+                    </h3>
+                    <ul class="space-y-2 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-purple-500"></i> Automated Backup system</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-purple-500"></i> Monitoring & Health Checks</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-xs text-purple-500"></i> Centralized Logging</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 4: PROJECT GOAL -->
+        <div class="slide flex-col items-center justify-center w-full max-w-4xl py-6 text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono mb-4">
+                TARGET RESULT
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-6">Projek Goal</h2>
+            
+            <div class="glass-card p-6 rounded-2xl w-full max-w-2xl mb-8 border-emerald-500/30">
+                <p class="text-sm text-slate-400 mb-2">User membuka URL di browser:</p>
+                <div class="text-2xl font-mono font-bold text-emerald-400 bg-slate-900/80 py-3 rounded-lg border border-slate-800">
+                    https://app.domainbos.com
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl w-full max-w-3xl font-mono text-xs sm:text-sm text-slate-300 mb-8">
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <span class="px-3 py-1.5 rounded bg-slate-800 text-slate-200">Browser</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-orange-950 text-orange-300">Cloudflare</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-amber-950 text-amber-300">Tunnel</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-pink-950 text-pink-300">Raspberry Pi</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-cyan-950 text-cyan-300">Docker</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-yellow-950 text-yellow-300">Python App</span>
+                    <span>→</span>
+                    <span class="px-3 py-1.5 rounded bg-emerald-950 text-emerald-300">Response</span>
+                </div>
+            </div>
+
+            <blockquote class="text-xl italic text-slate-300 border-l-4 border-pink-500 pl-4 py-1">
+                "User tidak perlu tahu Raspberry Pi berada di mana."
+            </blockquote>
+        </div>
+
+        <!-- SLIDE 5: PROJECT PHASES -->
+        <div class="slide flex-col w-full max-w-5xl py-6">
+            <h2 class="text-2xl sm:text-3xl font-bold text-white mb-6 text-center">Project Roadmap (12 Fasa)</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 font-mono text-xs">
+                <div class="glass-card p-3 rounded-lg border-pink-500/30 bg-pink-950/20">
+                    <div class="text-pink-400 font-bold">PHASE 1</div>
+                    <div class="text-slate-200 mt-1">Hardware Setup</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-blue-500/30 bg-blue-950/20">
+                    <div class="text-blue-400 font-bold">PHASE 2</div>
+                    <div class="text-slate-200 mt-1">Operating System</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-indigo-500/30 bg-indigo-950/20">
+                    <div class="text-indigo-400 font-bold">PHASE 3</div>
+                    <div class="text-slate-200 mt-1">Networking</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-cyan-500/30 bg-cyan-950/20">
+                    <div class="text-cyan-400 font-bold">PHASE 4</div>
+                    <div class="text-slate-200 mt-1">SSH Access</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-teal-500/30 bg-teal-950/20">
+                    <div class="text-teal-400 font-bold">PHASE 5</div>
+                    <div class="text-slate-200 mt-1">Docker Engine</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-yellow-500/30 bg-yellow-950/20">
+                    <div class="text-yellow-400 font-bold">PHASE 6</div>
+                    <div class="text-slate-200 mt-1">Python Web App</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-orange-500/30 bg-orange-950/20">
+                    <div class="text-orange-400 font-bold">PHASE 7</div>
+                    <div class="text-slate-200 mt-1">Cloudflare Tunnel</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-red-500/30 bg-red-950/20">
+                    <div class="text-red-400 font-bold">PHASE 8</div>
+                    <div class="text-slate-200 mt-1">Security Layers</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-emerald-500/30 bg-emerald-950/20">
+                    <div class="text-emerald-400 font-bold">PHASE 9</div>
+                    <div class="text-slate-200 mt-1">Monitoring & Logs</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-purple-500/30 bg-purple-950/20">
+                    <div class="text-purple-400 font-bold">PHASE 10</div>
+                    <div class="text-slate-200 mt-1">Backup & Restore</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-sky-500/30 bg-sky-950/20">
+                    <div class="text-sky-400 font-bold">PHASE 11</div>
+                    <div class="text-slate-200 mt-1">System Testing</div>
+                </div>
+                <div class="glass-card p-3 rounded-lg border-amber-500/30 bg-amber-950/20">
+                    <div class="text-amber-400 font-bold">PHASE 12</div>
+                    <div class="text-slate-200 mt-1">Production-Like</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 6: PHASE 1: HARDWARE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-pink-400 font-mono text-sm mb-1">PHASE 1</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Hardware Preparation</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <div class="flex flex-wrap items-center justify-around gap-4 text-center">
+                    <div>
+                        <i class="fa-solid fa-microchip text-4xl text-pink-500 mb-2"></i>
+                        <div class="text-sm font-semibold">Raspberry Pi</div>
+                    </div>
+                    <span class="text-slate-600 text-2xl">+</span>
+                    <div>
+                        <i class="fa-solid fa-plug text-4xl text-yellow-500 mb-2"></i>
+                        <div class="text-sm font-semibold">Power Supply</div>
+                    </div>
+                    <span class="text-slate-600 text-2xl">+</span>
+                    <div>
+                        <i class="fa-solid fa-sd-card text-4xl text-blue-500 mb-2"></i>
+                        <div class="text-sm font-semibold">Storage</div>
+                    </div>
+                    <span class="text-slate-600 text-2xl">+</span>
+                    <div>
+                        <i class="fa-solid fa-network-wired text-4xl text-emerald-500 mb-2"></i>
+                        <div class="text-sm font-semibold">Network</div>
+                    </div>
+                    <span class="text-slate-600 text-2xl">+</span>
+                    <div>
+                        <i class="fa-solid fa-fan text-4xl text-cyan-500 mb-2"></i>
+                        <div class="text-sm font-semibold">Cooling</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <h3 class="text-lg font-semibold text-white mb-4">Hardware Checklist</h3>
+                <div class="space-y-3 text-slate-300">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked class="w-5 h-5 accent-pink-500 rounded">
+                        <span>Raspberry Pi (Sama ada Pi 3, 4, 5 atau seumpamanya)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked class="w-5 h-5 accent-pink-500 rounded">
+                        <span>Power supply yang stabil (mencukupi mengikut spesifikasi rasmi)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked class="w-5 h-5 accent-pink-500 rounded">
+                        <span>Storage bersesuaian (MicroSD High Endurance / SSD USB)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked class="w-5 h-5 accent-pink-500 rounded">
+                        <span>Sambungan network (Kabel LAN Ethernet disyorkan atau Wi-Fi)</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked class="w-5 h-5 accent-pink-500 rounded">
+                        <span>Case dan kipas/heatsink penyejuk untuk kestabilan 24/7</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 7: PHASE 2: OPERATING SYSTEM -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-blue-400 font-mono text-sm mb-1">PHASE 2</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Operating System Setup</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <div class="flex items-center justify-center space-x-3 sm:space-x-6 font-mono text-sm text-center">
+                    <span class="px-3 py-2 bg-slate-800 rounded">Raspberry Pi</span>
+                    <span>→</span>
+                    <span class="px-3 py-2 bg-slate-800 rounded">Storage</span>
+                    <span>→</span>
+                    <span class="px-3 py-2 bg-pink-950 border border-pink-500/40 text-pink-300 rounded font-bold">Raspberry Pi OS</span>
+                    <span>→</span>
+                    <span class="px-3 py-2 bg-blue-950 border border-blue-500/40 text-blue-300 rounded font-bold">Linux</span>
+                </div>
+            </div>
+
+            <div class="bg-blue-950/30 border border-blue-500/30 p-6 rounded-2xl text-slate-200 leading-relaxed">
+                <p class="text-lg font-medium text-blue-300 mb-2">Foundation Of The Server</p>
+                <p>
+                    Operating System (OS) ialah asas utama (foundation) untuk semua perkhidmatan dan container yang akan dijalankan selepas ini. Kita menggunakan <strong>Raspberry Pi OS (Lite 64-bit)</strong> berasaskan Debian Linux untuk prestasi optimum tanpa GUI bebanan tambahan.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 8: HEADLESS SETUP -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Headless Server Concept</h2>
+            <p class="text-slate-400 mb-6">Menjalankan server tanpa monitor atau papan kekunci luaran</p>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-center">
+                <div class="flex items-center justify-center gap-4">
+                    <div class="p-4 bg-pink-950/40 border border-pink-500/30 rounded-xl">Raspberry Pi</div>
+                    <div class="text-blue-400">← Network →</div>
+                    <div class="p-4 bg-slate-800 rounded-xl">Laptop / PC</div>
+                </div>
+            </div>
+
+            <ul class="space-y-4 text-slate-300">
+                <li class="glass-card p-4 rounded-xl flex items-start gap-3">
+                    <i class="fa-solid fa-server text-blue-400 mt-1"></i>
+                    <div>
+                        <strong>Mode Server Sebenar:</strong> Server pengeluaran jarang dipasang monitor atau tetikus.
+                    </div>
+                </li>
+                <li class="glass-card p-4 rounded-xl flex items-start gap-3">
+                    <i class="fa-solid fa-wifi text-emerald-400 mt-1"></i>
+                    <div>
+                        <strong>Pengurusan Jarak Jauh:</strong> Konfigurasi Wi-Fi/Ethernet dan SSH diaktifkan semasa proses flashing OS menggunakan Raspberry Pi Imager.
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- SLIDE 9: PHASE 3: NETWORK -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-indigo-400 font-mono text-sm mb-1">PHASE 3</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Network Setup (LAN)</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <div class="flex items-center justify-center gap-6 text-center">
+                    <div class="p-4 bg-slate-900 border border-slate-700 rounded-xl">
+                        <div class="text-xs text-slate-400">Router</div>
+                        <div class="text-emerald-400 font-bold">192.168.1.1</div>
+                    </div>
+                    <div class="text-slate-500">─────── LAN ───────</div>
+                    <div class="p-4 bg-pink-950/60 border border-pink-500/40 rounded-xl">
+                        <div class="text-xs text-pink-300">Raspberry Pi</div>
+                        <div class="text-pink-400 font-bold">192.168.1.50</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-slate-300">
+                <p>Raspberry Pi memerlukan IP address tempatan (Private IP) yang konsisten supaya SSH dan pengurusan LAN tidak terputus.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <span class="text-cyan-400 font-bold">Pilihan A: DHCP Reservation</span>
+                        <p class="mt-2 text-slate-400">Ditetapkan melalui Settings Router berdasarkan MAC Address Raspberry Pi.</p>
+                    </div>
+                    <div class="p-4 bg-slate-900/80 rounded-xl border border-slate-800">
+                        <span class="text-yellow-400 font-bold">Pilihan B: Static IP</span>
+                        <p class="mt-2 text-slate-400">Ditetapkan secara terus dalam konfigurasi network OS Raspberry Pi (dhcpcd / NetworkManager).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 10: TEST NETWORK -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Ujian Rangkaian LAN</h2>
+            <p class="text-slate-400 mb-6">Perintah asas Linux untuk menyemak status networking:</p>
+            
+            <div class="glass-card p-5 rounded-2xl mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-mono text-slate-400">Terminal Shell</span>
+                    <button onclick="copyCode('net-cmd')" class="text-xs text-blue-400 hover:underline"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <pre id="net-cmd" class="bg-slate-950 p-4 rounded-xl text-emerald-400 text-sm overflow-x-auto">
+hostname
+hostname -I
+ip addr
+ip route</pre>
+            </div>
+
+            <div class="p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-emerald-300 text-sm">
+                <strong>Matlamat:</strong> "Raspberry Pi boleh berkomunikasi secara stabil dalam Local Area Network (LAN)."
+            </div>
+        </div>
+
+        <!-- SLIDE 11: PHASE 4: SSH -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-cyan-400 font-mono text-sm mb-1">PHASE 4</div>
+            <h2 class="text-3xl font-bold text-white mb-6">SSH Access Setup</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <div class="text-xs font-mono text-slate-400 mb-2">Sambungan dari Laptop:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-cyan-400 font-mono text-base overflow-x-auto">ssh &lt;USERNAME&gt;@192.168.1.50</pre>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-sm text-center mb-6">
+                <div class="flex items-center justify-center gap-4">
+                    <span class="p-3 bg-slate-800 rounded">Laptop</span>
+                    <span class="text-cyan-400">━━ Secure Shell (SSH Port 22) ━━►</span>
+                    <span class="p-3 bg-pink-950 border border-pink-500/40 text-pink-300 rounded">Raspberry Pi</span>
+                </div>
+            </div>
+
+            <p class="text-slate-300 text-sm text-center">
+                Sekarang server anda boleh diurus dan dikawal dari jauh melalui baris perintah CLI secara selamat!
+            </p>
+        </div>
+
+        <!-- SLIDE 12: SSH SECURITY -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-shield-halved text-red-500"></i> SSH Security Best Practices
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="glass-card p-4 rounded-xl border-slate-800 space-y-2">
+                    <div class="text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> SSH Key Authentication</div>
+                    <p class="text-slate-400 text-xs">Gunakan RSA/Ed25519 key pair dan nyahdayakan password login.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-slate-800 space-y-2">
+                    <div class="text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> Least Privilege</div>
+                    <p class="text-slate-400 text-xs">Elakkan menggunakan akaun root secara terus untuk aktiviti harian.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-slate-800 space-y-2">
+                    <div class="text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> Software Updates</div>
+                    <p class="text-slate-400 text-xs">Pastikan OpenSSH daemon dan sistem senantiasa dikemaskini.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-slate-800 space-y-2">
+                    <div class="text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> Avoid Exposure</div>
+                    <p class="text-slate-400 text-xs">Jangan sesekali buka Port 22 terus ke public Internet.</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 p-4 bg-red-950/30 border border-red-500/30 rounded-xl text-red-300 text-xs text-center font-mono">
+                ⚠️ PENTING: Gunakan credential placeholder dalam dokumentasi dan elakkan mendedahkan Private Keys!
+            </div>
+        </div>
+
+        <!-- SLIDE 13: SYSTEM UPDATE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Kemaskini Sistem Operasi</h2>
+            <p class="text-slate-400 mb-6">Sentiasa update sistem Linux sebelum memasang aplikasi utama:</p>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-mono text-slate-400">APT Package Manager</span>
+                    <button onclick="copyCode('apt-cmd')" class="text-xs text-blue-400 hover:underline"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <pre id="apt-cmd" class="bg-slate-950 p-4 rounded-xl text-yellow-400 font-mono text-sm overflow-x-auto">
+sudo apt update
+sudo apt upgrade -y</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 14: PHASE 5: DOCKER -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-cyan-400 font-mono text-sm mb-1">PHASE 5</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Docker Platform Setup</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <div class="flex flex-col items-center space-y-2 text-center">
+                    <div class="px-6 py-2 bg-pink-950 rounded border border-pink-500/30 text-pink-300 w-64">Raspberry Pi</div>
+                    <div>↓</div>
+                    <div class="px-6 py-2 bg-blue-950 rounded border border-blue-500/30 text-blue-300 w-64">Linux OS</div>
+                    <div>↓</div>
+                    <div class="px-6 py-2 bg-cyan-950 rounded border border-cyan-500/30 text-cyan-300 font-bold w-64">Docker Engine</div>
+                    <div>↓</div>
+                    <div class="px-6 py-2 bg-slate-800 rounded border border-slate-700 text-slate-200 w-64">Isolated Container</div>
+                </div>
+            </div>
+
+            <p class="text-slate-300 text-sm text-center">
+                Docker bertindak sebagai platform deployment modular untuk memisahkan kebergantungan aplikasi dari sistem asas.
+            </p>
+        </div>
+
+        <!-- SLIDE 15: DOCKER INSTALLATION CONCEPT -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Konsep Pemasangan Docker</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <div class="flex items-center justify-around font-mono text-sm text-center">
+                    <div>Install Docker</div>
+                    <div>→</div>
+                    <div>Verify Docker</div>
+                    <div>→</div>
+                    <div>Test Container</div>
+                    <div>→</div>
+                    <div class="text-emerald-400 font-bold">Ready</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="text-xs font-mono text-slate-400 mb-2">Pengesahan Pemasangan:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-cyan-400 font-mono text-sm">docker --version</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 16: DOCKER TEST -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Ujian Container Pertama</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <div class="text-xs font-mono text-slate-400 mb-2">Jalankan Container Hello-World:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-emerald-400 font-mono text-sm overflow-x-auto">docker run hello-world</pre>
+            </div>
+
+            <div class="p-6 bg-emerald-950/30 border border-emerald-500/30 rounded-2xl text-emerald-300 font-mono text-sm text-center">
+                Docker Engine Status: <br>
+                <span class="text-xl font-bold">✓ Installed & Working Properly</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 17: PHASE 6: BUILD PYTHON APP -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-yellow-400 font-mono text-sm mb-1">PHASE 6</div>
+            <h2 class="text-3xl font-bold text-white mb-4">Bina Aplikasi Python Web</h2>
+            <p class="text-slate-400 mb-6">Struktur fail projek di server:</p>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <pre class="font-mono text-sm text-slate-300">
+myapp/
+├── app.py
+├── requirements.txt
+├── Dockerfile
+└── index.html</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 18: PYTHON APP CODE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Python App (app.py)</h2>
+            <p class="text-slate-400 text-sm mb-4">Aplikasi Flask/HTTP ringkas mendengarkan pada 0.0.0.0:8080</p>
+
+            <div class="glass-card p-5 rounded-2xl">
+                <pre class="bg-slate-950 p-4 rounded-xl text-yellow-300 font-mono text-xs sm:text-sm overflow-x-auto">
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Hello from Raspberry Pi Home Server!"
+
+@app.route('/health')
+def health():
+    return {"status": "healthy"}, 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 19: DOCKERFILE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Dockerfile Configuration</h2>
+
+            <div class="glass-card p-5 rounded-2xl mb-4">
+                <pre class="bg-slate-950 p-4 rounded-xl text-cyan-300 font-mono text-xs sm:text-sm overflow-x-auto">
+FROM python:3-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "app.py"]</pre>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono text-slate-400">
+                <div class="p-2 bg-slate-900 rounded border border-slate-800">1. Base Image</div>
+                <div class="p-2 bg-slate-900 rounded border border-slate-800">2. Working Dir</div>
+                <div class="p-2 bg-slate-900 rounded border border-slate-800">3. Dependencies</div>
+                <div class="p-2 bg-slate-900 rounded border border-slate-800">4. Startup Command</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 20: BUILD IMAGE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Bina Docker Image</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-center">
+                <div class="flex items-center justify-center gap-2">
+                    <span>Source Code</span>
+                    <span>→</span>
+                    <span>Dockerfile</span>
+                    <span>→</span>
+                    <span class="text-cyan-400 font-bold">Docker Image</span>
+                    <span>→</span>
+                    <span>Container</span>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="text-xs font-mono text-slate-400 mb-2">Perintah Build:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-cyan-400 font-mono text-sm">docker build -t myapp .</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 21: RUN CONTAINER -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Jalankan Container</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <pre class="bg-slate-950 p-4 rounded-xl text-cyan-300 font-mono text-sm overflow-x-auto">
+docker run -d \
+  --name myapp \
+  -p 8080:8080 \
+  myapp</pre>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl font-mono text-sm text-center text-slate-300">
+                Host Port <span class="text-yellow-400 font-bold">8080</span> ──► Container Port <span class="text-cyan-400 font-bold">8080</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 22: TEST LOCALLY -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Ujian Tempatan (Local Test)</h2>
+
+            <div class="space-y-4 font-mono text-sm">
+                <div class="glass-card p-4 rounded-xl">
+                    <div class="text-xs text-slate-400 mb-1">Di Raspberry Pi CLI:</div>
+                    <div class="text-emerald-400">curl http://localhost:8080</div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl">
+                    <div class="text-xs text-slate-400 mb-1">Di Browser Rangkaian LAN:</div>
+                    <div class="text-emerald-400">http://192.168.1.50:8080</div>
+                </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-emerald-300 font-bold text-center">
+                ✓ Python App berjaya berjalan secara tempatan!
+            </div>
+        </div>
+
+        <!-- SLIDE 23: PHASE 7: CLOUDFLARE TUNNEL -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-orange-400 font-mono text-sm mb-1">PHASE 7</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Cloudflare Tunnel Setup</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-center">
+                <div class="flex items-center justify-center gap-2">
+                    <span class="p-2 bg-pink-950 rounded">Raspberry Pi</span>
+                    <span>→</span>
+                    <span class="p-2 bg-slate-800 rounded">cloudflared</span>
+                    <span>→</span>
+                    <span class="p-2 bg-orange-950 rounded text-orange-300">Cloudflare</span>
+                    <span>→</span>
+                    <span class="p-2 bg-emerald-950 rounded">Internet</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-semibold">
+                <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl text-red-400">
+                    ❌ Tiada Port Forwarding diperlukan
+                </div>
+                <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-emerald-400">
+                    ✓ Outbound Tunnel Selamat ke Edge Network
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 24: CREATE CLOUDFLARE TUNNEL -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Cipta Tunnel di Dashboard</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <div class="flex flex-col space-y-2">
+                    <div>1. Log masuk ke Cloudflare Dashboard</div>
+                    <div>2. Pergi ke Zero Trust → Networks → Tunnels</div>
+                    <div>3. Klik <span class="text-orange-400 font-bold">Create a Tunnel</span></div>
+                    <div>4. Namakan Tunnel: <span class="text-cyan-400 font-bold">home-server</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 25: INSTALL CLOUDFLARED -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Pasang Agent cloudflared</h2>
+            <p class="text-slate-400 text-sm mb-6">Pasang agent mengikut senibina Raspberry Pi OS anda:</p>
+
+            <div class="glass-card p-5 rounded-2xl mb-4">
+                <div class="text-xs font-mono text-slate-400 mb-2">Pengesahan versi agent:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-orange-400 font-mono text-sm">cloudflared --version</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 26: CONNECT TUNNEL -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Sambungkan Tunnel</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <div class="text-xs text-slate-400 mb-2">Jalankan perkhidmatan tunnel dengan Token:</div>
+                <pre class="bg-slate-950 p-4 rounded-xl text-orange-400 overflow-x-auto">sudo cloudflared service install &lt;TUNNEL_TOKEN&gt;</pre>
+            </div>
+
+            <div class="p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-emerald-300 font-mono text-center">
+                Status Tunnel di Cloudflare Dashboard: <span class="font-bold">🟢 HEALTHY</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 27: PUBLISH APPLICATION -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Terbitkan Aplikasi Ke Domain</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-sm mb-6">
+                <div class="glass-card p-4 rounded-xl">
+                    <div class="text-xs text-slate-400">Public Hostname</div>
+                    <div class="text-orange-400 font-bold mt-1">app.domainbos.com</div>
+                </div>
+                <div class="glass-card p-4 rounded-xl">
+                    <div class="text-xs text-slate-400">Service Target</div>
+                    <div class="text-yellow-400 font-bold mt-1">http://localhost:8080</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl font-mono text-xs text-center text-slate-300">
+                User ➔ app.domainbos.com ➔ Cloudflare ➔ Tunnel ➔ localhost:8080 ➔ Docker ➔ Python
+            </div>
+        </div>
+
+        <!-- SLIDE 28: HTTPS -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-lock text-emerald-400"></i> Automatic HTTPS Encryption
+            </h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 text-center">
+                <div class="text-emerald-400 font-mono text-xl font-bold mb-2">https://app.domainbos.com</div>
+                <p class="text-slate-300 text-sm">
+                    Cloudflare menyediakan sijil TLS/SSL automatik di peringkat Edge network. Trafik awam disulitkan (encrypted) tanpa perlu menguruskan Certbot di server tempatan.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 29: PHASE 8: SECURITY -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-red-400 font-mono text-sm mb-1">PHASE 8</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Security (Defense in Depth)</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-xs sm:text-sm text-slate-300 space-y-2 text-center">
+                <div class="bg-orange-950/40 border border-orange-500/30 p-2 rounded">Cloudflare WAF / Access</div>
+                <div>↓</div>
+                <div class="bg-amber-950/40 border border-amber-500/30 p-2 rounded">Cloudflare Encrypted Tunnel</div>
+                <div>↓</div>
+                <div class="bg-red-950/40 border border-red-500/30 p-2 rounded">Local Host Firewall (UFW)</div>
+                <div>↓</div>
+                <div class="bg-cyan-950/40 border border-cyan-500/30 p-2 rounded">Docker Container Isolation</div>
+                <div>↓</div>
+                <div class="bg-teal-950/40 border border-teal-500/30 p-2 rounded">Protected Database</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 30: ACCESS -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Cloudflare Access (Admin Protection)</h2>
+            <p class="text-slate-400 text-sm mb-6">Kawalan akses ketat untuk Dashboard Pentadbir:</p>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-sm text-center">
+                <div class="flex items-center justify-center gap-2">
+                    <span>User</span>
+                    <span>→</span>
+                    <span class="text-orange-400">admin.domainbos.com</span>
+                    <span>→</span>
+                    <span class="text-red-400 font-bold">Cloudflare Auth</span>
+                    <span>→</span>
+                    <span>Admin App</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 31: DATABASE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Database Isolation</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-center">
+                <div class="text-emerald-400 mb-4 font-bold">🔒 Private Network Isolation</div>
+                <div>Python Web App ──► Private Container Network ──► Database Container</div>
+            </div>
+
+            <p class="text-slate-300 text-sm">
+                Database TIDAK didedahkan secara terus ke Internet. Akses hanya dibenarkan dari bekas container aplikasi web sahaja.
+            </p>
+        </div>
+
+        <!-- SLIDE 32: PERSISTENT VOLUME -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Persistent Storage (Docker Volumes)</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <pre class="bg-slate-950 p-4 rounded-xl text-purple-300">
+docker run -d \
+  -v app_data:/app/data \
+  --name myapp myapp</pre>
+            </div>
+
+            <p class="text-slate-300 text-sm">
+                Data dipisahkan daripada kitaran hayat container. Walaupun container dimusnahkan dan dibina semula, data penting tetap tersimpan selamat.
+            </p>
+        </div>
+
+        <!-- SLIDE 33: PHASE 9: MONITORING -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-emerald-400 font-mono text-sm mb-1">PHASE 9</div>
+            <h2 class="text-3xl font-bold text-white mb-6">System & Resource Monitoring</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center font-mono text-xs mb-6">
+                <div class="glass-card p-4 rounded-xl text-emerald-400">CPU Load</div>
+                <div class="glass-card p-4 rounded-xl text-emerald-400">RAM Usage</div>
+                <div class="glass-card p-4 rounded-xl text-emerald-400">Disk Space</div>
+                <div class="glass-card p-4 rounded-xl text-emerald-400">Temperature</div>
+            </div>
+
+            <blockquote class="text-center italic text-slate-300 border-l-4 border-emerald-500 pl-4">
+                "Jika sesuatu rosak, kita mesti tahu dengan cepat."
+            </blockquote>
+        </div>
+
+        <!-- SLIDE 34: LOGGING -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Centralized Logging</h2>
+
+            <div class="space-y-3 font-mono text-xs sm:text-sm">
+                <div class="glass-card p-4 rounded-xl text-slate-300">🐧 System Logs: <span class="text-blue-400">journalctl -u cloudflared</span></div>
+                <div class="glass-card p-4 rounded-xl text-slate-300">🐳 Container Logs: <span class="text-cyan-400">docker logs -f myapp</span></div>
+            </div>
+
+            <div class="mt-6 p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-300 text-xs text-center font-mono">
+                ⚠️ PENTING: Pastikan maklumat sensitif (Passwords/Tokens) tidak dicatatkan dalam log!
+            </div>
+        </div>
+
+        <!-- SLIDE 35: HEALTH CHECK -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Application Health Checks</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm">
+                <div class="text-xs text-slate-400 mb-2">Endpoint Status Check:</div>
+                <div class="text-yellow-300">GET /health ➔ <span class="text-emerald-400 font-bold">200 OK</span></div>
+            </div>
+
+            <p class="text-slate-300 text-sm text-center">
+                Pemeriksaan automatik berkala untuk memastikan perkhidmatan bertindak balas secara normal.
+            </p>
+        </div>
+
+        <!-- SLIDE 36: PHASE 10: BACKUP -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-purple-400 font-mono text-sm mb-1">PHASE 10</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Backup Strategy</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-center">
+                <div class="flex items-center justify-center gap-4">
+                    <span>Database & Config</span>
+                    <span>→</span>
+                    <span class="text-purple-400 font-bold">Automated Script</span>
+                    <span>→</span>
+                    <span class="text-emerald-400">Remote/External Storage</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 37: RESTORE TEST -->
+        <div class="slide flex-col w-full max-w-4xl py-6 text-center">
+            <h2 class="text-3xl font-bold text-white mb-6">Ujian Pemulihan (Restore Test)</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 max-w-xl mx-auto font-mono text-sm text-slate-300 space-y-3">
+                <div class="text-red-400">Simulasi: Data Terpadam</div>
+                <div>↓</div>
+                <div class="text-purple-400">Jalankan Restore Script</div>
+                <div>↓</div>
+                <div class="text-emerald-400 font-bold">Aplikasi Kembali Beroperasi</div>
+            </div>
+
+            <blockquote class="text-xl italic text-purple-300 border-l-4 border-purple-500 pl-4 py-1">
+                "Jangan hanya buat backup. Uji restore."
+            </blockquote>
+        </div>
+
+        <!-- SLIDE 38: PHASE 11: TESTING MATRIX -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-sky-400 font-mono text-sm mb-1">PHASE 11</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Testing Checklist Matrix</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> LOCAL: localhost works</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> LAN: private IP works</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> TUNNEL: tunnel connected</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> DOMAIN: hostname resolves</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> HTTPS: browser opens HTTPS</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> APP: application responds</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> SECURITY: unauthorized blocked</label>
+                <label class="glass-card p-3 rounded-xl flex items-center gap-3"><input type="checkbox" checked class="accent-sky-500"> BACKUP: restore works</label>
+            </div>
+        </div>
+
+        <!-- SLIDE 39: TROUBLESHOOTING DECISION TREE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Troubleshooting Decision Tree</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-xs sm:text-sm text-slate-300 space-y-1.5 text-center">
+                <div>Website tidak boleh dibuka?</div>
+                <div class="text-slate-500">↓</div>
+                <div>1. Python/app hidup?</div>
+                <div class="text-slate-500">↓</div>
+                <div>2. Container hidup?</div>
+                <div class="text-slate-500">↓</div>
+                <div>3. Port listening?</div>
+                <div class="text-slate-500">↓</div>
+                <div>4. Localhost test OK?</div>
+                <div class="text-slate-500">↓</div>
+                <div>5. Tunnel connected?</div>
+                <div class="text-slate-500">↓</div>
+                <div>6. Cloudflare Status / Logs?</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 40: FAILURE SCENARIO 1 -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl font-bold text-white mb-4 text-red-400">Failure Scenario 1: Container Crashed</h2>
+            
+            <div class="glass-card p-6 rounded-2xl font-mono text-sm space-y-2">
+                <div class="text-slate-400">Langkah Diagnosis:</div>
+                <div class="text-cyan-400">docker ps -a</div>
+                <div class="text-yellow-400">docker logs myapp</div>
+                <div class="text-emerald-400">docker restart myapp</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 41: FAILURE SCENARIO 2 -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl font-bold text-white mb-4 text-orange-400">Failure Scenario 2: Tunnel Disconnected</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-sm space-y-2">
+                <div class="text-slate-400">Semakan Perkhidmatan:</div>
+                <div class="text-orange-400">systemctl status cloudflared</div>
+                <div class="text-slate-300">Semak sambungan rangkaian & Cloudflare Dashboard</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 42: FAILURE SCENARIO 3 -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl font-bold text-white mb-4 text-amber-400">Failure Scenario 3: Storage Full</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-sm space-y-2 mb-4">
+                <div class="text-slate-400">Semakan Ruang Ruang Storan:</div>
+                <div class="text-yellow-400">df -h</div>
+                <div class="text-cyan-400">docker system prune -a</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 43: PHASE 12: PRODUCTION-LIKE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <div class="text-amber-400 font-mono text-sm mb-1">PHASE 12</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Production-Like Architecture</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-xs sm:text-sm text-center text-slate-300">
+                INTERNET ➔ CLOUDFLARE ➔ TUNNEL ➔ RASPBERRY PI ➔ DOCKER ➔ APP / DB ➔ BACKUP
+            </div>
+        </div>
+
+        <!-- SLIDE 44: PROJECT FOLDER -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Struktur Folder Projek</h2>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <pre class="font-mono text-sm text-slate-300">
+home-server/
+├── app/
+├── docker/
+├── compose/
+├── config/
+├── backups/
+└── docs/</pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 45: DOCUMENTATION -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-4">Dokumentasi System (README.md)</h2>
+            <p class="text-slate-400 text-sm mb-6">Dokumentasikan senibina, perkhidmatan, dan prosedur pemulihan.</p>
+
+            <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-300 text-xs text-center font-mono">
+                ⚠️ PERINGATAN: Jangan simpan maklumat sulit atau secret credential dalam dokumentasi Git!
+            </div>
+        </div>
+
+        <!-- SLIDE 46: MAINTENANCE ROUTINE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Jadual Penyelenggaraan (Maintenance Routine)</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                <div class="glass-card p-4 rounded-xl border-emerald-500/30">
+                    <div class="text-emerald-400 font-bold mb-2">HARIAN</div>
+                    <div class="text-slate-300">Automated Monitoring & Backups</div>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-blue-500/30">
+                    <div class="text-blue-400 font-bold mb-2">MINGGUAN</div>
+                    <div class="text-slate-300">Semakan Logs & Ruang Storan</div>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-purple-500/30">
+                    <div class="text-purple-400 font-bold mb-2">BULANAN</div>
+                    <div class="text-slate-300">Patch System & Test Restore</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 47: SECURITY CHECKLIST -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Security Final Checklist</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ Firewall Active</div>
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ SSH Key Auth Only</div>
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ Tunnel Active</div>
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ HTTPS Enabled</div>
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ Non-root Container</div>
+                <div class="glass-card p-3 rounded-xl text-emerald-400">✓ Secrets Protected</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 48: COST / RESOURCE REALITY -->
+        <div class="slide flex-col w-full max-w-4xl py-6 text-center">
+            <h2 class="text-3xl font-bold text-white mb-6">Realiti Kos Home Server</h2>
+
+            <p class="text-slate-300 mb-6">
+                Membina home server memerlukan kos perkakasan, elektrik, storan, dan domain.
+            </p>
+
+            <blockquote class="text-2xl italic text-yellow-400 font-bold">
+                "Murah tidak bermaksud percuma."
+            </blockquote>
+        </div>
+
+        <!-- SLIDE 49: LIMITATIONS -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Had Perkakasan (Limitations)</h2>
+
+            <p class="text-slate-300 text-sm mb-6">
+                Raspberry Pi mempunyai had dari segi CPU, RAM, kelajuan I/O storan, dan sambungan rangkaian rumah.
+            </p>
+
+            <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-xs text-center font-mono">
+                "Production-like home server tidak sama dengan enterprise cloud infrastructure."
+            </div>
+        </div>
+
+        <!-- SLIDE 50: WHEN TO SCALE -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Bila Perlu Scale Up?</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs font-mono">
+                <div class="glass-card p-4 rounded-xl">Mini PC / NUC</div>
+                <div class="glass-card p-4 rounded-xl">VPS Cloud</div>
+                <div class="glass-card p-4 rounded-xl">Dedicated Server</div>
+                <div class="glass-card p-4 rounded-xl">Managed Cloud</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 51: MASTER PROJECT CHECKLIST -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Master Project Checklist</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+                <div class="p-3 bg-pink-950/40 border border-pink-500/30 rounded-xl">✓ Hardware Ready</div>
+                <div class="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl">✓ OS & SSH</div>
+                <div class="p-3 bg-cyan-950/40 border border-cyan-500/30 rounded-xl">✓ Docker App</div>
+                <div class="p-3 bg-orange-950/40 border border-orange-500/30 rounded-xl">✓ Cloudflare Tunnel</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 52: FINAL TEST -->
+        <div class="slide flex-col w-full max-w-4xl py-6 text-center">
+            <h2 class="text-3xl font-bold text-white mb-6">Ujian Akhir (Final Test)</h2>
+
+            <div class="glass-card p-6 rounded-2xl mb-6 font-mono text-sm text-emerald-400">
+                https://app.domainbos.com ➔ HTTP 200 OK
+            </div>
+        </div>
+
+        <!-- SLIDE 53: PROJECT DEMO -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6">Project Demo Sequence</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs font-mono">
+                <div class="glass-card p-3 rounded-lg">1. Hardware Show</div>
+                <div class="glass-card p-3 rounded-lg">2. SSH Login</div>
+                <div class="glass-card p-3 rounded-lg">3. Docker PS</div>
+                <div class="glass-card p-3 rounded-lg">4. Tunnel Status</div>
+                <div class="glass-card p-3 rounded-lg">5. Open Domain</div>
+                <div class="glass-card p-3 rounded-lg">6. HTTPS Check</div>
+            </div>
+        </div>
+
+        <!-- SLIDE 54: QUIZ -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                <i class="fa-solid fa-circle-question text-yellow-400"></i> Uji Kefahaman (Quiz)
+            </h2>
+
+            <div class="space-y-4 text-sm">
+                <!-- Question 1 -->
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="font-semibold text-slate-200 mb-2">1. Kenapa kita guna Docker?</p>
+                    <button onclick="toggleAnswer('q1')" class="text-xs text-blue-400 hover:underline">Lihat Jawapan</button>
+                    <p id="q1" class="hidden text-emerald-400 text-xs mt-2 font-mono">Jawapan: Untuk packaging dan deployment application secara lebih konsisten dan terasing.</p>
+                </div>
+
+                <!-- Question 2 -->
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="font-semibold text-slate-200 mb-2">2. Kenapa database tidak didedahkan terus ke Internet?</p>
+                    <button onclick="toggleAnswer('q2')" class="text-xs text-blue-400 hover:underline">Lihat Jawapan</button>
+                    <p id="q2" class="hidden text-emerald-400 text-xs mt-2 font-mono">Jawapan: Untuk mengurangkan exposure permukaan serangan dan mengawal akses melalui network layer.</p>
+                </div>
+
+                <!-- Question 3 -->
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="font-semibold text-slate-200 mb-2">3. Apakah fungsi Cloudflare Tunnel?</p>
+                    <button onclick="toggleAnswer('q3')" class="text-xs text-blue-400 hover:underline">Lihat Jawapan</button>
+                    <p id="q3" class="hidden text-emerald-400 text-xs mt-2 font-mono">Jawapan: Menghubungkan local application ke Cloudflare melalui outbound tunnel tanpa inbound port forwarding.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 55: FINAL ARCHITECTURE DIAGRAM -->
+        <div class="slide flex-col w-full max-w-4xl py-6">
+            <h2 class="text-2xl font-bold text-white mb-4 text-center">Complete Final Architecture</h2>
+
+            <div class="glass-card p-6 rounded-2xl font-mono text-xs text-slate-300 overflow-x-auto text-center">
+                USERS ➔ INTERNET ➔ CLOUDFLARE ➔ TUNNEL ➔ RASPBERRY PI ➔ DOCKER ➔ APP / DB
+            </div>
+        </div>
+
+        <!-- SLIDE 56: APA YANG KITA DAH GABUNGKAN? -->
+        <div class="slide flex-col w-full max-w-4xl py-6 text-center">
+            <h2 class="text-3xl font-bold text-white mb-6">Ringkasan Integrasi Modul</h2>
+
+            <p class="text-slate-300 text-lg mb-6">
+                Ini bukan 10 sistem yang berasingan — ini adalah satu senibina yang berhubung antara satu sama lain!
+            </p>
+        </div>
+
+        <!-- SLIDE 57: NEXT PROJECT -->
+        <div class="slide flex-col w-full max-w-4xl py-6 text-center">
+            <div class="text-cyan-400 font-mono text-sm mb-2">UP NEXT</div>
+            <h2 class="text-4xl font-extrabold text-white mb-6">Troubleshooting & Debugging</h2>
+
+            <blockquote class="text-xl italic text-slate-300">
+                "Server sebenar bukan hanya tentang membina. Ia juga tentang membaiki."
+            </blockquote>
+        </div>
+
+        <!-- SLIDE 58: PENUTUP -->
+        <div class="slide flex-col items-center justify-center w-full max-w-4xl py-8 text-center">
+            <h1 class="text-4xl sm:text-6xl font-black text-white leading-tight mb-6">
+                Build It.<br>
+                <span class="text-red-400">Secure It.</span><br>
+                <span class="text-emerald-400">Monitor It.</span><br>
+                <span class="text-purple-400">Back It Up.</span><br>
+                <span class="text-yellow-400">Break It. Fix It.</span>
+            </h1>
+
+            <p class="text-slate-400 text-lg font-light mt-4">
+                Itulah cara kita benar-benar belajar self-hosting.
+            </p>
+        </div>
+
+    </main>
+
+    <!-- Footer Navigation Controls -->
+    <footer class="w-full pb-4 px-6 flex items-center justify-between z-40">
+        <button id="prev-btn" onclick="prevSlide()" class="px-5 py-2.5 rounded-xl glass-card hover:bg-slate-800 text-slate-200 transition font-semibold text-xs sm:text-sm flex items-center gap-2">
+            <i class="fa-solid fa-chevron-left"></i> Previous
+        </button>
+
+        <div class="text-xs text-slate-500 font-mono hidden sm:block">
+            Gunakan keyboard <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">→</kbd>
+        </div>
+
+        <button id="next-btn" onclick="nextSlide()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs sm:text-sm shadow-lg transition flex items-center gap-2">
+            Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </footer>
+
+    <!-- Grid Slide Index Modal -->
+    <div id="grid-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex-col p-6 overflow-y-auto">
+        <div class="flex items-center justify-between max-w-6xl w-full mx-auto mb-6">
+            <h3 class="text-xl font-bold text-white font-mono">Slide Index (58 Slides)</h3>
+            <button onclick="toggleGridModal()" class="text-slate-400 hover:text-white text-2xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="grid-container" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 gap-3 max-w-6xl w-full mx-auto font-mono text-xs">
+            <!-- Dynamically populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-16 left-1/2 -translate-x-1/2 px-4 py-2 bg-slate-800 border border-slate-700 text-emerald-400 rounded-lg text-xs font-mono hidden z-50">
+        Copied to clipboard!
+    </div>
+
+    <!-- JavaScript Navigation Logic -->
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        function updateSlide() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // Update Progress Bar & Indicator
+            const progress = ((currentSlide + 1) / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            document.getElementById('slide-indicator').innerText = `Slide ${currentSlide + 1} / ${totalSlides}`;
+
+            // Update Button States
+            document.getElementById('prev-btn').disabled = currentSlide === 0;
+            document.getElementById('next-btn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        function goToSlide(index) {
+            currentSlide = index;
+            updateSlide();
+            toggleGridModal();
+        }
+
+        function toggleGridModal() {
+            const modal = document.getElementById('grid-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function toggleAnswer(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle('hidden');
+        }
+
+        function copyCode(id) {
+            const text = document.getElementById(id).innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            const toast = document.getElementById('toast');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2000);
+        }
+
+        // Generate Grid Modal Items
+        const gridContainer = document.getElementById('grid-container');
+        for (let i = 0; i < totalSlides; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'p-3 rounded-lg glass-card hover:bg-blue-600/30 text-slate-300 text-center font-mono border-slate-800 transition';
+            btn.innerText = `${i + 1}`;
+            btn.onclick = () => goToSlide(i);
+            gridContainer.appendChild(btn);
+        }
+
+        // Keyboard Navigation Listener
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                currentSlide = 0;
+                updateSlide();
+            } else if (e.key === 'End') {
+                currentSlide = totalSlides - 1;
+                updateSlide();
+            }
+        });
+
+        // Initialize First Slide
+        updateSlide();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux Server Fundamentals — Dari Terminal Hingga Self-Hosted Server</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#10b981',
+                            blue: '#3b82f6',
+                            purple: '#a855f7',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            cyan: '#06b6d4'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            overflow: hidden;
+        }
+
+        .slide-container {
+            perspective: 1000px;
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: scale(0.98) translateY(10px);
+            transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        .code-block {
+            font-family: 'Fira Code', monospace;
+            background-color: #050811;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* Custom Scrollbar for slide overflow */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+
+        .glowing-border {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+        }
+
+        .badge-terminal {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .badge-network {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .badge-security {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        .badge-docker {
+            background-color: rgba(6, 182, 212, 0.1);
+            color: #22d3ee;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+        .badge-cloud {
+            background-color: rgba(168, 85, 247, 0.1);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+    </style>
+</head>
+
+<body class="h-full flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-900">
+
+    <header class="h-14 bg-slate-900/90 border-b border-slate-800 backdrop-blur-md px-4 md:px-6 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-3">
+            <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i class="fa-brands fa-linux text-xl"></i>
+            </span>
+            <div>
+                <h1 class="text-sm md:text-base font-bold text-slate-100 tracking-wide flex items-center gap-2">
+                    Linux Server Fundamentals
+                    <span class="hidden sm:inline-block text-xs font-normal text-slate-400">| Dari Terminal Hingga Self-Hosted</span>
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <button onclick="toggleOverviewModal()" class="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-all border border-slate-700/50 flex items-center gap-1.5" title="Index Slide (Grid View)">
+                <i class="fa-solid fa-grid-2"></i>
+                <span class="hidden sm:inline">Index Slide</span>
+            </button>
+            <button onclick="toggleFullscreen()" class="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-all" title="Skrin Penuh">
+                <i class="fa-solid fa-expand" id="fullscreenIcon"></i>
+            </button>
+            <div class="text-xs font-mono font-semibold text-emerald-400 bg-slate-950 px-3 py-1.5 rounded-md border border-slate-800">
+                <span id="slideCounter">01</span> / <span id="totalSlides">47</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Progress Bar -->
+    <div class="w-full bg-slate-800/80 h-1 z-30">
+        <div id="progressBar" class="bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 h-1 transition-all duration-300" style="width: 2%;"></div>
+    </div>
+
+    <!-- MAIN SLIDE CANVAS -->
+    <main class="flex-1 overflow-hidden relative slide-container bg-[#0b0f19] flex items-center justify-center p-4 md:p-8">
+
+        <!-- SLIDE 1: TAJUK -->
+        <section class="slide active w-full max-w-5xl h-full flex-col justify-center items-center text-center space-y-8 custom-scroll overflow-y-auto">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full badge-terminal text-sm font-semibold mb-2">
+                <i class="fa-solid fa-terminal text-xs"></i> Course Module 01
+            </div>
+            <h1 class="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-emerald-300 to-cyan-400 tracking-tight leading-tight">
+                Linux Server Fundamentals
+            </h1>
+            <p class="text-xl md:text-2xl font-medium text-slate-300 max-w-2xl">
+                Dari Terminal Hingga Self-Hosted Server
+            </p>
+
+            <!-- Visual Flow -->
+            <div class="w-full max-w-3xl my-6 p-6 rounded-2xl bg-slate-900/80 border border-slate-800 glowing-border shadow-2xl">
+                <div class="grid grid-cols-1 sm:grid-cols-7 items-center justify-items-center gap-3 text-sm">
+                    <div class="p-4 rounded-xl bg-slate-800/90 border border-slate-700/60 w-full flex flex-col items-center">
+                        <i class="fa-solid fa-laptop text-2xl text-cyan-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Laptop</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="p-4 rounded-xl bg-slate-800/90 border border-amber-500/30 w-full flex flex-col items-center">
+                        <i class="fa-solid fa-key text-2xl text-amber-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">SSH</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="p-4 rounded-xl bg-slate-800/90 border border-emerald-500/30 w-full flex flex-col items-center">
+                        <i class="fa-brands fa-linux text-2xl text-emerald-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Linux Server</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="p-4 rounded-xl bg-slate-800/90 border border-blue-500/30 w-full flex flex-col items-center">
+                        <i class="fa-solid fa-globe text-2xl text-blue-400 mb-2"></i>
+                        <span class="font-semibold text-slate-200">Web App</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 max-w-xl text-slate-300 italic text-sm md:text-base">
+                "Linux bukan sekadar operating system. Ia adalah salah satu asas utama dunia server."
+            </div>
+        </section>
+
+        <!-- SLIDE 2: APA ITU LINUX? -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <div class="flex items-center gap-3">
+                <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <i class="fa-brands fa-linux text-2xl"></i>
+                </span>
+                <h2 class="text-3xl font-bold text-slate-100">Apa Itu Linux?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                    <h3 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip"></i> Realiti Utama: Linux = Kernel
+                    </h3>
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Secara teknikal, <strong>Linux ialah Kernel</strong> — teras perisian yang menguruskan komunikasi antara perkakasan (hardware) dan perisian (software).
+                    </p>
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-2 text-slate-300">
+                        <div class="text-emerald-400 font-semibold">Komposisi Sistem Operasi Kompleks:</div>
+                        <div class="pl-3 border-l-2 border-emerald-500">Linux Kernel</div>
+                        <div class="pl-3 border-l-2 border-emerald-500">+ System Tools</div>
+                        <div class="pl-3 border-l-2 border-emerald-500">+ Libraries</div>
+                        <div class="pl-3 border-l-2 border-emerald-500">+ Package Manager</div>
+                        <div class="pl-3 border-l-2 border-emerald-500">+ Applications</div>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-cyan-400 flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Elakkan Miskonsepsi
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-3">
+                                <i class="fa-solid fa-xmark text-lg shrink-0"></i>
+                                <span><strong>Jangan kata:</strong> "Linux = Ubuntu"</span>
+                            </div>
+                            <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center gap-3">
+                                <i class="fa-solid fa-check text-lg shrink-0"></i>
+                                <span><strong>Sebaliknya:</strong> "Ubuntu ialah sebuah Linux distribution (distro)."</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-800/60 text-xs text-slate-400 leading-relaxed">
+                        Kernel mengendalikan CPU, RAM, Disk, dan peranti I/O. Distro membungkus kernel tersebut dengan program persekitaran yang sedia digunakan.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: APA ITU LINUX DISTRIBUTION? -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-cubes text-blue-400"></i> Apa Itu Linux Distribution (Distro)?
+            </h2>
+            <p class="text-slate-300 text-base">
+                Distribution / Distro ialah <strong>sistem operasi lengkap</strong> yang dibina di atas Linux kernel dengan susunan pakej, installer, dan alat pengurusan perisian tersendiri.
+            </p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div class="p-4 rounded-xl bg-slate-900 border border-amber-500/40 hover:border-amber-400 transition-all text-center space-y-2">
+                    <i class="fa-brands fa-ubuntu text-4xl text-amber-500"></i>
+                    <h3 class="font-bold text-slate-200">Ubuntu</h3>
+                    <p class="text-xs text-slate-400">Paling mesra beginner & popular untuk server</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-rose-500/40 hover:border-rose-400 transition-all text-center space-y-2">
+                    <i class="fa-brands fa-debian text-4xl text-rose-500"></i>
+                    <h3 class="font-bold text-slate-200">Debian</h3>
+                    <p class="text-xs text-slate-400">Induk Ubuntu, terkenal dengan kestabilan ultra</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-blue-500/40 hover:border-blue-400 transition-all text-center space-y-2">
+                    <i class="fa-brands fa-fedora text-4xl text-blue-400"></i>
+                    <h3 class="font-bold text-slate-200">Fedora</h3>
+                    <p class="text-xs text-slate-400">Inovatif, tajaan Red Hat (RHEL)</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-cyan-500/40 hover:border-cyan-400 transition-all text-center space-y-2">
+                    <i class="fa-brands fa-linux text-4xl text-cyan-400"></i>
+                    <h3 class="font-bold text-slate-200">Arch Linux</h3>
+                    <p class="text-xs text-slate-400">Minimalis, kawalan penuh & rolling release</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-emerald-500/40 hover:border-emerald-400 transition-all text-center space-y-2">
+                    <i class="fa-solid fa-mountain text-4xl text-emerald-400"></i>
+                    <h3 class="font-bold text-slate-200">Rocky Linux</h3>
+                    <p class="text-xs text-slate-400">Enterprise grade pengganti CentOS</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-blue-950/40 border border-blue-500/30 text-blue-200 text-sm flex items-center gap-3">
+                <i class="fa-solid fa-circle-info text-xl shrink-0 text-blue-400"></i>
+                <span>Untuk siri pembelajaran ini, kita akan fokus menggunakan <strong>Ubuntu / Debian</strong> sebagai contoh utama command dan konfigurasi.</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: KENAPA LINUX DIGUNAKAN UNTUK SERVER? -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-server text-emerald-400"></i> Kenapa Linux Digunakan Untuk Server?
+            </h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-shield-halved text-emerald-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Stable & Reliable</h4>
+                        <p class="text-xs text-slate-400 mt-1">Boleh berjalan bertahun-tahun tanpa perlu reboot.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-sliders text-cyan-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Flexible & Light</h4>
+                        <p class="text-xs text-slate-400 mt-1">Tiada GUI membazirkan RAM/CPU server.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-terminal text-amber-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Powerful CLI</h4>
+                        <p class="text-xs text-slate-400 mt-1">Kawalan mutlak melalui text command.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-robot text-purple-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Automation</h4>
+                        <p class="text-xs text-slate-400 mt-1">Mudah di-script guna Bash, Python, Ansible.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-[#06b6d4] fa-box-archive text-blue-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Large Ecosystem</h4>
+                        <p class="text-xs text-slate-400 mt-1">Majoriti perisian server berasaskan open-source.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-brands fa-docker text-cyan-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Containers</h4>
+                        <p class="text-xs text-slate-400 mt-1">Platform native untuk Docker & Kubernetes.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-network-wired text-rose-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Remote Admin</h4>
+                        <p class="text-xs text-slate-400 mt-1">Diurus dari jauh secara selamat menggunakan SSH.</p>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
+                    <i class="fa-solid fa-layer-group text-emerald-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-bold text-slate-200 text-sm">Banyak Software</h4>
+                        <p class="text-xs text-slate-400 mt-1">Nginx, Apache, PostgreSQL, Redis sedia ada.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-sm flex items-center gap-3">
+                <i class="fa-solid fa-triangle-exclamation text-2xl text-amber-400 shrink-0"></i>
+                <span><strong>Ingatan PENTING:</strong> "Linux bukan automatik secure hanya kerana ia Linux. Keselamatan bergantung kepada cara kita menyelenggara dan mengkonfigurasikannya!"</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: DESKTOP VS SERVER -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-code-compare text-purple-400"></i> Linux Desktop vs Linux Server
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Desktop -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-800">
+                        <i class="fa-solid fa-desktop text-2xl text-blue-400"></i>
+                        <h3 class="text-xl font-bold text-slate-100">DESKTOP</h3>
+                    </div>
+                    <ul class="space-y-3 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-blue-400"></i> Graphical User Interface (GUI / Display Manager)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-blue-400"></i> Web Browser (Chrome, Firefox)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-blue-400"></i> Office Apps, Media Player, Games</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-blue-400"></i> Direka untuk kegunaan interaktif 1 pengguna</li>
+                    </ul>
+                </div>
+
+                <!-- Server -->
+                <div class="p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 glowing-border space-y-4">
+                    <div class="flex items-center gap-3 pb-3 border-b border-slate-800">
+                        <i class="fa-solid fa-server text-2xl text-emerald-400"></i>
+                        <h3 class="text-xl font-bold text-emerald-400">SERVER</h3>
+                    </div>
+                    <ul class="space-y-3 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-terminal text-emerald-400"></i> Headless (Command Line / SSH sahaja)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-globe text-emerald-400"></i> Web Server (Nginx, Apache)</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-database text-emerald-400"></i> Database, Docker Containers & APIs</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-gears text-emerald-400"></i> Background Services & Automation 24/7</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-300">
+                <i class="fa-solid fa-lightbulb text-amber-400 mr-2"></i>
+                <strong>Penjelasan:</strong> Perbezaan desktop vs server lebih kepada <strong>bagaimana sistem digunakan dan dikonfigurasi</strong> (software yang di-install), bukan semata-mata kerana "Linux server ialah OS yang totally berbeza".
+            </div>
+        </section>
+
+        <!-- SLIDE 6: TERMINAL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100">Terminal ialah salah satu alat utama Linux.</h2>
+
+            <!-- Visual Flow -->
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center">
+                <div class="flex flex-col sm:flex-row items-center justify-around gap-4 text-sm font-semibold">
+                    <div class="px-5 py-3 rounded-xl bg-slate-800 text-slate-200 border border-slate-700">
+                        <i class="fa-solid fa-user text-blue-400 mb-1 block"></i> User
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-5 py-3 rounded-xl bg-slate-800 text-emerald-400 border border-emerald-500/30">
+                        <i class="fa-solid fa-terminal mb-1 block"></i> Terminal (Interface)
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-5 py-3 rounded-xl bg-slate-800 text-cyan-400 border border-cyan-500/30">
+                        <i class="fa-solid fa-code mb-1 block"></i> Shell (Interpreter)
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-5 py-3 rounded-xl bg-slate-800 text-purple-400 border border-purple-500/30">
+                        <i class="fa-brands fa-linux mb-1 block"></i> Linux Kernel
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="font-mono text-emerald-400 font-bold mb-1">whoami</div>
+                    <p class="text-xs text-slate-400">Mengetahui akaun pengguna aktif.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="font-mono text-emerald-400 font-bold mb-1">pwd</div>
+                    <p class="text-xs text-slate-400">Papar direktori kerja semasa (Print Working Directory).</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="font-mono text-emerald-400 font-bold mb-1">ls</div>
+                    <p class="text-xs text-slate-400">Senaraikan kandungan dalam direktori.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300 text-sm">
+                <strong>Tekankan:</strong> <span class="text-emerald-400">Terminal</span> = tetingkap/interface visual tempat anda menaip. <span class="text-cyan-400">Shell</span> = program di sebalik tabir yang mentafsir arahan command anda kepada kernel.
+            </div>
+        </section>
+
+        <!-- SLIDE 7: SHELL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-terminal text-emerald-400"></i> Apa itu Shell?
+            </h2>
+            <p class="text-slate-300 text-base">
+                Shell menerima command input daripada user, memprosesnya, dan menghantarnya ke sistem operasi Linux untuk dijalankan.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-5 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-emerald-400">Bash</span>
+                        <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded">Default</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Bourne Again Shell. Shell standard paling popular pada Ubuntu/Debian server.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span class="font-bold text-cyan-400">Zsh</span>
+                    <p class="text-xs text-slate-400">Z Shell. Sangat popular pada macOS dan desktop dengan plugin Oh-My-Zsh.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span class="font-bold text-purple-400">Fish</span>
+                    <p class="text-xs text-slate-400">Friendly Interactive Shell. Mempunyai auto-suggestion visual terbina.</p>
+                </div>
+            </div>
+
+            <!-- Flow Visual -->
+            <div class="p-5 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-xs text-slate-400 mb-3 font-mono">Aliran Pemprosesan Shell:</div>
+                <div class="flex flex-wrap items-center justify-center gap-3 text-sm font-mono">
+                    <span class="text-blue-400">User (Taip)</span>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <span class="text-emerald-400 font-bold">Bash Shell</span>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <span class="text-amber-400">Command Executed</span>
+                    <i class="fa-solid fa-arrow-right text-slate-600"></i>
+                    <span class="text-purple-400">Linux Kernel Response</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: COMMAND PERTAMA -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-play text-emerald-400"></i> Command Pertama Anda
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- whoami -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-300">1. Semak identiti user</span>
+                        <span class="text-xs text-slate-500 font-mono">whoami</span>
+                    </div>
+                    <div class="code-block p-4 rounded-xl text-xs space-y-2">
+                        <div class="text-slate-400">$ whoami</div>
+                        <div class="text-emerald-400 font-bold">serveruser</div>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        <strong class="text-slate-200">whoami</strong> → memberitahu nama user yang sedang aktif dalam sesi terminal sekarang.
+                    </p>
+                </div>
+
+                <!-- hostname -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-slate-300">2. Semak nama pelayan</span>
+                        <span class="text-xs text-slate-500 font-mono">hostname</span>
+                    </div>
+                    <div class="code-block p-4 rounded-xl text-xs space-y-2">
+                        <div class="text-slate-400">$ hostname</div>
+                        <div class="text-cyan-400 font-bold">server01</div>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        <strong class="text-slate-200">hostname</strong> → memaparkan nama komputer / server tersebut dalam rangkaian.
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 font-mono">
+                Tip: Gabungkan command dengan prompt terminal biasa: <span class="text-emerald-400">serveruser@server01:~$</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: FILESYSTEM LINUX -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-folder-tree text-amber-400"></i> Filesystem Linux (Hierarki Pokok)
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="code-block p-4 rounded-xl text-xs font-mono text-slate-300 space-y-1">
+                    <div class="text-emerald-400 font-bold">/ (Root Directory)</div>
+                    <div class="pl-4">├── home/ <span class="text-slate-500">(User home directories)</span></div>
+                    <div class="pl-4">├── etc/ <span class="text-slate-500">(System Configuration files)</span></div>
+                    <div class="pl-4">├── var/ <span class="text-slate-500">(Variable data: logs, web files)</span></div>
+                    <div class="pl-4">├── usr/ <span class="text-slate-500">(User binaries & programs)</span></div>
+                    <div class="pl-4">├── tmp/ <span class="text-slate-500">(Temporary files)</span></div>
+                    <div class="pl-4">├── opt/ <span class="text-slate-500">(Optional third-party apps)</span></div>
+                    <div class="pl-4">└── root/ <span class="text-slate-500">(Home directory untuk 'root' user)</span></div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-sm space-y-2">
+                        <div class="font-bold flex items-center gap-2 text-rose-400">
+                            <i class="fa-solid fa-triangle-exclamation"></i> JANGAN KELIRUKAN!
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
+                            <div class="p-2 rounded bg-slate-950 border border-rose-900">
+                                <span class="text-emerald-400 font-bold">/</span>
+                                <div class="text-slate-400 font-sans mt-1">Filesystem Root (Puncak segala folder)</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-950 border border-rose-900">
+                                <span class="text-rose-400 font-bold">/root</span>
+                                <div class="text-slate-400 font-sans mt-1">Home folder khas milik Administrator Root</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: HOME DIRECTORY -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-house-user text-blue-400"></i> Home Directory (/home/user)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Setiap pengguna biasa mendapat direktori peribadi di bawah <code>/home/</code>. Tempat kerja anda disimpan di sini.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Structure -->
+                <div class="code-block p-4 rounded-xl text-xs font-mono text-slate-300 space-y-1">
+                    <div class="text-blue-400 font-bold">/home/bos</div>
+                    <div class="pl-4">├── documents/</div>
+                    <div class="pl-4">├── projects/</div>
+                    <div class="pl-4">├── backups/</div>
+                    <div class="pl-4">└── app/</div>
+                </div>
+
+                <!-- Commands -->
+                <div class="space-y-3">
+                    <div class="text-xs font-semibold text-slate-400">Command Berkaitan:</div>
+                    <div class="code-block p-4 rounded-xl text-xs space-y-2 font-mono">
+                        <div class="text-slate-400"># Semak direktori semasa</div>
+                        <div><span class="text-emerald-400">$</span> pwd</div>
+                        <div class="text-slate-500">/home/bos</div>
+                        <div class="text-slate-400 border-t border-slate-800 pt-2"># Masuk ke home directory</div>
+                        <div><span class="text-emerald-400">$</span> cd /home/bos</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11: NAVIGATE FILESYSTEM -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-compass text-emerald-400"></i> Navigasi Filesystem
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold text-sm">pwd</div>
+                    <div class="text-slate-300">Print Working Directory</div>
+                    <p class="text-slate-400 font-sans text-xs">Menunjukkan di mana folder anda berada sekarang.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold text-sm">ls</div>
+                    <div class="text-slate-300">List files</div>
+                    <p class="text-slate-400 font-sans text-xs">Papar senarai fail & folder (guna `ls -la` untuk lihat hidden files).</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold text-sm">cd projects</div>
+                    <div class="text-slate-300">Change Directory</div>
+                    <p class="text-slate-400 font-sans text-xs">Masuk ke dalam folder bernama 'projects'.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold text-sm">cd ..</div>
+                    <div class="text-slate-300">Naik 1 Paras</div>
+                    <p class="text-slate-400 font-sans text-xs">Keluar dari folder semasa ke folder di atasnya.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-1 sm:col-span-2">
+                    <div class="text-emerald-400 font-bold text-sm">cd ~</div>
+                    <div class="text-slate-300">Pintas ke Home Directory</div>
+                    <p class="text-slate-400 font-sans text-xs">Simbol tilde (~) merujuk secara automatik ke home folder user anda.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 12: CREATE FILE & DIRECTORY -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-folder-plus text-cyan-400"></i> Membina Folder & Fail
+            </h2>
+
+            <div class="code-block p-6 rounded-2xl text-xs md:text-sm space-y-3 font-mono">
+                <div class="text-slate-500"># 1. Cipta folder baharu</div>
+                <div><span class="text-emerald-400">$</span> mkdir myserver</div>
+
+                <div class="text-slate-500 border-t border-slate-800 pt-2"># 2. Masuk ke folder tersebut</div>
+                <div><span class="text-emerald-400">$</span> cd myserver</div>
+
+                <div class="text-slate-500 border-t border-slate-800 pt-2"># 3. Cipta fail kosong 'index.html'</div>
+                <div><span class="text-emerald-400">$</span> touch index.html</div>
+
+                <div class="text-slate-500 border-t border-slate-800 pt-2"># 4. Cipta sub-folder 'logs' dan fail log</div>
+                <div><span class="text-emerald-400">$</span> mkdir logs</div>
+                <div><span class="text-emerald-400">$</span> touch logs/app.log</div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <span class="font-bold text-emerald-400 font-mono">mkdir</span> = Make Directory (Mencipta folder baharu).
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <span class="font-bold text-emerald-400 font-mono">touch</span> = Mencipta fail kosong baharu / mengemaskini timestamp fail.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 13: COPY, MOVE & DELETE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-copy text-amber-400"></i> Copy, Move & Delete
+            </h2>
+
+            <div class="code-block p-5 rounded-2xl text-xs space-y-3 font-mono">
+                <div><span class="text-emerald-400">$</span> cp index.html backup.html <span class="text-slate-500"># Salin (Copy)</span></div>
+                <div><span class="text-emerald-400">$</span> mv backup.html old.html <span class="text-slate-500"># Pindah / Tukar Nama (Move/Rename)</span></div>
+                <div><span class="text-emerald-400">$</span> rm old.html <span class="text-slate-500"># Padam Fail (Remove)</span></div>
+                <div><span class="text-emerald-400">$</span> rmdir logs <span class="text-slate-500"># Padam Folder Kosong</span></div>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-rose-950/50 border border-rose-500/50 text-rose-200 text-sm space-y-2">
+                <div class="font-bold flex items-center gap-2 text-rose-400 text-base">
+                    <i class="fa-solid fa-skull-crossbones"></i> AMARAN KESELAMATAN PENTING!
+                </div>
+                <p>
+                    Command <code>rm</code> memadam fail <strong>secara kekal serta-merta tanpa ada Recycle Bin / Trash Folder!</strong>
+                </p>
+                <div class="font-semibold text-white bg-rose-900/60 p-2 rounded border border-rose-700 mt-2 text-xs">
+                    "Jangan pernah gunakan command 'rm -rf' secara rawak pada server pengeluaran!"
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14: CAT & LESS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-file-lines text-purple-400"></i> Membaca Fail: cat vs less
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- cat -->
+                <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                    <div class="font-mono font-bold text-emerald-400 text-lg">cat index.html</div>
+                    <p class="text-slate-300 text-xs leading-relaxed">
+                        Memaparkan keseluruhan kandungan fail ke terminal dalam satu hentakan.
+                    </p>
+                    <div class="p-3 rounded-lg bg-slate-950 text-xs text-slate-400 font-mono">
+                        Sesuai untuk: Fail pendek/ringkas.
+                    </div>
+                </div>
+
+                <!-- less -->
+                <div class="p-5 rounded-2xl bg-slate-900 border border-purple-500/30 space-y-3">
+                    <div class="font-mono font-bold text-purple-400 text-lg">less index.html</div>
+                    <p class="text-slate-300 text-xs leading-relaxed">
+                        Membuka mod pembaca interaktif. Boleh skrol atas/bawah guna papan kekunci. Tekan <strong>'q'</strong> untuk keluar.
+                    </p>
+                    <div class="p-3 rounded-lg bg-slate-950 text-xs text-purple-300 font-mono">
+                        Sesuai untuk: Log server & fail teks yang sangat panjang.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15: USERS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-users text-cyan-400"></i> Pengguna dalam Linux (Users)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Linux ialah sistem pelbagai pengguna (multi-user OS). Terdapat pelbagai akaun pengguna khas dengan peranan tertentu:
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="p-5 rounded-xl bg-slate-900 border border-rose-500/40 space-y-2">
+                    <span class="font-bold text-rose-400 text-base">root</span>
+                    <p class="text-xs text-slate-400">Superuser / Administrator dengan hak akses tanpa had.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-2">
+                    <span class="font-bold text-emerald-400 text-base">serveruser</span>
+                    <p class="text-xs text-slate-400">Akaun pengguna biasa untuk tugasan harian pentadbir.</p>
+                </div>
+                <div class="p-5 rounded-xl bg-slate-900 border border-blue-500/40 space-y-2">
+                    <span class="font-bold text-blue-400 text-base">www-data</span>
+                    <p class="text-xs text-slate-400">System user khas yang menjalankan Web Server (Nginx/Apache).</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+                <div><span class="text-slate-500 block">Identiti</span> UID (User ID)</div>
+                <div><span class="text-slate-500 block">Folder</span> Home Directory</div>
+                <div><span class="text-slate-500 block">Hak</span> Permissions</div>
+                <div><span class="text-slate-500 block">Kumpulan</span> Groups</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 16: ROOT -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-rose-400 flex items-center gap-3">
+                <i class="fa-solid fa-crown"></i> Root = Kuasa Penuh
+            </h2>
+
+            <p class="text-slate-300 text-base">
+                User <strong>root</strong> boleh melakukan apa sahaja operasi pada sistem termasuk memadam fail sistem teras.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6 rounded-2xl bg-rose-950/30 border border-rose-500/40 space-y-3">
+                    <h3 class="text-lg font-bold text-rose-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-xmark"></i> AMALAN BURUK
+                    </h3>
+                    <p class="text-slate-300 text-xs leading-relaxed">
+                        ❌ Login dan membuat semua kerja harian terus menggunakan akaun <strong>root</strong>. Kesilapan kecil menaip boleh merosakkan seluruh server.
+                    </p>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 space-y-3">
+                    <h3 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check"></i> AMALAN TERBAIK (BEST PRACTICE)
+                    </h3>
+                    <p class="text-slate-300 text-xs leading-relaxed">
+                        ✓ Login sebagai <strong>Normal User</strong>, kemudian gunakan command <code>sudo</code> HANYA apabila memerlukan kebenaran khas.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17: SUDO -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-user-shield text-amber-400"></i> Apa Itu sudo?
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                <strong>sudo</strong> (Superuser Do) membolehkan pengguna biasa yang diberi kebenaran menjalankan command administrative tanpa perlu menukar akaun ke root.
+            </p>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono text-emerald-400">
+                $ sudo apt update
+            </div>
+
+            <!-- Visual Flow -->
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+                <div class="flex flex-col sm:flex-row items-center justify-around gap-3 text-xs md:text-sm font-semibold text-center">
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300">Normal User</div>
+                    <i class="fa-solid fa-arrow-right text-amber-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-amber-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40">sudo Command</div>
+                    <i class="fa-solid fa-arrow-right text-amber-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-amber-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-emerald-400">Elevated Privilege</div>
+                    <i class="fa-solid fa-arrow-right text-amber-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-amber-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-cyan-400">System Operation</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18: GROUPS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-people-group text-blue-400"></i> Kumpulan Pengguna (Groups)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Groups memudahkan pengurusan hak akses untuk sekumpulan pengguna serentak.
+            </p>
+
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center">
+                <div class="flex items-center gap-4 text-sm font-mono">
+                    <span class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300">User</span>
+                    <i class="fa-solid fa-arrow-right text-blue-400"></i>
+                    <span class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/40">Group (contoh: 'sudo', 'docker')</span>
+                    <i class="fa-solid fa-arrow-right text-blue-400"></i>
+                    <span class="px-4 py-2 rounded-lg bg-slate-800 text-emerald-400">Access Control</span>
+                </div>
+            </div>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div class="text-slate-400"># Semak kumpulan yang dianggotai oleh user anda</div>
+                <div><span class="text-emerald-400">$</span> groups</div>
+                <div class="text-slate-300">serveruser sudo docker www-data</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 19: FILE PERMISSIONS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-lock text-amber-400"></i> File Permissions (Kebenaran Akses)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-center text-lg md:text-2xl font-mono text-emerald-400 tracking-widest">
+                -rwxr-xr--
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                <div class="p-4 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-1">
+                    <div class="text-emerald-400 font-bold">Owner (rwx)</div>
+                    <div class="text-slate-300">Read + Write + Execute</div>
+                    <p class="text-slate-400 font-sans text-xs">Pemilik fail mempunyai kawalan penuh.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-blue-500/30 space-y-1">
+                    <div class="text-blue-400 font-bold">Group (r-x)</div>
+                    <div class="text-slate-300">Read + Execute</div>
+                    <p class="text-slate-400 font-sans text-xs">Ahli kumpulan boleh membaca & menjalankan fail.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-rose-500/30 space-y-1">
+                    <div class="text-rose-400 font-bold">Others (r--)</div>
+                    <div class="text-slate-300">Read sahaja</div>
+                    <p class="text-slate-400 font-sans text-xs">Orang awam hanya boleh membaca fail.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div><span class="text-amber-400">r</span> = Read (4)</div>
+                <div><span class="text-amber-400">w</span> = Write (2)</div>
+                <div><span class="text-amber-400">x</span> = Execute (1)</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 20: CHMOD -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-key text-emerald-400"></i> Menukar Permission (chmod)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div class="text-slate-400"># Beri kebenaran 'execute' pada fail script</div>
+                <div><span class="text-emerald-400">$</span> chmod +x script.sh</div>
+                <div class="text-slate-400 border-t border-slate-800 pt-2"># Jalankan script</div>
+                <div><span class="text-emerald-400">$</span> ./script.sh</div>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-sm space-y-2">
+                <div class="font-bold flex items-center gap-2 text-amber-400">
+                    <i class="fa-solid fa-triangle-exclamation"></i> AMARAN KESELAMATAN CHMOD 777
+                </div>
+                <p>
+                    Jangan galakkan penggunaan <code>chmod 777</code> secara sebarangan (ia memberi kebenaran baca/tulis/jalan kepada semua orang di dunia!).
+                </p>
+                <div class="text-xs font-semibold text-white bg-amber-900/40 p-2 rounded">
+                    "Gunakan prinsip Least Privilege: berikan permission minimum yang diperlukan sahaja."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 21: CHOWN -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-user-gear text-cyan-400"></i> Menukar Hak Milik (chown)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Command <strong>chown</strong> (change owner) digunakan untuk menukar pemilik (user) dan kumpulan (group) bagi sesuatu fail atau direktori.
+            </p>
+
+            <div class="code-block p-4 rounded-xl text-xs md:text-sm font-mono space-y-2">
+                <div class="text-slate-400"># Menukar owner & group fail app.log kepada serveruser</div>
+                <div><span class="text-emerald-400">$</span> sudo chown serveruser:serveruser app.log</div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2">
+                <span class="font-bold text-cyan-400">Kenapa chown penting?</span>
+                <p class="text-slate-400 leading-relaxed">
+                    Aplikasi web seperti Nginx (www-data) atau Docker perlukan pemilikan fail yang betul untuk membaca atau menulis fail log/data tanpa ralat "Permission Denied".
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 22: PACKAGE MANAGER -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-box-archive text-emerald-400"></i> Package Manager (APT)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Pada Ubuntu & Debian, <strong>APT</strong> (Advanced Package Tool) membolehkan pemasangan dan pengurusan perisian dilakukan dengan pantas secara automatik.
+            </p>
+
+            <div class="code-block p-5 rounded-2xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> sudo apt update <span class="text-slate-500"># Kemaskini senarai pakej</span></div>
+                <div><span class="text-emerald-400">$</span> sudo apt upgrade <span class="text-slate-500"># Muat turun & kemaskini versi perisian</span></div>
+                <div><span class="text-emerald-400">$</span> sudo apt install nginx <span class="text-slate-500"># Install web server Nginx</span></div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs">
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">Install Apps</div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">Update Software</div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">Remove Apps</div>
+                <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-300">Manage Dependencies</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 23: UPDATE VS UPGRADE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-arrows-rotate text-amber-400"></i> apt update vs apt upgrade
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                    <div class="font-mono font-bold text-emerald-400 text-base">sudo apt update</div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Hanya <strong>memuat turun katalog/senarai versi terkini</strong> dari repository server. Ia BELUM menukar atau mengemaskini sebarang fail program.
+                    </p>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-slate-900 border border-blue-500/30 space-y-3">
+                    <div class="font-mono font-bold text-blue-400 text-base">sudo apt upgrade</div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Sebenar-benarnya <strong>memuat turun dan memasang kemaskini</strong> perisian sedia ada ke versi terkini berdasarkan katalog apt update.
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400">
+                Langkah yang betul: Sentiasa jalankan <code class="text-emerald-400">apt update</code> terlebih dahulu sebelum <code class="text-blue-400">apt upgrade</code>!
+            </div>
+        </section>
+
+        <!-- SLIDE 24: INSTALL WEB SERVER -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-globe text-emerald-400"></i> Memasang Web Server (Nginx)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> sudo apt install nginx</div>
+                <div><span class="text-emerald-400">$</span> systemctl status nginx</div>
+            </div>
+
+            <!-- Flow -->
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+                <div class="text-xs font-semibold text-slate-400 mb-4 text-center">Aliran Capaian Pelayan Web:</div>
+                <div class="flex flex-col sm:flex-row items-center justify-around gap-3 text-xs font-semibold">
+                    <div class="px-4 py-3 rounded-xl bg-slate-800 text-blue-400">Browser User</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-3 rounded-xl bg-slate-800 text-emerald-400">Linux Host</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-3 rounded-xl bg-slate-800 text-amber-400">Nginx Service</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-3 rounded-xl bg-slate-800 text-cyan-400">Web Content (/var/www/html)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 25: SERVICES -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-gears text-purple-400"></i> Services (Perkhidmatan Latar Belakang)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Server menjalankan pelbagai perkhidmatan latar belakang (daemons) yang sentiasa bersedia menerima permintaan.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                    <div class="text-emerald-400 font-bold text-sm mb-1">nginx</div>
+                    <div class="text-slate-400">Merapatkan web trafik HTTP/HTTPS</div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                    <div class="text-amber-400 font-bold text-sm mb-1">ssh</div>
+                    <div class="text-slate-400">Mengendalikan sambungan kawalan jauh</div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                    <div class="text-cyan-400 font-bold text-sm mb-1">docker</div>
+                    <div class="text-slate-400">Mengurus kontena aplikasi</div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex justify-around text-xs font-semibold text-slate-300">
+                <span class="text-emerald-400">start</span>
+                <span class="text-rose-400">stop</span>
+                <span class="text-amber-400">restart</span>
+                <span class="text-blue-400">enable</span>
+                <span class="text-slate-500">disable</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 26: SYSTEMCTL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-sliders text-emerald-400"></i> Mengurus Service dengan systemctl
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> sudo systemctl status nginx <span class="text-slate-500"># Semak status</span></div>
+                <div><span class="text-emerald-400">$</span> sudo systemctl start nginx <span class="text-slate-500"># Mula service</span></div>
+                <div><span class="text-emerald-400">$</span> sudo systemctl stop nginx <span class="text-slate-500"># Hentikan service</span></div>
+                <div><span class="text-emerald-400">$</span> sudo systemctl restart nginx <span class="text-slate-500"># Reboot service</span></div>
+            </div>
+
+            <div class="p-5 rounded-2xl bg-slate-900 border border-amber-500/30 text-xs text-slate-300 space-y-2">
+                <div class="font-bold text-amber-400 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb"></i> PERBEZAAN PENTING: start vs enable
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono mt-2">
+                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span class="text-emerald-400 font-bold">start</span>
+                        <div class="text-slate-400 font-sans mt-1">Mula menjalankan service SEKARANG secara serta-merta.</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                        <span class="text-blue-400 font-bold">enable</span>
+                        <div class="text-slate-400 font-sans mt-1">Mengaktifkan service supaya auto-start setiap kali server reboot.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 27: JOURNALCTL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-scroll text-cyan-400"></i> Kalau Service Bermasalah, Tengok Log (journalctl)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-3">
+                <div class="text-slate-400"># Semak semua log bagi perkhidmatan Nginx</div>
+                <div><span class="text-emerald-400">$</span> sudo journalctl -u nginx</div>
+
+                <div class="text-slate-400 border-t border-slate-800 pt-2"># Papar 50 baris log yang paling terkini</div>
+                <div><span class="text-emerald-400">$</span> sudo journalctl -u nginx -n 50</div>
+
+                <div class="text-slate-400 border-t border-slate-800 pt-2"># Follow log secara langsung (live output)</div>
+                <div><span class="text-emerald-400">$</span> sudo journalctl -u nginx -f</div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-cyan-200">
+                <i class="fa-solid fa-magnifying-glass mr-2"></i> <strong>journalctl</strong> membantu anda membaca systemd journal untuk mencari punca error apabila aplikasi gagal bermula.
+            </div>
+        </section>
+
+        <!-- SLIDE 28: PROCESS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-microchip text-blue-400"></i> Memantau Process (ps & top)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Program yang sedang aktif berjalan di memori dipanggil sebagai <strong>Process</strong>.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                    <div class="text-emerald-400 font-bold">$ ps aux</div>
+                    <div class="text-slate-400">Memaparkan snapshot penuh senarai semua proses dalam sistem.</div>
+                </div>
+                <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                    <div class="text-cyan-400 font-bold">$ top</div>
+                    <div class="text-slate-400">Paparan monitor masa-nyata (real-time) bagi penggunaan CPU dan RAM.</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-center text-xs font-mono">
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-emerald-400">CPU Usage</div>
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-cyan-400">RAM / Memory</div>
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-amber-400">PID (Process ID)</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 29: PID -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-fingerprint text-amber-400"></i> Mengenali PID (Process ID)
+            </h2>
+
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
+                <div class="inline-block px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200">
+                    Process Nginx <i class="fa-solid fa-arrow-right mx-2 text-amber-400"></i> <span class="text-amber-400 font-bold">PID 1234</span>
+                </div>
+                <p class="text-xs text-slate-400 max-w-md mx-auto">
+                    Setiap proses diberikan nombor unik ID dipanggil PID oleh kernel Linux untuk pengenalan dan kawalan.
+                </p>
+            </div>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div class="text-slate-400"># Menamatkan proses bermasalah menggunakan PID</div>
+                <div><span class="text-emerald-400">$</span> sudo kill 1234</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 30: NETWORKING DALAM LINUX -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-network-wired text-blue-400"></i> Networking Dalam Linux (Command Moden)
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+                <div class="p-5 rounded-xl bg-slate-900 border border-blue-500/30 space-y-2">
+                    <div class="text-blue-400 font-bold text-sm">ip addr</div>
+                    <div class="text-slate-300">Network Interfaces & IP</div>
+                    <p class="text-slate-400 font-sans text-xs">Papar senarai kad rangkaian dan alamat IP yang ditetapkan.</p>
+                </div>
+
+                <div class="p-5 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-2">
+                    <div class="text-emerald-400 font-bold text-sm">ip route</div>
+                    <div class="text-slate-300">Routing Table</div>
+                    <p class="text-slate-400 font-sans text-xs">Menunjukkan haluan trafik internet & Default Gateway.</p>
+                </div>
+
+                <div class="p-5 rounded-xl bg-slate-900 border border-amber-500/30 space-y-2">
+                    <div class="text-amber-400 font-bold text-sm">ss -tulpn</div>
+                    <div class="text-slate-300">Listening Sockets</div>
+                    <p class="text-slate-400 font-sans text-xs">Papar port-port yang sedang terbuka dan sedia mendengar sambungan.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 text-center">
+                Gabungan konsep terdahulu: <strong>Private IP</strong>, <strong>Public IP</strong>, <strong>Port</strong>, dan <strong>Gateway</strong>.
+            </div>
+        </section>
+
+        <!-- SLIDE 31: CHECK IP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-chart-network text-emerald-400"></i> Memeriksa IP Server (ip addr)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> ip addr</div>
+                <div class="text-slate-400">2: eth0: &lt;BROADCAST,MULTICAST,UP&gt; inet <span class="text-emerald-400 font-bold">192.168.1.10/24</span></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span class="font-bold text-emerald-400">Private IP Contoh</span>
+                    <div class="font-mono text-slate-200">192.168.1.10</div>
+                    <p class="text-slate-400">Digunakan untuk perhubungan sesama peranti dalam rangkaian rumah/LAN.</p>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span class="font-bold text-cyan-400">Documentation Public IP (RFC 5737)</span>
+                    <div class="font-mono text-slate-200">203.0.113.10</div>
+                    <p class="text-slate-400">IP contoh yang digunakan untuk tujuan dokumentasi dan tutorial selamat.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 32: LISTENING PORT -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-door-open text-amber-400"></i> Memeriksa Listening Ports (ss -tulpn)
+            </h2>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> ss -tulpn</div>
+                <div class="text-slate-400">0.0.0.0:<span class="text-amber-400">22</span> &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-slate-500">→ SSH Service</span></div>
+                <div class="text-slate-400">0.0.0.0:<span class="text-emerald-400">80</span> &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-slate-500">→ Nginx Web Server</span></div>
+                <div class="text-slate-400">127.0.0.1:<span class="text-cyan-400">8080</span> &nbsp;<span class="text-slate-500">→ Local App Only</span></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="font-mono font-bold text-amber-400">0.0.0.0</div>
+                    <p class="text-slate-300 mt-1">Dengar (listen) pada SEMUA interface rangkaian IPv4 server.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="font-mono font-bold text-cyan-400">127.0.0.1</div>
+                    <p class="text-slate-300 mt-1">Hanya boleh diakses dari dalam server itu sendiri (Localhost sahaja).</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 33: SSH -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-terminal text-emerald-400"></i> Remote Access Dengan SSH
+            </h2>
+
+            <!-- Flow -->
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+                <div class="flex flex-col sm:flex-row items-center justify-around gap-3 text-xs md:text-sm font-semibold">
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-cyan-400">Laptop Local</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-blue-400">Internet / LAN</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">SSH (Port 22 Encrypted)</div>
+                    <i class="fa-solid fa-arrow-right text-emerald-400 hidden sm:block"></i>
+                    <i class="fa-solid fa-arrow-down text-emerald-400 sm:hidden"></i>
+                    <div class="px-4 py-2 rounded-lg bg-slate-800 text-emerald-400">Linux Server</div>
+                </div>
+            </div>
+
+            <div class="code-block p-4 rounded-xl text-xs md:text-sm font-mono text-emerald-400">
+                $ ssh serveruser@192.168.1.10
+            </div>
+
+            <p class="text-xs text-slate-400 text-center">
+                SSH (Secure Shell) membolehkan kita menguruskan pelayan di mana jua tanpa memerlukan skrin monitor atau papan kekunci fizikal dipasang pada server.
+            </p>
+        </section>
+
+        <!-- SLIDE 34: SSH KEY AUTHENTICATION -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-key text-amber-400"></i> SSH Key Authentication (Pengesahan Kunci)
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-user-lock text-amber-400 text-2xl"></i>
+                        <div>
+                            <div class="font-bold text-slate-200 text-sm">Laptop (Kunci Rahsia)</div>
+                            <div class="text-xs text-amber-400 font-mono">🔑 Private Key (id_rsa)</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 border-t border-slate-800 pt-3">
+                        <i class="fa-solid fa-server text-emerald-400 text-2xl"></i>
+                        <div>
+                            <div class="font-bold text-slate-200 text-sm">Server (Mangsub Awam)</div>
+                            <div class="text-xs text-emerald-400 font-mono">🔓 Public Key (authorized_keys)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs space-y-3">
+                    <div class="font-bold text-rose-400 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i> RULES KUNCI KESELAMATAN:
+                    </div>
+                    <p>
+                        <strong>Private key</strong> mestilah KEKAL RAHSIA dalam komputer anda sahaja.
+                    </p>
+                    <div class="bg-rose-900/40 p-2 rounded border border-rose-700">
+                        "JANGAN PERNAH upload Private Key anda ke GitHub, Discord, atau tempat awam!"
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 35: FIREWALL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-fire-flame-curved text-rose-500"></i> Linux Firewall (UFW)
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Pada Ubuntu, <strong>UFW</strong> (Uncomplicated Firewall) digunakan untuk mengawal akses masuk dan keluar ke port server.
+            </p>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div><span class="text-emerald-400">$</span> sudo ufw status</div>
+                <div><span class="text-emerald-400">$</span> sudo ufw allow 22/tcp <span class="text-slate-500"># Benarkan SSH</span></div>
+                <div><span class="text-emerald-400">$</span> sudo ufw allow 80/tcp <span class="text-slate-500"># Benarkan HTTP</span></div>
+                <div><span class="text-emerald-400">$</span> sudo ufw enable <span class="text-slate-500"># Aktifkan Firewall</span></div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>AMARAN:</strong> Sentiasa benarkan (allow) port SSH (22) TERLEBIH DAHULU sebelum mengaktifkan UFW, jika tidak anda akan terkunci di luar server anda sendiri!
+            </div>
+        </section>
+
+        <!-- SLIDE 36: SERVER ARCHITECTURE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-sitemap text-purple-400"></i> Server Architecture Overview
+            </h2>
+
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 text-center">
+                <div class="font-mono text-xs text-blue-400 font-bold">INTERNET</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="font-mono text-xs text-amber-400 font-bold">ROUTER / FIREWALL (UFW)</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/40 max-w-xl mx-auto space-y-2">
+                    <div class="font-bold text-emerald-400 text-sm">LINUX SERVER OS</div>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300">
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">Nginx Reverse Proxy</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">Docker Engine</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">Python Web App</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">Database (Postgres)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 37: LINUX + DOCKER -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-brands fa-docker text-cyan-400"></i> Linux + Docker Integration
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Docker bergantung secara langsung pada ciri teras Linux Kernel (seperti cgroups dan namespaces) untuk menjalankan kontena yang terpencil.
+            </p>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-1">
+                <div class="text-slate-200">Hardware Server (CPU, RAM, Disk)</div>
+                <div class="pl-4 text-emerald-400">└── Linux Host Kernel</div>
+                <div class="pl-8 text-cyan-400">└── Docker Engine Daemon</div>
+                <div class="pl-12 text-slate-300">├── Container: Web App (Python/Node)</div>
+                <div class="pl-12 text-slate-300">├── Container: Database (PostgreSQL)</div>
+                <div class="pl-12 text-slate-300">└── Container: Nginx Reverse Proxy</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 38: LINUX + CLOUDFLARE TUNNEL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-cloud text-purple-400"></i> Linux + Cloudflare Tunnel
+            </h2>
+
+            <p class="text-slate-300 text-sm">
+                Linux server boleh menjalankan perkhidmatan <code>cloudflared</code> sebagai background service (systemd) untuk menyambung server ke luar tanpa membuka port router!
+            </p>
+
+            <!-- Architecture -->
+            <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-mono">
+                <div class="flex flex-wrap items-center justify-center gap-2 text-center">
+                    <span class="p-2 rounded bg-blue-950 text-blue-300">Internet Client</span>
+                    <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                    <span class="p-2 rounded bg-purple-950 text-purple-300">Cloudflare Edge</span>
+                    <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                    <span class="p-2 rounded bg-slate-800 text-amber-300">Encrypted Tunnel</span>
+                    <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                    <span class="p-2 rounded bg-emerald-950 text-emerald-300">cloudflared (Linux Service)</span>
+                    <i class="fa-solid fa-arrow-right text-purple-400"></i>
+                    <span class="p-2 rounded bg-slate-800 text-cyan-300">Local Web App</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 39: LINUX + SELF-HOSTING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-cubes-stacked text-emerald-400"></i> Linux + Self-Hosting Integration
+            </h2>
+
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+                <p class="text-base text-slate-200 text-center font-medium">
+                    "Linux menjadi platform induk tempat semua komponen self-hosting kita berjalan serentak secara harmoni."
+                </p>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-center font-mono">
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-emerald-400">Systemd Services</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-cyan-400">Docker Containers</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-amber-400">Automated Backups</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-purple-400">Security & Firewalls</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 40: BASIC SERVER HARDENING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-shield-virus text-amber-400"></i> Basic Server Hardening Checklist
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Kemaskini sistem kerap (apt update & upgrade)</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Tutup & disable service tidak terpakai</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Konfigurasi UFW Firewall dengan betul</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Guna SSH Key & Disable Password Auth</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Terapkan prinsip Least Privilege & Sudo</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Lindungi rahsia & fail environment (.env)</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Pantau system logs (journalctl)</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <i class="fa-regular fa-square-check text-emerald-400 text-base"></i>
+                    <span>Uji proses Pemulihan Backup (Disaster Recovery)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 41: SERVER TROUBLESHOOTING FLOW -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-stethoscope text-rose-400"></i> Server Troubleshooting Flow
+            </h2>
+
+            <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+                <div class="flex flex-wrap items-center justify-center gap-2 text-xs font-mono font-bold">
+                    <span class="p-2 bg-slate-800 rounded text-slate-200">1. SERVER ALIVE?</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400"></i>
+                    <span class="p-2 bg-slate-800 rounded text-blue-400">2. NETWORK IP?</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400"></i>
+                    <span class="p-2 bg-slate-800 rounded text-amber-400">3. SERVICE RUNNING?</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400"></i>
+                    <span class="p-2 bg-slate-800 rounded text-emerald-400">4. PORT LISTENING?</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400"></i>
+                    <span class="p-2 bg-slate-800 rounded text-purple-400">5. FIREWALL OK?</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400"></i>
+                    <span class="p-2 bg-slate-800 rounded text-cyan-400">6. READ LOGS!</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 42: TROUBLESHOOTING EXAMPLE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-bug text-rose-400"></i> Situasi Troubleshooting Sebenar
+            </h2>
+
+            <div class="p-4 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-300 text-xs font-medium">
+                Situasi: "Pelayar web menunjukkan error 'Connection Refused' semasa membuka laman web."
+            </div>
+
+            <div class="code-block p-4 rounded-xl text-xs font-mono space-y-2">
+                <div class="text-slate-500"># Command Diagnostik Berperingkat:</div>
+                <div><span class="text-emerald-400">$</span> ip addr <span class="text-slate-500"># Semak rangkaian</span></div>
+                <div><span class="text-emerald-400">$</span> ss -tulpn <span class="text-slate-500"># Semak adakah port 80/443 sedia</span></div>
+                <div><span class="text-emerald-400">$</span> systemctl status nginx <span class="text-slate-500"># Semak status web server</span></div>
+                <div><span class="text-emerald-400">$</span> journalctl -u nginx -n 50 <span class="text-slate-500"># Semak punca crash</span></div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900 text-xs text-slate-300">
+                <strong class="text-emerald-400">Nasihat Guru:</strong> Jangan terus format atau reinstall server. Cari dan selesaikan masalah mengikut lapisan (layer by layer).
+            </div>
+        </section>
+
+        <!-- SLIDE 43: HOME SERVER -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-house-laptop text-emerald-400"></i> Senibina Home Server
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <div class="text-emerald-400 font-bold text-sm">Rangkaian Dalaman (Home LAN)</div>
+                    <div>Router IP: 192.168.1.1</div>
+                    <div>Linux Server IP: 192.168.1.10</div>
+                    <div>Docker Apps running: Port 8080, 9000</div>
+                </div>
+
+                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <div class="text-cyan-400 font-bold text-sm">Capaian Luar (External Access)</div>
+                    <div><strong>Opsyen A:</strong> Public IP (203.0.113.10) + Port Forwarding</div>
+                    <div><strong>Opsyen B:</strong> Cloudflare Tunnel (Tanpa Port Forwarding)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 44: LINUX COMMAND CHEAT SHEET -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-4 custom-scroll overflow-y-auto">
+            <h2 class="text-2xl md:text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-table text-amber-400"></i> Linux Command Cheat Sheet
+            </h2>
+
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+                <table class="w-full text-xs font-mono text-left text-slate-300">
+                    <thead class="bg-slate-900 text-emerald-400 uppercase text-[10px]">
+                        <tr>
+                            <th class="p-3">Command</th>
+                            <th class="p-3">Fungsi Ringkas</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800 bg-slate-950">
+                        <tr><td class="p-2.5 font-bold text-emerald-400">pwd</td><td class="p-2.5">Papar direktori aktif (Print Working Directory)</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">ls</td><td class="p-2.5">Senarai fail & folder</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">cd</td><td class="p-2.5">Tukar direktori kerja</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">mkdir / touch</td><td class="p-2.5">Cipta folder baharu / cipta fail kosong</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">cp / mv / rm</td><td class="p-2.5">Salin / Pindah & Tukar Nama / Padam fail</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">cat / less</td><td class="p-2.5">Baca kandungan teks fail</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">chmod / chown</td><td class="p-2.5">Tukar kebenaran permission / pemilik fail</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">sudo / apt</td><td class="p-2.5">Hak admin / Pengurusan Pakej Perisian</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">systemctl / journalctl</td><td class="p-2.5">Urus service background / semak sistem log</td></tr>
+                        <tr><td class="p-2.5 font-bold text-emerald-400">ip / ss / ssh</td><td class="p-2.5">IP address / Listening Ports / Remote Control</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SLIDE 45: QUIZ -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                    <i class="fa-solid fa-graduation-cap text-emerald-400"></i> Uji Kefahaman (Quiz Interaktif)
+                </h2>
+                <div id="quizScoreDisplay" class="text-xs font-mono px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Skor: 0 / 5
+                </div>
+            </div>
+
+            <div id="quizContainer" class="space-y-4">
+                <!-- Quiz Question Card injected dynamically via JS -->
+            </div>
+        </section>
+
+        <!-- SLIDE 46: FINAL ARCHITECTURE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6 custom-scroll overflow-y-auto">
+            <h2 class="text-3xl font-bold text-slate-100 flex items-center gap-3">
+                <i class="fa-solid fa-network-wired text-cyan-400"></i> Full Ecosystem Architecture
+            </h2>
+
+            <!-- Diagram -->
+            <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center font-mono text-xs space-y-2">
+                <div class="p-2 bg-blue-950 text-blue-300 rounded max-w-xs mx-auto">INTERNET</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="p-2 bg-purple-950 text-purple-300 rounded max-w-xs mx-auto">CLOUDFLARE TUNNEL</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="p-2 bg-slate-950 text-amber-300 rounded max-w-xs mx-auto">HOME ROUTER & FIREWALL</div>
+                <div class="text-slate-600"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="p-4 bg-slate-950 border border-emerald-500/40 rounded-xl space-y-3">
+                    <div class="font-bold text-emerald-400 text-sm">LINUX SERVER (UBUNTU / DEBIAN)</div>
+                    <div class="grid grid-cols-2 gap-3 text-slate-200">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">NGINX / REVERSE PROXY</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">DOCKER ENGINE</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 47: PENUTUP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-center items-center text-center space-y-8 custom-scroll overflow-y-auto">
+            <div class="p-3 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-3xl">
+                <i class="fa-brands fa-linux"></i>
+            </div>
+
+            <h2 class="text-4xl md:text-5xl font-extrabold text-slate-100">
+                Linux Server = Foundation
+            </h2>
+
+            <div class="flex flex-wrap justify-center gap-2 font-mono text-xs md:text-sm">
+                <span class="px-3 py-1.5 rounded-lg bg-blue-950 text-blue-400 border border-blue-800">NETWORK</span>
+                <span class="text-slate-600 flex items-center">+</span>
+                <span class="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800">LINUX</span>
+                <span class="text-slate-600 flex items-center">+</span>
+                <span class="px-3 py-1.5 rounded-lg bg-amber-950 text-amber-400 border border-amber-800">SECURITY</span>
+                <span class="text-slate-600 flex items-center">+</span>
+                <span class="px-3 py-1.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800">DOCKER</span>
+                <span class="text-slate-600 flex items-center">+</span>
+                <span class="px-3 py-1.5 rounded-lg bg-purple-950 text-purple-400 border border-purple-800">CLOUD</span>
+            </div>
+
+            <p class="text-xl md:text-2xl font-bold text-emerald-400 max-w-xl">
+                "Faham Linux, kita boleh bina server sendiri."
+            </p>
+
+            <button onclick="goToSlide(1)" class="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> Ulang Dari Awal
+            </button>
+        </section>
+
+    </main>
+
+    <!-- FOOTER NAVIGATION CONTROLS -->
+    <footer class="h-16 bg-slate-900/90 border-t border-slate-800 backdrop-blur-md px-4 md:px-8 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-2">
+            <button onclick="prevSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-all border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-chevron-left"></i>
+                <span>Sebelumnya</span>
+            </button>
+            <button onclick="nextSlide()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-bold transition-all shadow-lg shadow-emerald-500/10 flex items-center gap-2">
+                <span>Seterusnya</span>
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="hidden md:flex items-center space-x-4 text-xs text-slate-400 font-mono">
+            <span>Guna <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">→</kbd> untuk navigasi</span>
+        </div>
+    </footer>
+
+    <!-- OVERVIEW / GRID MODAL -->
+    <div id="overviewModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex-col p-6 overflow-hidden">
+        <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
+            <h3 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-grid-2 text-emerald-400"></i> Index Keseluruhan Slide (47 Slide)
+            </h3>
+            <button onclick="toggleOverviewModal()" class="p-2 text-slate-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div id="gridIndexContainer" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 overflow-y-auto custom-scroll pr-2 flex-1">
+            <!-- Dynamically generated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 47;
+
+        // Slide Titles array for overview modal
+        const slideTitles = [
+            "Tajuk Utama", "Apa itu Linux?", "Linux Distribution", "Kenapa Linux Server?",
+            "Desktop vs Server", "Terminal Linux", "Apa itu Shell?", "Command Pertama",
+            "Filesystem Linux", "Home Directory", "Navigasi Filesystem", "Create File & Directory",
+            "Copy, Move & Delete", "Cat vs Less", "Users dalam Linux", "Root Privilege",
+            "Pengenalan sudo", "Groups", "File Permissions", "chmod Command",
+            "chown Command", "Package Manager (APT)", "apt update vs upgrade", "Install Web Server",
+            "Background Services", "systemctl Command", "journalctl Log", "Process (ps & top)",
+            "PID (Process ID)", "Networking Linux", "Check IP Address", "Listening Ports",
+            "SSH Remote Access", "SSH Key Auth", "Linux Firewall (UFW)", "Server Architecture",
+            "Linux + Docker", "Cloudflare Tunnel", "Linux + Self-Hosting", "Server Hardening",
+            "Troubleshooting Flow", "Troubleshooting Example", "Home Server Setup", "Command Cheat Sheet",
+            "Interactive Quiz", "Final Architecture", "Penutup"
+        ];
+
+        // Quiz Data
+        const quizQuestions = [
+            {
+                id: 1,
+                question: "Apakah Linux yang sebenarnya?",
+                options: [
+                    "Sebuah web browser",
+                    "Sebuah kernel",
+                    "Sebuah database",
+                    "Sebuah firewall"
+                ],
+                correct: 1
+            },
+            {
+                id: 2,
+                question: "Apakah fungsi utama systemctl?",
+                options: [
+                    "Mengedit gambar",
+                    "Menguruskan perkhidmatan (Services)",
+                    "Menyelesaikan DNS",
+                    "Mencipta user sahaja"
+                ],
+                correct: 1
+            },
+            {
+                id: 3,
+                question: "Apakah fungsi utama journalctl?",
+                options: [
+                    "Melihat systemd journal / logs",
+                    "Menukar IP address",
+                    "Install Docker",
+                    "Membuka port router"
+                ],
+                correct: 0
+            },
+            {
+                id: 4,
+                question: "Apakah maksud IP address 127.0.0.1?",
+                options: [
+                    "Public IP",
+                    "Localhost",
+                    "Gateway",
+                    "DNS Server"
+                ],
+                correct: 1
+            },
+            {
+                id: 5,
+                question: "Apakah tujuan prinsip Least Privilege?",
+                options: [
+                    "Semua user mendapat akses root",
+                    "Berikan kebenaran minimum yang diperlukan sahaja",
+                    "Matikan firewall sepenuhnya",
+                    "Buka semua port network"
+                ],
+                correct: 1
+            }
+        ];
+
+        let userQuizAnswers = {};
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            updateSlideView();
+            generateGridIndex();
+            renderQuiz();
+
+            // Keyboard Shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (document.getElementById('overviewModal').classList.contains('flex')) {
+                    if (e.key === 'Escape') toggleOverviewModal();
+                    return;
+                }
+
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    goToSlide(1);
+                } else if (e.key === 'End') {
+                    goToSlide(totalSlides);
+                }
+            });
+
+            // Touch Swipe Support
+            let touchStartX = 0;
+            let touchEndX = 0;
+            const mainContainer = document.querySelector('main');
+
+            mainContainer.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, false);
+
+            mainContainer.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+
+            function handleSwipe() {
+                if (touchEndX < touchStartX - 50) nextSlide();
+                if (touchEndX > touchStartX + 50) prevSlide();
+            }
+        });
+
+        function updateSlideView() {
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide - 1) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // UI Elements
+            document.getElementById('slideCounter').textContent = currentSlide.toString().padStart(2, '0');
+            document.getElementById('totalSlides').textContent = totalSlides.toString().padStart(2, '0');
+
+            const progress = (currentSlide / totalSlides) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateSlideView();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateSlideView();
+            }
+        }
+
+        function goToSlide(slideNum) {
+            if (slideNum >= 1 && slideNum <= totalSlides) {
+                currentSlide = slideNum;
+                updateSlideView();
+                const modal = document.getElementById('overviewModal');
+                if (!modal.classList.contains('hidden')) {
+                    toggleOverviewModal();
+                }
+            }
+        }
+
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overviewModal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function generateGridIndex() {
+            const container = document.getElementById('gridIndexContainer');
+            container.innerHTML = '';
+
+            slideTitles.forEach((title, index) => {
+                const num = index + 1;
+                const card = document.createElement('button');
+                card.onclick = () => goToSlide(num);
+                card.className = `p-3 text-left rounded-xl border text-xs font-mono transition-all flex flex-col justify-between h-24 ${
+                    num === currentSlide
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800'
+                }`;
+
+                card.innerHTML = `
+                    <span class="text-[10px] text-slate-500 font-bold">SLIDE ${num.toString().padStart(2, '0')}</span>
+                    <span class="font-sans font-semibold line-clamp-2 text-slate-200">${title}</span>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Quiz Logic
+        function renderQuiz() {
+            const container = document.getElementById('quizContainer');
+            container.innerHTML = '';
+
+            quizQuestions.forEach((q, qIndex) => {
+                const qCard = document.createElement('div');
+                qCard.className = 'p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3';
+
+                let optionsHTML = '';
+                q.options.forEach((opt, optIndex) => {
+                    const isSelected = userQuizAnswers[q.id] === optIndex;
+                    const isCorrect = q.correct === optIndex;
+                    let btnStyle = 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700';
+
+                    if (userQuizAnswers[q.id] !== undefined) {
+                        if (isCorrect) {
+                            btnStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold';
+                        } else if (isSelected && !isCorrect) {
+                            btnStyle = 'bg-rose-950/80 border-rose-500 text-rose-300 font-bold';
+                        }
+                    }
+
+                    optionsHTML += `
+                        <button onclick="answerQuiz(${q.id}, ${optIndex})"
+                            class="w-full text-left p-2.5 text-xs rounded-lg border font-mono transition-all ${btnStyle}">
+                            ${String.fromCharCode(65 + optIndex)}. ${opt}
+                        </button>
+                    `;
+                });
+
+                qCard.innerHTML = `
+                    <div class="text-xs font-bold text-slate-200">
+                        Soalan ${qIndex + 1}: ${q.question}
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${optionsHTML}
+                    </div>
+                `;
+
+                container.appendChild(qCard);
+            });
+
+            calculateScore();
+        }
+
+        function answerQuiz(questionId, optionIndex) {
+            userQuizAnswers[questionId] = optionIndex;
+            renderQuiz();
+        }
+
+        function calculateScore() {
+            let score = 0;
+            quizQuestions.forEach(q => {
+                if (userQuizAnswers[q.id] === q.correct) {
+                    score++;
+                }
+            });
+            document.getElementById('quizScoreDisplay').textContent = `Skor: ${score} / ${quizQuestions.length}`;
+        }
+    </script>
+</body>
+</html>

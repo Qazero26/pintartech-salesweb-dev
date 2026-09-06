@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Hosting Security — Melindungi Server, Application & Network</title>
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #151c2c;
+            --bg-card-hover: #1e293b;
+            --border-color: #2a364f;
+            --border-bright: #3b82f6;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            /* Color System by Domain */
+            --color-network: #38bdf8;   /* Biru */
+            --color-security: #f43f5e;  /* Merah / Rose */
+            --color-warning: #f59e0b;   /* Amber */
+            --color-auth: #a855f7;      /* Ungu */
+            --color-server: #64748b;    /* Slate */
+            --color-backup: #10b981;    /* Hijau */
+            --color-accent: #06b6d4;    /* Cyan */
+            
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --shadow-glow: 0 0 25px rgba(56, 189, 248, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* Header Navigation Top Bar */
+        header {
+            height: 60px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .header-title span.badge {
+            background: rgba(244, 63, 94, 0.15);
+            color: var(--color-security);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .slide-counter {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            background: var(--bg-card);
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Slide Viewport */
+        .presentation-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+        }
+
+        .slide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: 92%;
+            max-width: 1100px;
+            height: 82vh;
+            max-height: 720px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Slide Typography */
+        .slide-header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 16px;
+        }
+
+        .slide-tag {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-network);
+            margin-bottom: 6px;
+            display: inline-block;
+        }
+
+        .slide-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.25;
+        }
+
+        .slide-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        .slide-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        /* Visual Box Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            width: 100%;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-body {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Color Badges & Highlights */
+        .text-network { color: var(--color-network); }
+        .text-security { color: var(--color-security); }
+        .text-auth { color: var(--color-auth); }
+        .text-warning { color: var(--color-warning); }
+        .text-backup { color: var(--color-backup); }
+
+        .highlight-box {
+            background: rgba(56, 189, 248, 0.08);
+            border-left: 4px solid var(--color-network);
+            padding: 16px 20px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .highlight-box.security {
+            background: rgba(244, 63, 94, 0.08);
+            border-left-color: var(--color-security);
+        }
+
+        .highlight-box.warning {
+            background: rgba(245, 158, 11, 0.08);
+            border-left-color: var(--color-warning);
+        }
+
+        .highlight-box.auth {
+            background: rgba(168, 85, 247, 0.08);
+            border-left-color: var(--color-auth);
+        }
+
+        .highlight-box.backup {
+            background: rgba(16, 185, 129, 0.08);
+            border-left-color: var(--color-backup);
+        }
+
+        /* Diagrams & ASCII Flow Visuals */
+        .flow-diagram {
+            background: #090d16;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--color-network);
+            overflow-x: auto;
+            white-space: pre;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .flow-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            margin: 4px 0;
+            width: fit-content;
+            min-width: 200px;
+            color: var(--text-primary);
+        }
+
+        .flow-arrow {
+            color: var(--color-security);
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin: 2px 0;
+        }
+
+        /* Code Blocks & Placeholders */
+        code, pre {
+            font-family: var(--font-mono);
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+        }
+
+        code {
+            padding: 2px 8px;
+            color: var(--color-network);
+            font-size: 0.9em;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        pre {
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .placeholder-tag {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+
+        /* Data Tables */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 0.95rem;
+        }
+
+        .styled-table th, .styled-table td {
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .styled-table th {
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--color-network);
+            font-weight: 700;
+        }
+
+        .styled-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Interactive Checklist (Slide 40) */
+        .checklist-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .checklist-item {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .checklist-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: var(--color-network);
+        }
+
+        .checklist-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--color-backup);
+            cursor: pointer;
+        }
+
+        .checklist-item span {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+
+        .checklist-item.checked {
+            border-color: rgba(16, 185, 129, 0.5);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        /* Interactive Quiz (Slide 44) */
+        .quiz-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .quiz-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 18px;
+        }
+
+        .quiz-question {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .quiz-opt {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .quiz-opt:hover {
+            border-color: var(--color-network);
+            color: var(--text-primary);
+        }
+
+        .quiz-opt.correct {
+            background: rgba(16, 185, 129, 0.2) !important;
+            border-color: var(--color-backup) !important;
+            color: #4ade80 !important;
+            font-weight: 600;
+        }
+
+        .quiz-opt.incorrect {
+            background: rgba(244, 63, 94, 0.2) !important;
+            border-color: var(--color-security) !important;
+            color: #fca5a5 !important;
+        }
+
+        .quiz-feedback {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: none;
+        }
+
+        /* Typography Callouts */
+        .giant-text-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .giant-text {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #f43f5e 0%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        .big-quote-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .big-quote-item {
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--border-color);
+            padding: 14px 24px;
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+        }
+
+        /* Footer Toolbar Controls */
+        footer {
+            height: 65px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .controls-left, .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--color-network);
+        }
+
+        .btn-primary {
+            background: var(--color-network);
+            color: #090d16;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #7dd3fc;
+        }
+
+        .slide-select {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            max-width: 250px;
+        }
+
+        /* Global Progress Bar */
+        .progress-bar-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--color-network), var(--color-auth));
+            transition: width 0.3s ease;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .slide {
+                padding: 24px;
+                height: 88vh;
+            }
+            .grid-2, .grid-3, .checklist-grid, .quiz-options {
+                grid-template-columns: 1fr;
+            }
+            .slide-title {
+                font-size: 1.6rem;
+            }
+            .giant-text {
+                font-size: 2.2rem;
+            }
+            .slide-select {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <header>
+        <div class="header-title">
+            🛡️ <span>Self-Hosting Security</span>
+            <span class="badge">Defensive Guide</span>
+        </div>
+        <div class="slide-counter" id="slideCounter">Slide 1 / 45</div>
+    </header>
+
+    <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+
+    <!-- Main Slide Stage -->
+    <main class="presentation-container">
+
+        <!-- SLIDE 1 -->
+        <section class="slide active" id="slide-1">
+            <div class="slide-header">
+                <span class="slide-tag">Pengenalan</span>
+                <h1 class="slide-title">Self-Hosting Security</h1>
+                <p class="slide-subtitle">Melindungi Server, Application & Network Dari Asas Hingga Production</p>
+            </div>
+            <div class="slide-body">
+                <div class="card" style="text-align: center; padding: 30px;">
+                    <h2 style="color: var(--color-warning); font-size: 1.8rem; margin-bottom: 20px;">
+                        "Server boleh online.<br>Tetapi adakah ia selamat?"
+                    </h2>
+                    <div class="flow-diagram" style="max-width: 350px; margin: 0 auto;">
+                        <div class="flow-step">🌐 Internet</div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-step" style="border-color: var(--color-security); color: var(--color-security); font-weight: bold;">🛡️ Security</div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-step">🖥️ Server</div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-step">📦 Applications</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2 -->
+        <section class="slide" id="slide-2">
+            <div class="slide-header">
+                <span class="slide-tag">Konsep Asas</span>
+                <h2 class="slide-title">Kenapa Security Penting?</h2>
+                <p class="slide-subtitle">Perbezaan persekitaran tertutup vs persekitaran terbuka</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">
+                            <span>🏠 Localhost (Terpencil)</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="margin-bottom: 12px;">
+Internet
+  ↓
+  ❌ (Terhalang)
+localhost (127.0.0.1)
+                            </div>
+                            <p>Hanya laptop/PC anda sahaja yang boleh akses. Tiada ancaman luar kerana tiada sambungan terus dari Internet.</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: rgba(244, 63, 94, 0.4);">
+                        <div class="card-header text-security">
+                            <span>🌐 Didedahkan ke Internet</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="margin-bottom: 12px; color: var(--color-security);">
+Internet
+  ↓
+  🌐 (Terbuka)
+Server (Public IP / Tunnel)
+                            </div>
+                            <p>Mana-mana individu atau bot di seluruh dunia boleh menghantar request ke server anda. Attack surface menjadi jauh lebih besar!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box security" style="text-align: center; font-weight: 700; font-size: 1.3rem;">
+                    "Online ≠ Secure."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3 -->
+        <section class="slide" id="slide-3">
+            <div class="slide-header">
+                <span class="slide-tag">Ancaman & Risiko</span>
+                <h2 class="slide-title">Apa Itu Attack Surface?</h2>
+                <p class="slide-subtitle">Semua bahagian sistem yang boleh menjadi titik risiko serangan</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-warning">📌 Komponen Attack Surface</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.9;">
+                                <li><strong>Open Ports:</strong> Port yang sedia menerima sambungan.</li>
+                                <li><strong>Web Applications:</strong> Kod app yang ada bug.</li>
+                                <li><strong>SSH:</strong> Akses pentadbiran remote.</li>
+                                <li><strong>APIs & Login Pages:</strong> Pintu masuk pengguna.</li>
+                                <li><strong>Admin Panels:</strong> Kawalan penuh sistem.</li>
+                                <li><strong>Dependencies:</strong> Library pihak ketiga yang lapuk.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-network">📊 Visualisasi Terdedah</div>
+                        <div class="card-body">
+                            <pre style="color: var(--color-network);">
+Internet
+   ↓
+┌───────────────────────┐
+│ SERVER                │
+│                       │
+│  [SSH]        :22     │
+│  [HTTPS]      :443    │
+│  [API]        :8080   │
+│  [Admin Panel]:9090   │
+└───────────────────────┘</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    💡 <strong>Prinsip Utama:</strong> Semakin banyak service didedahkan ke Internet, semakin banyak perkara yang perlu kita kawal dan amankan!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4 -->
+        <section class="slide" id="slide-4">
+            <div class="slide-header">
+                <span class="slide-tag">Prinsip Keselamatan #1</span>
+                <h2 class="slide-title">Minimize Exposure</h2>
+                <p class="slide-subtitle">"Jangan expose benda yang tidak perlu."</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card" style="border-color: rgba(244, 63, 94, 0.4);">
+                        <div class="card-header text-security">❌ Amalan Berisiko (Amatur)</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.8;">
+                                <li>Expose Database (Port 3306 / 5432) ke Public.</li>
+                                <li>Expose Admin Panel tanpa perlindungan khas.</li>
+                                <li>Expose Development Server yang belum disiapkan.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+                        <div class="card-header text-backup">✅ Amalan Lebih Baik (Defensive)</div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="font-size: 0.8rem; padding: 10px;">
+Internet → HTTPS/Access → Application → Internal Services
+                            </div>
+                            <p style="margin-top: 10px;">Hanya benarkan trafik melalui proxy/access layer. Pastikan database dan service dalaman kekal tertutup!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5 -->
+        <section class="slide" id="slide-5">
+            <div class="slide-header">
+                <span class="slide-tag">Rangkaian</span>
+                <h2 class="slide-title">Open Ports</h2>
+                <p class="slide-subtitle">Fahami fungsi dan risiko port yang dibuka</p>
+            </div>
+            <div class="slide-body">
+                <p style="color: var(--text-secondary); font-size: 1.05rem;">
+                    Port bukan secara automatik berbahaya. Tetap <strong>setiap exposed service perlu difahami dan diamankan</strong>.
+                </p>
+
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header text-network">Port 22</div>
+                        <div class="card-body">
+                            <strong>SSH (Secure Shell)</strong><br>
+                            Digunakan untuk pengurusan remote server secara CLI.
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-network">Port 80 / 443</div>
+                        <div class="card-body">
+                            <strong>HTTP / HTTPS</strong><br>
+                            Digunakan untuk lalu lintas laman web awam.
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-network">Port 8080</div>
+                        <div class="card-body">
+                            <strong>Dev / App Server</strong><br>
+                            Port ujian seperti Python Flask, Node.js atau Docker.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    📌 <strong>Ingat:</strong> "Open port bermaksud ada service yang sedang aktif menunggu sambungan."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6 -->
+        <section class="slide" id="slide-6">
+            <div class="slide-header">
+                <span class="slide-tag">Pemeriksaan Sistem</span>
+                <h2 class="slide-title">Port Scanning Secara Defensive</h2>
+                <p class="slide-subtitle">Memeriksa pendedahan sistem anda sendiri (Self-Audit)</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-network">🔍 Tujuan Audit Defensive</div>
+                    <div class="card-body">
+                        <p style="margin-bottom: 12px;">Seorang Administrator Security melakukan semakan pada server sendiri untuk soalan:</p>
+                        <h3 style="color: var(--color-warning); margin-bottom: 14px;">"Apakah service yang saya sendiri expose tanpa sedar?"</h3>
+                        <div class="grid-2">
+                            <ul>
+                                <li>✓ <strong>Asset Inventory:</strong> Tahu apa yang berjalan.</li>
+                                <li>✓ <strong>Verify Firewall:</strong> Pastikan rule berfungsi.</li>
+                            </ul>
+                            <ul>
+                                <li>✓ <strong>Verify Config:</strong> Tiada port terlepas.</li>
+                                <li>✓ <strong>Reduce Exposure:</strong> Tutup port lama.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    ⚠️ <strong>Etika & Undang-undang:</strong> Hanya imbas sistem sendiri atau lab yang diberikan kebenaran bertulis. Jangan imbas target luar tanpa kebenaran!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7 -->
+        <section class="slide" id="slide-7">
+            <div class="slide-header">
+                <span class="slide-tag">Kawalan Trafik</span>
+                <h2 class="slide-title">Firewall — Pintu Kawalan</h2>
+                <p class="slide-subtitle">Menapis trafik masuk dan keluar berdasarkan aturan</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="flow-diagram">
+Internet
+  ↓
+🔥 FIREWALL (Penapis)
+  ↓
+Server
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-security">🎯 Firewall Mengawal Trafik Berdasarkan:</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.8;">
+                                <li><strong>Source:</strong> Dari mana IP asal?</li>
+                                <li><strong>Destination:</strong> Ke mana sasaran IP?</li>
+                                <li><strong>Port:</strong> Port berapa yang diminta?</li>
+                                <li><strong>Protocol:</strong> TCP, UDP, ICMP?</li>
+                                <li><strong>Direction:</strong> Masuk (Inbound) / Keluar (Outbound).</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    💬 <strong>Analogi:</strong> Firewall ialah pengawal pintu pagar (Guard House). Ia menentukan trafik mana yang dibenarkan masuk atau keluar.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8 -->
+        <section class="slide" id="slide-8">
+            <div class="slide-header">
+                <span class="slide-tag">Rangkaian</span>
+                <h2 class="slide-title">Inbound vs Outbound</h2>
+                <p class="slide-subtitle">Memahami arah aliran data dan hubungannya dengan Tunnel</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-warning">📥 INBOUND TRAFFIC</div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="margin-bottom: 10px;">Internet → Server</div>
+                            <p>Trafik yang digesa dari luar masuk ke dalam server anda. Memerlukan open inbound port jika menggunakan Port Forwarding biasa.</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-network">📤 OUTBOUND TRAFFIC</div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="margin-bottom: 10px;">Server → Internet</div>
+                            <p>Trafik yang dimulakan oleh server anda ke luar (contoh: download software update atau membuat sambungan tunnel).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box auth">
+                    ☁️ <strong>Kaitan Cloudflare Tunnel:</strong> Tunnel bermula dari server ke luar (Outbound connection). Oleh itu, anda <strong>TIDAK memerlukan Inbound Port Forwarding</strong> di router rumah!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9 -->
+        <section class="slide" id="slide-9">
+            <div class="slide-header">
+                <span class="slide-tag">Prinsip Keselamatan #2</span>
+                <h2 class="slide-title">Default Deny Policy</h2>
+                <p class="slide-subtitle">"Jika tidak diperlukan secara jelas, blokkan ia!"</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-security">🛡️ Pendekatan Default Deny (Strict)</div>
+                    <div class="card-body">
+                        <p style="margin-bottom: 12px;">Secara lalai, tutup <strong>SEMUA</strong> port. Hanya buka port yang benar-benar wajib untuk public.</p>
+                        
+                        <div class="grid-2" style="margin-top: 15px;">
+                            <div style="background: rgba(244,63,94,0.1); padding: 12px; border-radius: 8px;">
+                                <strong>Port 8080 (Dev Only):</strong><br>
+                                🛑 <code>BLOCK / INTERNAL ONLY</code>
+                            </div>
+                            <div style="background: rgba(16,185,129,0.1); padding: 12px; border-radius: 8px;">
+                                <strong>Port 443 (Production HTTPS):</strong><br>
+                                ✅ <code>ALLOW PUBLIC</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    ⚙️ <strong>Prinsip Least Exposure:</strong> Jangan gunakan konfigurasi firewall yang terlalu longgar secara gopoh.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 10 -->
+        <section class="slide" id="slide-10">
+            <div class="slide-header">
+                <span class="slide-tag">Identiti & Akses</span>
+                <h2 class="slide-title">Authentication (Pengesahan Identiti)</h2>
+                <p class="slide-subtitle">Menjawab soalan utama: "Siapa anda?"</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-auth">🔑 Kaedah Authentication</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.8;">
+                                <li>Username + Password</li>
+                                <li>Multi-Factor Authentication (MFA / 2FA)</li>
+                                <li>Passkey / Biometric</li>
+                                <li>SSH Key Pair</li>
+                                <li>Identity Provider (Google / GitHub SSO)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-network">🔄 Aliran Kerja</div>
+                        <div class="card-body">
+                            <div class="flow-diagram">
+Pengguna / Client
+  ↓
+🔐 Authentication Check
+  ↓
+✅ Identiti Disahkan
+  ↓
+Application
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11 -->
+        <section class="slide" id="slide-11">
+            <div class="slide-header">
+                <span class="slide-tag">Identiti & Akses</span>
+                <h2 class="slide-title">Authorization (Kebenaran Akses)</h2>
+                <p class="slide-subtitle">Menjawab soalan seterusnya: "Apa yang anda dibenarkan buat?"</p>
+            </div>
+            <div class="slide-body">
+                <p style="font-size: 1.05rem; color: var(--text-secondary);">
+                    Selepas sistem tahu <em>siapa anda</em> (Authentication), sistem perlu menyemak peranan (role) anda untuk menentukan tindakan yang dibenarkan.
+                </p>
+
+                <div class="grid-2">
+                    <div class="card" style="border-left: 4px solid var(--color-backup);">
+                        <div class="card-header text-backup">👑 Admin Role</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>✓ Akses Dashboard Pentadbir</li>
+                                <li>✓ Padam / Edit Data Pengguna</li>
+                                <li>✓ Ubah Tetapan Server</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-left: 4px solid var(--color-network);">
+                        <div class="card-header text-network">👤 Normal User Role</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>✓ Lihat Profil Sendiri</li>
+                                <li>❌ Dilarang Akses Admin Panel</li>
+                                <li>❌ Dilarang Ubah Settings Server</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 12 -->
+        <section class="slide" id="slide-12">
+            <div class="slide-header">
+                <span class="slide-tag">Perbandingan</span>
+                <h2 class="slide-title">Authentication vs Authorization</h2>
+                <p class="slide-subtitle">Dua konsep berbeza tetapi saling melengkapi</p>
+            </div>
+            <div class="slide-body">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>Kriteria</th>
+                            <th>Authentication (AuthN)</th>
+                            <th>Authorization (AuthZ)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Soalan Utama</strong></td>
+                            <td class="text-auth">"Siapa anda?" (Who are you?)</td>
+                            <td class="text-network">"Apa yang boleh anda buat?" (What can you do?)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Proses</strong></td>
+                            <td>Menyemak kredensial (Login).</td>
+                            <td>Menyemak hak akses / kebenaran (Permissions).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contoh Senario</strong></td>
+                            <td>Pengguna berjaya login ke dalam akaun. ✅</td>
+                            <td>Pengguna biasa cuba buka <code>/admin</code> → Ditolak (403 Forbidden). ❌</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="highlight-box auth">
+                    💡 <strong>Contoh Mudah:</strong> Kunci rumah ialah <em>Authentication</em> (membuktikan anda pemilik kunci). Bilik tidur mana yang anda boleh masuk ialah <em>Authorization</em>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 13 -->
+        <section class="slide" id="slide-13">
+            <div class="slide-header">
+                <span class="slide-tag">Prinsip Keselamatan #3</span>
+                <h2 class="slide-title">Principle of Least Privilege</h2>
+                <p class="slide-subtitle">"Berikan hanya kebenaran minima yang diperlukan sahaja."</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card" style="border-color: rgba(244,63,94,0.3);">
+                        <div class="card-header text-security">❌ FULL ACCESS (Berbahaya)</div>
+                        <div class="card-body">
+                            <div style="background: rgba(244,63,94,0.2); padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 10px;">
+                                ████████████████ (Root / Full Control)
+                            </div>
+                            <p>Aplikasi biasa diberikan akaun <code>root</code>. Jika aplikasi digodam, penyerang mendapat kawalan penuh ke atas seluruh server!</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: rgba(16,185,129,0.3);">
+                        <div class="card-header text-backup">✅ REQUIRED ACCESS (Selamat)</div>
+                        <div class="card-body">
+                            <div style="background: rgba(16,185,129,0.2); padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 10px; width: 40%;">
+                                ████ (Read-Only)
+                            </div>
+                            <p>Aplikasi hanya diberikan kebenaran membaca fail yang diperlukan sahaja tanpa kebenaran root atau menukar sistem.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14 -->
+        <section class="slide" id="slide-14">
+            <div class="slide-header">
+                <span class="slide-tag">Sistem Pengendalian</span>
+                <h2 class="slide-title">Linux User & Permissions</h2>
+                <p class="slide-subtitle">Mengapa aplikasi tidak sepatutnya dijalankan sebagai root</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">👥 Kategori Pengguna Linux</div>
+                        <div class="card-body">
+                            <ul>
+                                <li><strong>Owner (u):</strong> Pemilik fail.</li>
+                                <li><strong>Group (g):</strong> Kumpulan pengguna.</li>
+                                <li><strong>Others (o):</strong> Pengguna lain dalam sistem.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-auth">📜 Mod Kebenaran (Permissions)</div>
+                        <div class="card-body">
+                            <ul>
+                                <li><strong>Read (r):</strong> Kebenaran membaca fail.</li>
+                                <li><strong>Write (w):</strong> Kebenaran mengubah fail.</li>
+                                <li><strong>Execute (x):</strong> Kebenaran menjalankan program.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    🛑 <strong>Amaran Penting:</strong> Jangan sesekali jalankan Python web server atau Docker container menggunakan akaun <code>root</code>! Gunakan dedicated service user (contoh: <code>www-data</code> atau <code>appuser</code>).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15 -->
+        <section class="slide" id="slide-15">
+            <div class="slide-header">
+                <span class="slide-tag">Pengurusan Server</span>
+                <h2 class="slide-title">SSH Security (Secure Shell)</h2>
+                <p class="slide-subtitle">Melindungi pintu utama pentadbiran server anda</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-network">🛡️ Asas Keselamatan SSH</div>
+                    <div class="card-body">
+                        <ul style="padding-left: 20px; line-height: 1.8;">
+                            <li>✅ <strong>Gunakan Key-Based Auth:</strong> Elakkan password authentication yang mudah diteka.</li>
+                            <li>✅ <strong>Disable Direct Root Login:</strong> Tetapkan <code>PermitRootLogin no</code> dalam SSH config.</li>
+                            <li>✅ <strong>Hadkan Akses IP:</strong> Hanya benarkan IP tertentu atau VPN jika boleh.</li>
+                            <li>✅ <strong>Update OpenSSH:</strong> Pastikan perisian SSH sentiasa mendapat patch terkini.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="highlight-box security">
+                    ⚠️ <strong>Penting:</strong> Pastikan anda menguji sambungan SSH Key baharu dalam window kedua sebelum menukar/menutup konfigurasi lama untuk mengelakkan terkunci di luar (lockout)!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 16 -->
+        <section class="slide" id="slide-16">
+            <div class="slide-header">
+                <span class="slide-tag">Kriptografi</span>
+                <h2 class="slide-title">SSH Key Architecture</h2>
+                <p class="slide-subtitle">Bagaimana Public & Private Key berfungsi bersama</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram">
+Client (Laptop Anda)                       SSH Server (Remote)
+┌───────────────────────┐                 ┌───────────────────────┐
+│  Private Key 🔑       │  ===========>   │  Public Key 🔓        │
+│  (SIMPAN RAHSIA!)     │  (Verification) │  (~/.ssh/authorized_keys)│
+└───────────────────────┘                 └───────────────────────┘
+                </div>
+
+                <div class="grid-2" style="margin-top: 15px;">
+                    <div class="card">
+                        <div class="card-header text-security">🔑 Private Key</div>
+                        <div class="card-body">
+                            Tersimpan di laptop anda sahaja. Jangan pernah dikongsi atau muat naik ke mana-mana repository!
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-network">🔓 Public Key</div>
+                        <div class="card-body">
+                            Boleh diletakkan di server awam dengan selamat. Digunakan untuk menyemak ketulenan Private Key.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17 -->
+        <section class="slide" id="slide-17">
+            <div class="slide-header">
+                <span class="slide-tag">Kredensial</span>
+                <h2 class="slide-title">Password & MFA</h2>
+                <p class="slide-subtitle">Memperkemas kawalan akses pengguna</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-warning">🔑 Kebersihan Kata Laluan</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>✓ Gunakan kata laluan unik bagi setiap service.</li>
+                                <li>✓ Pastikan panjang minima 16+ aksara.</li>
+                                <li>✓ Gunakan Password Manager (Bitwarden / KeePass).</li>
+                                <li>❌ Jangan guna kata laluan yang sama!</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-auth">🛡️ Multi-Factor Auth (MFA)</div>
+                        <div class="card-body">
+                            <p>Memerlukan 2 bukti sebelum membenarkan akses:</p>
+                            <div style="background: rgba(168, 85, 247, 0.1); padding: 10px; border-radius: 6px; margin: 8px 0; text-align: center;">
+                                Kata Laluan (Sesuatu yang anda tahu)<br>+<br>Authenticator App / Passkey (Sesuatu yang anda miliki)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18 -->
+        <section class="slide" id="slide-18">
+            <div class="slide-header">
+                <span class="slide-tag">Penyulitan Data</span>
+                <h2 class="slide-title">HTTPS / TLS</h2>
+                <p class="slide-subtitle">Melindungi data semasa transit dalam rangkaian</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2" style="text-align: center;">
+                    <div class="card" style="border-color: rgba(244, 63, 94, 0.4);">
+                        <div class="card-header text-security" style="justify-content: center;">HTTP (Tidak Selamat) ❌</div>
+                        <div class="card-body">
+                            Data dihantar dalam bentuk teks biasa (Plaintext). Sesiapa dalam rangkaian boleh membaca kata laluan anda.
+                        </div>
+                    </div>
+                    <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+                        <div class="card-header text-backup" style="justify-content: center;">HTTPS (Encrypted) 🔒</div>
+                        <div class="card-body">
+                            Menggunakan penyulitan TLS. Menjamin <strong>Encryption</strong>, <strong>Authentication</strong>, dan <strong>Integrity</strong>.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    ⚠️ <strong>Penting:</strong> Cloudflare menyediakan HTTPS untuk sambungan ke browser. Walau bagaimanapun, <em>HTTPS sahaja tidak bermaksud aplikasi di dalamnya automatik bebas daripada bug keselamatan!</em>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 19 -->
+        <section class="slide" id="slide-19">
+            <div class="slide-header">
+                <span class="slide-tag">Pengurusan Kredensial</span>
+                <h2 class="slide-title">Secrets Management</h2>
+                <p class="slide-subtitle">"Jangan Simpan Secret Dalam Source Code!"</p>
+            </div>
+            <div class="slide-body">
+                <div class="card" style="border-color: rgba(244,63,94,0.4);">
+                    <div class="card-header text-security">❌ CONTOH SANGAT BERISIKO (Hardcoded Secret)</div>
+                    <div class="card-body">
+                        <pre><code># JANGAN BUAT BEGINI DALAM KOD ANDA!
+db_password = "SuperSecretPassword123" 
+api_key = "CLOUDFLARE_API_TOKEN_XYZ"</code></pre>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header text-backup">✅ GUNAKAN PLACEHOLDER / ENV VARS</div>
+                    <div class="card-body">
+                        <pre><code># Gunakan pembolehubah persekitaran
+db_password = os.getenv("<span class="placeholder-tag">DATABASE_PASSWORD</span>")
+api_key = os.getenv("<span class="placeholder-tag">API_KEY</span>")</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 20 -->
+        <section class="slide" id="slide-20">
+            <div class="slide-header">
+                <span class="slide-tag">Konfigurasi</span>
+                <h2 class="slide-title">Environment Variables (.env)</h2>
+                <p class="slide-subtitle">Memisahkan konfigurasi rahsia daripada kod sumber</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">📄 Fail .env (Simpan Luar Code)</div>
+                        <div class="card-body">
+                            <pre><code>APP_SECRET=<span class="placeholder-tag">&lt;SECRET_TOKEN&gt;</span>
+DATABASE_PASSWORD=<span class="placeholder-tag">&lt;DB_PASSWORD&gt;</span>
+DOMAIN=<span class="placeholder-tag">&lt;DOMAIN_NAME&gt;</span></code></pre>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-warning">🛡️ Perkara Wajib Dibuat</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.8;">
+                                <li>Tambah fail <code>.env</code> ke dalam <code>.gitignore</code>.</li>
+                                <li>Jangan sekali-kali push <code>.env</code> ke GitHub/GitLab public.</li>
+                                <li>Kawal kebenaran membaca fail <code>.env</code> di server.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    💡 <strong>Realiti:</strong> Environment variables bukan perisai magis. Ia masih perlu dilindungi daripada akses tanpa kebenaran dan elakkan daripada dicetak dalam log aplikasi!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 21 -->
+        <section class="slide" id="slide-21">
+            <div class="slide-header">
+                <span class="slide-tag">Penyelenggaraan</span>
+                <h2 class="slide-title">Software Updates & Patch Management</h2>
+                <p class="slide-subtitle">Menutup ruang kelemahan yang ditemui secara berkala</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-network">🧱 Lapisan Perisian yang Perlu Dikemaskini</div>
+                    <div class="card-body">
+                        <div class="flow-diagram" style="align-items: flex-start; padding-left: 30px;">
+OS (Ubuntu / Debian / AlmaLinux)
+  └─ Package Manager (apt update && apt upgrade)
+       └─ Application Engine (Python / Node.js / Docker)
+            └─ Dependencies (pip / npm packages)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    📢 <strong>Fakta:</strong> Server yang tidak dikemaskini lama-kelamaan akan mempunyai kerentanan keselamatan yang diketahui umum (Known Vulnerabilities / CVE).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 22 -->
+        <section class="slide" id="slide-22">
+            <div class="slide-header">
+                <span class="slide-tag">Penyelenggaraan</span>
+                <h2 class="slide-title">Dependencies Management</h2>
+                <p class="slide-subtitle">Melindungi library pihak ketiga dalam aplikasi anda</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-warning">📦 Rantaian Dependency</div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="font-size: 0.85rem;">
+Python App
+  ↓
+Web Framework (Flask/FastAPI)
+  ↓
+Third-party Libraries
+                            </div>
+                            <p style="margin-top: 10px;">Jika satu sahaja library mempunyai security issue, keseluruhan aplikasi boleh terjejas.</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-backup">✅ Amalan Penting</div>
+                        <div class="card-body">
+                            <ul style="padding-left: 20px; line-height: 1.8;">
+                                <li>Pin versi spesifik (contoh: <code>requirements.txt</code>).</li>
+                                <li>Kemaskini library secara berkala.</li>
+                                <li>Semak notis keselamatan (Security Advisories).</li>
+                                <li>Uji dalam persekitaran staging sebelum ke production.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 23 -->
+        <section class="slide" id="slide-23">
+            <div class="slide-header">
+                <span class="slide-tag">Aplikasi</span>
+                <h2 class="slide-title">Application Security</h2>
+                <p class="slide-subtitle">Firewall tidak dapat membaiki kod aplikasi yang tidak selamat</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-auth">🛠️ Elemen Penting Kod Selamat</div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <ul>
+                                <li>✅ <strong>Input Validation:</strong> Tapis semua input pengguna.</li>
+                                <li>✅ <strong>Secure Sessions:</strong> Gunakan HTTP-Only & Secure Cookies.</li>
+                                <li>✅ <strong>Safe Errors:</strong> Elakkan memaparkan stack trace kepada pengguna awam.</li>
+                            </ul>
+                            <ul>
+                                <li>✅ <strong>Secure Headers:</strong> Guna HSTS, CSP, X-Frame-Options.</li>
+                                <li>✅ <strong>Auth & AuthZ:</strong> Semak identiti pada setiap endpoint API.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box security">
+                    🛡️ <strong>Prinsip:</strong> Firewall menapis lalu lintas luar, tetapi keselamatan aplikasi bergantung sepenuhnya pada kualiti dan ketelitian kod yang anda tulis.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 24 -->
+        <section class="slide" id="slide-24">
+            <div class="slide-header">
+                <span class="slide-tag">Pangkalan Data</span>
+                <h2 class="slide-title">Database Security</h2>
+                <p class="slide-subtitle">Melindungi aset data terpenting anda</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card" style="border-color: rgba(244,63,94,0.4);">
+                        <div class="card-header text-security">❌ Pendedahan Terus</div>
+                        <div class="card-body text-center">
+                            <div class="flow-diagram">Internet → Database (Port 3306)</div>
+                            <p style="margin-top: 10px;">Berisiko tinggi diserang secara brute force dari seluruh dunia!</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: rgba(16,185,129,0.4);">
+                        <div class="card-header text-backup">✅ Seni Bina Terkawal</div>
+                        <div class="card-body text-center">
+                            <div class="flow-diagram">Internet → Application → Database</div>
+                            <p style="margin-top: 10px;">Database hanya mendengar pada IP dalaman (localhost / private network).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    🔑 <strong>Langkah Tambahan:</strong> Gunakan kata laluan database yang kuat, tetapkan akaun akses khas dengan hak minima, dan buat salinan sandaran (backup) berjadual.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 25 -->
+        <section class="slide" id="slide-25">
+            <div class="slide-header">
+                <span class="slide-tag">Kawalan Pentadbir</span>
+                <h2 class="slide-title">Admin Panel Security</h2>
+                <p class="slide-subtitle">Perlindungan berlapis untuk ruang kawalan utama</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-warning">🛑 Jangan Berharap Pada "Secret URL" Sahaja</div>
+                    <div class="card-body">
+                        <p>Mengubah URL dari <code>/admin</code> ke <code>/my-secret-admin-123</code> (Security through obscurity) TIDAK mencukupi!</p>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-auth">🔒 Kawalan Tambahan Wajib</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>Authentication Kuat + MFA</li>
+                                <li>Authorization Semakan Role</li>
+                                <li>Rate Limiting pada Cubaan Login</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-network">☁️ Perisai Cloudflare Access</div>
+                        <div class="card-body">
+                            <div class="flow-diagram" style="font-size: 0.8rem;">
+User → Cloudflare Access → SSO Verification → Policy OK → Admin Panel
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 26 -->
+        <section class="slide" id="slide-26">
+            <div class="slide-header">
+                <span class="slide-tag">Kawalan Akses Perimeter</span>
+                <h2 class="slide-title">Cloudflare Access</h2>
+                <p class="slide-subtitle">Menambah lapisan pengesahan di awan sebelum sampai ke server</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-network">🔄 Aliran Trafik Cloudflare Access</div>
+                    <div class="card-body">
+                        <div class="flow-diagram">
+Pengguna (Browser)
+  ↓
+☁️ Cloudflare Edge Network
+  ↓
+🔐 Pengesahan Identiti (Email Pin / Google SSO)
+  ↓
+📋 Semakan Polisi Kebenaran (Is user allowed?)
+  ↓ (JIKA LULUS)
+🖥️ Application Server Anda
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box auth">
+                    🎯 <strong>Kelebihan:</strong> Server tempatan anda tidak perlu melayan sebarang request daripada pengguna yang belum disahkan identitinya!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 27 -->
+        <section class="slide" id="slide-27">
+            <div class="slide-header">
+                <span class="slide-tag">Model Keselamatan Moden</span>
+                <h2 class="slide-title">Zero Trust Architecture</h2>
+                <p class="slide-subtitle">"Never Trust, Always Verify"</p>
+            </div>
+            <div class="slide-body">
+                <div class="card">
+                    <div class="card-header text-security">🛡️ Konsep Zero Trust</div>
+                    <div class="card-body">
+                        <p style="font-size: 1.05rem; line-height: 1.7;">
+                            Jangan anggap mana-mana pengguna atau peranti boleh dipercayai secara automatik <strong>hanya kerana mereka berada dalam rangkaian tertentu (contoh: Home Wi-Fi / VPN)</strong>.
+                        </p>
+                        <br>
+                        <p>Setiap permintaan mesti disemak mengikut kriteria:</p>
+                        <div class="grid-2" style="margin-top: 10px;">
+                            <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px;">
+                                👤 <strong>Identity:</strong> Siapa pengguna ini?
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px;">
+                                💻 <strong>Device & Context:</strong> Adakah peranti ini selamat?
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box backup" style="text-align: center; font-weight: bold;">
+                    Keputusan Akhir pada Setiap Request: ALLOW atau DENY
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 28 -->
+        <section class="slide" id="slide-28">
+            <div class="slide-header">
+                <span class="slide-tag">Perlindungan Web</span>
+                <h2 class="slide-title">WAF (Web Application Firewall)</h2>
+                <p class="slide-subtitle">Menapis trafik HTTP/HTTPS yang mencurigakan</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram">
+Internet  ──>  Cloudflare  ──>  [ WAF FILTER ]  ──>  Application Server
+                                      │
+                               (Trafik Jahat / Bot) 🛑 BLOCKED!
+                </div>
+
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-header text-network">⚙️ Fungsi Utama WAF</div>
+                    <div class="card-body">
+                        <ul>
+                            <li>Menapis corak serangan biasa pada HTTP request berdasarkan ruleset.</li>
+                            <li>Menyekat bot automatik yang melakukan spamming atau scanning.</li>
+                            <li>Memberikan perlindungan asas daripada serangan DDoS.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    🛑 <strong>Ingat:</strong> WAF ialah lapisan pertahanan luaran, tetapi ia <em>tidak menggantikan kewajipan menulis kod aplikasi yang selamat</em>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 29 -->
+        <section class="slide" id="slide-29">
+            <div class="slide-header">
+                <span class="slide-tag">Seni Bina Keselamatan</span>
+                <h2 class="slide-title">Defense-in-Depth (Perlindungan Berlapis)</h2>
+                <p class="slide-subtitle">"Jangan bergantung kepada satu lapisan sahaja."</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram" style="font-size: 0.8rem; line-height: 1.3;">
+🌐 Internet
+   ↓
+📡 DNS Security
+   ↓
+🔒 HTTPS / TLS Encryption
+   ↓
+🛡️ Cloudflare WAF
+   ↓
+🔑 Cloudflare Access (Identity)
+   ↓
+🔥 Server Firewall (UFW / IPTables)
+   ↓
+🚇 Cloudflare Tunnel
+   ↓
+🔐 Application Authentication & Authorization
+   ↓
+🗄️ Database (Internal Only)
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 30 -->
+        <section class="slide" id="slide-30">
+            <div class="slide-header">
+                <span class="slide-tag">Visibility</span>
+                <h2 class="slide-title">Logging (Pencatatan Log)</h2>
+                <p class="slide-subtitle">"Kalau Tiada Log, Kita Buta."</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">📋 Log Penting Untuk Disimpan</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>Cubaan Login (Berjaya & Gagal).</li>
+                                <li>Application Errors & Exceptions.</li>
+                                <li>Status Pertukaran Service System.</li>
+                                <li>Firewall Blocked Events.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-warning">🔍 Kenapa Log Penting?</div>
+                        <div class="card-body">
+                            <p>Tanpa log, anda tidak akan tahu:</p>
+                            <ul style="padding-left: 20px; margin-top: 8px;">
+                                <li>Siapa yang mengakses server.</li>
+                                <li>Bila ralat bermula.</li>
+                                <li>Punca sebenar kerosakan aplikasi.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box security">
+                    ⚠️ <strong>Privasi & Secret:</strong> Pastikan log anda <strong>TIDAK menyimpan kata laluan, API token, atau maklumat sensitif</strong> secara plaintext!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 31 -->
+        <section class="slide" id="slide-31">
+            <div class="slide-header">
+                <span class="slide-tag">Pemantauan</span>
+                <h2 class="slide-title">Monitoring (Pemantauan Kesihatan)</h2>
+                <p class="slide-subtitle">Memastikan server dan perkhidmatan beroperasi normal</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card">
+                        <div class="card-header text-network">💻 Sistem (System)</div>
+                        <div class="card-body">
+                            • CPU Usage<br>
+                            • RAM Consumption<br>
+                            • Disk Space Available
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-warning">🌐 Rangkaian (Network)</div>
+                        <div class="card-body">
+                            • Bandwidth Usage<br>
+                            • Tunnel Connection Status<br>
+                            • Active Connections
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-backup">📦 Perkhidmatan (Services)</div>
+                        <div class="card-body">
+                            • Web App Uptime<br>
+                            • Database Response Time<br>
+                            • SSL Expiry Date
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    ❓ <strong>Soalan Penting:</strong> "Adakah server hidup?", "Adakah Disk hampir penuh?", "Adakah ada lonjakan trafik luar biasa?"
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 32 -->
+        <section class="slide" id="slide-32">
+            <div class="slide-header">
+                <span class="slide-tag">Pemantauan</span>
+                <h2 class="slide-title">Alerting (Notifikasi Keadaan Darurat)</h2>
+                <p class="slide-subtitle">Menerima pemberitahuan pantas sebelum masalah menjadi parah</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">📊 Monitoring Melihat Data</div>
+                        <div class="card-body">
+                            <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;">
+                                <code>Penggunaan Disk: 94%</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: var(--color-security);">
+                        <div class="card-header text-security">🔔 Alert Hantar Amaran</div>
+                        <div class="card-body">
+                            <div style="background: rgba(244,63,94,0.1); padding: 10px; border-radius: 6px; color: var(--color-security);">
+                                📥 <em>"AMARAN: Ruang Disk server telah mencapai 94%!"</em>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-header text-warning">⚡ Contoh Senario Alert Penting</div>
+                    <div class="card-body">
+                        ✓ Service Down (Aplikasi terhenti) &nbsp;|&nbsp; 
+                        ✓ SSL Cert Expiry (Hampir tamat) &nbsp;|&nbsp; 
+                        ✓ Backup Failure (Gagal disiapkan)
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 33 -->
+        <section class="slide" id="slide-33">
+            <div class="slide-header">
+                <span class="slide-tag">Pemulihan</span>
+                <h2 class="slide-title">Backup Strategy</h2>
+                <p class="slide-subtitle">"Security Tanpa Backup Masih Berisiko."</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-backup">📋 Ciri-ciri Backup Yang Baik</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>✅ <strong>Regular:</strong> Dijalankan secara automatik berjadual.</li>
+                                <li>✅ <strong>Tested:</strong> Diuji proses restore secara berkala.</li>
+                                <li>✅ <strong>Protected:</strong> Encrypted & dilindungi dari akses luar.</li>
+                                <li>✅ <strong>Separate:</strong> Disimpan di lokasi berasingan.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header text-network">🔄 Aliran Pemulihan</div>
+                        <div class="card-body">
+                            <div class="flow-diagram">
+Server Rosak / Terjejas
+  ↓
+📦 Ambil Backup Terkini
+  ↓
+⚙️ Restore Sistem
+  ↓
+✅ Perkhidmatan Kembali Pulih
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box security" style="text-align: center; font-weight: bold; font-size: 1.1rem;">
+                    "Backup yang tidak pernah diuji restore bukanlah backup strategy yang lengkap."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 34 -->
+        <section class="slide" id="slide-34">
+            <div class="slide-header">
+                <span class="slide-tag">Strategi Pemulihan</span>
+                <h2 class="slide-title">Prinsip 3-2-1 Backup</h2>
+                <p class="slide-subtitle">Standard amalan terbaik penyimpan data selamat</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-3">
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-network);">3</div>
+                        <div style="font-weight: 700; margin: 8px 0;">COPIES OF DATA</div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary);">Simpan 1 data asal + 2 salinan sandaran.</p>
+                    </div>
+
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-warning);">2</div>
+                        <div style="font-weight: 700; margin: 8px 0;">DIFFERENT MEDIA</div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary);">Gunakan 2 jenis media berbeza (contoh: SSD tempatan + NAS/Cloud).</p>
+                    </div>
+
+                    <div class="card" style="text-align: center;">
+                        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-backup);">1</div>
+                        <div style="font-weight: 700; margin: 8px 0;">OFFSITE COPY</div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary);">Simpan sekurang-kurangnya 1 salinan di luar fizikal rumah/pejabat.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 35 -->
+        <section class="slide" id="slide-35">
+            <div class="slide-header">
+                <span class="slide-tag">Respon Insiden</span>
+                <h2 class="slide-title">Incident Response Lifecycle</h2>
+                <p class="slide-subtitle">Langkah teratur apabila menghadapi masalah keselamatan</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram" style="font-size: 0.85rem;">
+🚨 Incident Detected
+   ↓
+🔍 1. Detection (Ketahui ada masalah)
+   ↓
+🛑 2. Containment (Asingkan server / sekat akses terjejas)
+   ↓
+🔬 3. Investigation (Kaji punca ralat melalui log)
+   ↓
+🔄 4. Recovery (Restore daripada backup bersih & patch bug)
+   ↓
+📝 5. Lessons Learned (Tingkatkan kawalan keselamatan)
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 36 -->
+        <section class="slide" id="slide-36">
+            <div class="slide-header">
+                <span class="slide-tag">Tindakan Defensive</span>
+                <h2 class="slide-title">Tindakan Jika Server Terkena Masalah</h2>
+                <p class="slide-subtitle">Apa yang perlu (dan tidak perlu) dilakukan</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card" style="border-color: rgba(244,63,94,0.4);">
+                        <div class="card-header text-security">❌ JANGAN BUAT BEGINI</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>❌ Panik dan buat tindakan melulu.</li>
+                                <li>❌ Padam semua log atau bukti persekitaran.</li>
+                                <li>❌ Tukar konfigurasi secara rawak tanpa rekod.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: rgba(16,185,129,0.4);">
+                        <div class="card-header text-backup">✅ TINDAKAN DEFENSIVE</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>✓ Putuskan sambungan rangkaian (Isolate).</li>
+                                <li>✓ Simpan fail log penting untuk analisis.</li>
+                                <li>✓ Tukar kredensial & API token terjejas (Rotate).</li>
+                                <li>✓ Kemaskini patch & restore dari trusted backup.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 37 -->
+        <section class="slide" id="slide-37">
+            <div class="slide-header">
+                <span class="slide-tag">Persekitaran</span>
+                <h2 class="slide-title">Development vs Production</h2>
+                <p class="slide-subtitle">Mengapa persekitaran ujian mesti berbeza dari production</p>
+            </div>
+            <div class="slide-body">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>Ciri-Ciri</th>
+                            <th>💻 DEVELOPMENT</th>
+                            <th>🚀 PRODUCTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Lokasi / Server</strong></td>
+                            <td>Laptop Peribadi / Local Lab</td>
+                            <td>Dedicated Server / Cloud VPS</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mod Perisian</strong></td>
+                            <td>Debug Mode Enabled (Verbose)</td>
+                            <td>Strict Production Mode (No Debug)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sambungan</strong></td>
+                            <td>Temporary Tunnel / Localhost</td>
+                            <td>HTTPS + WAF + Cloudflare Access</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Data & Log</strong></td>
+                            <td>Test Data / Mock Data</td>
+                            <td>Real Data + Backup + Monitoring</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SLIDE 38 -->
+        <section class="slide" id="slide-38">
+            <div class="slide-header">
+                <span class="slide-tag">Perbandingan Mindset</span>
+                <h2 class="slide-title">Home Lab vs Production</h2>
+                <p class="slide-subtitle">Memahami perbezaan keutamaan dan risiko</p>
+            </div>
+            <div class="slide-body">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header text-network">🧪 HOME LAB</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>Fokus: Eksperimen & Pembelajaran.</li>
+                                <li>Perkhidmatan sementara.</li>
+                                <li>Risiko data rendah.</li>
+                                <li>Boleh dibuka/tutup bila-bila masa.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="card" style="border-color: var(--color-security);">
+                        <div class="card-header text-security">🏢 PRODUCTION</div>
+                        <div class="card-body">
+                            <ul>
+                                <li>Fokus: Pengguna Sebenar & Ketersediaan.</li>
+                                <li>Data sebenar yang kritikal.</li>
+                                <li>Keperluan Uptime & Keselamatan Tinggi.</li>
+                                <li>Memerlukan Monitoring, Backup & IR Plan.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning" style="text-align: center; font-weight: bold;">
+                    "Jangan bawa mindset lab secara melulu terus ke dalam persekitaran production!"
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 39 -->
+        <section class="slide" id="slide-39">
+            <div class="slide-header">
+                <span class="slide-tag">Seni Bina Lengkap</span>
+                <h2 class="slide-title">Secure Self-Hosting Architecture</h2>
+                <p class="slide-subtitle">Gambaran keseluruhan aliran perisai keselamatan berlapis</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram" style="font-size: 0.75rem; line-height: 1.25;">
+                                  🌐 INTERNET
+                                       ↓
+                                    📡 DNS
+                                       ↓
+                               🔒 HTTPS / TLS
+                                       ↓
+                                ☁️ CLOUDFLARE
+                                       ↓
+                                 🛡️ WAF FILTER
+                                       ↓
+                            🔑 CLOUDFLARE ACCESS
+                                       ↓
+                            🚇 CLOUDFLARE TUNNEL
+                                       ↓
+                             🖥️ HOME / VPS SERVER
+                                       ↓
+                        ┌──────────────┴──────────────┐
+                        ↓                             ↓
+                    🌐 WEB APP                   🔌 API
+                        ↓                             ↓
+                        └──────────────┬──────────────┘
+                                       ↓
+                               🗄️ DATABASE (Private)
+                                       ↓
+                               💾 BACKUP SYSTEM
+
+   [ Sokongan Berterusan: 📊 Logging | 🔔 Monitoring | 🧱 Patch Management ]
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 40 -->
+        <section class="slide" id="slide-40">
+            <div class="slide-header">
+                <span class="slide-tag">Alat Interaktif</span>
+                <h2 class="slide-title">Interactive Security Checklist</h2>
+                <p class="slide-subtitle">Klik pada item untuk menyemak persediaan server anda</p>
+            </div>
+            <div class="slide-body">
+                <div class="checklist-grid" id="checklistContainer">
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>🔒 <strong>Network:</strong> Port yang tidak perlu ditutup.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>🔥 <strong>Firewall:</strong> Dikonfigurasi dengan Default Deny.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>🔑 <strong>Access:</strong> Password kuat & MFA diaktifkan.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>👤 <strong>Privilege:</strong> App tidak dijalankan sebagai root.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>📦 <strong>Updates:</strong> OS & library sentiasa dikemaskini.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>🔑 <strong>Secrets:</strong> Tiada secret dalam source code / Git.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>🌐 <strong>HTTPS:</strong> Sijil TLS sah & paksa HTTPS.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>📊 <strong>Monitoring:</strong> Log & alert dikonfigurasi.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>💾 <strong>Backup:</strong> Backup automatik & pernah diuji restore.</span>
+                    </label>
+                    <label class="checklist-item">
+                        <input type="checkbox" onchange="toggleCheck(this)">
+                        <span>☁️ <strong>WAF/Tunnel:</strong> Melindungi endpoint sensitif.</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 41 -->
+        <section class="slide" id="slide-41">
+            <div class="slide-header">
+                <span class="slide-tag">Minit Pemikiran</span>
+                <h2 class="slide-title">Security Mindset</h2>
+                <p class="slide-subtitle">Ubah cara anda bertanya soalan keselamatan</p>
+            </div>
+            <div class="slide-body">
+                <div class="giant-text-container">
+                    <div style="text-decoration: line-through; color: var(--text-muted); font-size: 1.3rem; margin-bottom: 15px;">
+                        "Macam mana nak secure server saya?"
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-network); margin-bottom: 20px;">
+                        Tukar Soalan Kepada:
+                    </div>
+                    <div class="big-quote-list">
+                        <div class="big-quote-item">🔍 "Apa yang saya expose ke awam?"</div>
+                        <div class="big-quote-item">👤 "Siapa yang boleh access service ini?"</div>
+                        <div class="big-quote-item">🔐 "Apa berlaku jika credential dicuri?"</div>
+                        <div class="big-quote-item">📊 "Macam mana saya detect ralat/masalah?"</div>
+                        <div class="big-quote-item">🔄 "Macam mana saya recover jika crash?"</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 42 -->
+        <section class="slide" id="slide-42">
+            <div class="slide-header">
+                <span class="slide-tag">Model Kesimpulan</span>
+                <h2 class="slide-title">Final Security Model</h2>
+                <p class="slide-subtitle">Satu kitaran berterusan, bukan tindakan sekali sahaja</p>
+            </div>
+            <div class="slide-body">
+                <div class="model-cycle-container" style="display: flex; flex-direction: column; gap: 16px; align-items: center; justify-content: center; width: 100%;">
+                    
+                    <!-- Top Row: Prevention Phase -->
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+                        <div class="card" style="border-left: 4px solid var(--color-network); flex: 1; min-width: 140px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-network">1. MINIMIZE</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Kurangkan Exposure</div>
+                        </div>
+                        
+                        <div style="color: var(--color-network); font-size: 1.4rem; font-weight: bold;">➔</div>
+
+                        <div class="card" style="border-left: 4px solid var(--color-auth); flex: 1; min-width: 140px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-auth">2. AUTHENTICATE</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Sahkan Identiti</div>
+                        </div>
+
+                        <div style="color: var(--color-auth); font-size: 1.4rem; font-weight: bold;">➔</div>
+
+                        <div class="card" style="border-left: 4px solid var(--color-auth); flex: 1; min-width: 140px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-auth">3. AUTHORIZE</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Hadkan Kebenaran</div>
+                        </div>
+
+                        <div style="color: var(--color-security); font-size: 1.4rem; font-weight: bold;">➔</div>
+
+                        <div class="card" style="border-left: 4px solid var(--color-security); flex: 1; min-width: 140px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-security">4. ENCRYPT</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">HTTPS & TLS</div>
+                        </div>
+                    </div>
+
+                    <!-- Loop Transition Banner -->
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%; justify-content: space-between; padding: 0 10px;">
+                        <span style="color: var(--color-backup); font-size: 1.2rem; font-weight: bold;">🔄 Continuous Feedback Loop</span>
+                        <div style="flex: 1; height: 2px; background: linear-gradient(90deg, var(--color-security), var(--color-backup)); margin: 0 10px;"></div>
+                        <span style="color: var(--color-security); font-size: 1.2rem; font-weight: bold;">⬇</span>
+                    </div>
+
+                    <!-- Bottom Row: Maintenance & Resilience Phase -->
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+                        <div class="card" style="border-left: 4px solid var(--color-backup); flex: 1; min-width: 160px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-backup">7. RECOVER</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Restore & Patch</div>
+                        </div>
+
+                        <div style="color: var(--color-backup); font-size: 1.4rem; font-weight: bold;">⬅</div>
+
+                        <div class="card" style="border-left: 4px solid var(--color-backup); flex: 1; min-width: 160px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-backup">6. BACKUP</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Strategi 3-2-1</div>
+                        </div>
+
+                        <div style="color: var(--color-warning); font-size: 1.4rem; font-weight: bold;">⬅</div>
+
+                        <div class="card" style="border-left: 4px solid var(--color-warning); flex: 1; min-width: 160px; text-align: center; padding: 14px 10px;">
+                            <div style="font-size: 1.2rem; font-weight: 800;" class="text-warning">5. MONITOR</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Log & Alerting</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="highlight-box security" style="text-align: center; font-size: 1.15rem; font-weight: 800; margin-top: 15px;">
+                    "Security bukan satu command. Security ialah satu PROCESS."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 43 -->
+        <section class="slide" id="slide-43">
+            <div class="slide-header">
+                <span class="slide-tag">Perjalanan Pembelajaran</span>
+                <h2 class="slide-title">Hubungan Pembelajaran Sebelum Ini</h2>
+                <p class="slide-subtitle">Menghubungkan semua blok pengetahuan yang telah dipelajari</p>
+            </div>
+            <div class="slide-body">
+                <div class="flow-diagram" style="font-size: 0.8rem; line-height: 1.4;">
+Private IP ➔ Public IP ➔ Port Forwarding ➔ ngrok ➔ Cloudflare Tunnel ➔ DNS ➔ HTTPS ➔ Access ➔ WAF ➔ Security ➔ Production
+                </div>
+
+                <div class="grid-2" style="margin-top: 20px;">
+                    <div class="card">
+                        <div class="card-header text-network">🌐 Networking</div>
+                        <div class="card-body">
+                            Menentukan <strong>bagaimana trafik bergerak</strong> dari client ke server.
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header text-security">🛡️ Security</div>
+                        <div class="card-body">
+                            Menentukan <strong>siapa yang patut dibenarkan masuk</strong> dan bagaimana melindungi laluan tersebut.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 44 -->
+        <section class="slide" id="slide-44">
+            <div class="slide-header">
+                <span class="slide-tag">Uji Kefahaman Interaktif</span>
+                <h2 class="slide-title">Quiz Keselamatan Self-Hosting</h2>
+                <p class="slide-subtitle">Uji kefahaman anda. Pilih jawapan yang paling tepat.</p>
+            </div>
+            <div class="slide-body">
+                <div class="quiz-container">
+                    <!-- Q1 -->
+                    <div class="quiz-card" id="q1">
+                        <div class="quiz-question">1. Apakah tujuan utama Firewall?</div>
+                        <div class="quiz-options">
+                            <button class="quiz-opt" onclick="checkQuiz('q1', this, false)">A. Encrypt semua data</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q1', this, true)">B. Mengawal trafik berdasarkan rules</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q1', this, false)">C. Menyimpan kata laluan</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q1', this, false)">D. Menggantikan HTTPS</button>
+                        </div>
+                        <div class="quiz-feedback"></div>
+                    </div>
+
+                    <!-- Q2 -->
+                    <div class="quiz-card" id="q2">
+                        <div class="quiz-question">2. Authentication bermaksud...</div>
+                        <div class="quiz-options">
+                            <button class="quiz-opt" onclick="checkQuiz('q2', this, false)">A. Apa yang user boleh lakukan</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q2', this, true)">B. Siapa user tersebut (Pengesahan Identiti)</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q2', this, false)">C. Di mana server berada</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q2', this, false)">D. Port mana yang digunakan</button>
+                        </div>
+                        <div class="quiz-feedback"></div>
+                    </div>
+
+                    <!-- Q3 -->
+                    <div class="quiz-card" id="q3">
+                        <div class="quiz-question">3. Apakah prinsip Least Privilege?</div>
+                        <div class="quiz-options">
+                            <button class="quiz-opt" onclick="checkQuiz('q3', this, false)">A. Beri semua permission</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q3', this, true)">B. Beri permission yang diperlukan sahaja</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q3', this, false)">C. Disable firewall</button>
+                            <button class="quiz-opt" onclick="checkQuiz('q3', this, false)">D. Gunakan root untuk semua service</button>
+                        </div>
+                        <div class="quiz-feedback"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 45 -->
+        <section class="slide" id="slide-45">
+            <div class="slide-header">
+                <span class="slide-tag">Penutup</span>
+                <h2 class="slide-title">Self-Hosting Bukan Sekadar Boleh Diakses</h2>
+                <p class="slide-subtitle">Ringkasan penting untuk dibawa pulang</p>
+            </div>
+            <div class="slide-body">
+                <div class="giant-text-container" style="padding: 10px;">
+                    <div class="giant-text" style="font-size: 3rem;">ONLINE ≠ SECURE</div>
+                </div>
+
+                <div class="flow-diagram" style="font-size: 0.85rem; padding: 12px; margin-bottom: 15px;">
+Secure Network + Secure Access + Secure Application + Secrets + Monitoring + Backup + Recovery
+                </div>
+
+                <div class="card" style="border-color: var(--color-network); text-align: center; padding: 20px;">
+                    <h3 style="color: var(--color-network); font-size: 1.3rem; line-height: 1.8;">
+                        "Expose dengan sengaja.<br>
+                        Protect dengan berlapis.<br>
+                        Monitor dengan konsisten.<br>
+                        Recover bila perlu."
+                    </h3>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Toolbar -->
+    <footer>
+        <div class="controls-left">
+            <button class="btn" id="prevBtn" onclick="prevSlide()">◀ Prev</button>
+            <button class="btn btn-primary" id="nextBtn" onclick="nextSlide()">Next ▶</button>
+            <select class="slide-select" id="slideSelect" onchange="jumpToSlide(this.value)">
+                <!-- Generated by JS -->
+            </select>
+        </div>
+        <div class="controls-right">
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 10px;">Guna Arrow ◄ ► / Space</span>
+            <button class="btn" onclick="toggleFullScreen()">Fullscreen ⛶</button>
+        </div>
+    </footer>
+
+    <script>
+        // State Management
+        let currentSlide = 1;
+        const totalSlides = 45;
+
+        // Slide Titles Array for Jump Menu
+        const slideTitles = [
+            "1. Tajuk Utama",
+            "2. Kenapa Security Penting?",
+            "3. Apa Itu Attack Surface?",
+            "4. Minimize Exposure",
+            "5. Open Ports",
+            "6. Port Scanning Defensive",
+            "7. Firewall — Pintu Kawalan",
+            "8. Inbound vs Outbound",
+            "9. Default Deny Policy",
+            "10. Authentication",
+            "11. Authorization",
+            "12. AuthN vs AuthZ",
+            "13. Principle of Least Privilege",
+            "14. Linux User & Permissions",
+            "15. SSH Security",
+            "16. SSH Key Architecture",
+            "17. Password & MFA",
+            "18. HTTPS / TLS",
+            "19. Secrets Management",
+            "20. Environment Variables",
+            "21. Software Updates",
+            "22. Dependencies Management",
+            "23. Application Security",
+            "24. Database Security",
+            "25. Admin Panel Security",
+            "26. Cloudflare Access",
+            "27. Zero Trust Architecture",
+            "28. WAF (Web App Firewall)",
+            "29. Defense-in-Depth",
+            "30. Logging",
+            "31. Monitoring",
+            "32. Alerting",
+            "33. Backup Strategy",
+            "34. 3-2-1 Backup Strategy",
+            "35. Incident Response",
+            "36. Tindakan Jika Server Terjejas",
+            "37. Development vs Production",
+            "38. Home Lab vs Production",
+            "39. Secure Self-Hosting Architecture",
+            "40. Interactive Checklist",
+            "41. Security Mindset",
+            "42. Final Security Model",
+            "43. Hubungan Pembelajaran Sebelum Ini",
+            "44. Quiz Keselamatan",
+            "45. Penutup & Summary"
+        ];
+
+        // DOM Initialization
+        document.addEventListener("DOMContentLoaded", () => {
+            populateSlideSelect();
+            updateSlideView();
+
+            // Keyboard Shortcuts Navigation
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowRight" || e.key === " ") {
+                    nextSlide();
+                } else if (e.key === "ArrowLeft") {
+                    prevSlide();
+                } else if (e.key === "Home") {
+                    jumpToSlide(1);
+                } else if (e.key === "End") {
+                    jumpToSlide(totalSlides);
+                }
+            });
+        });
+
+        function populateSlideSelect() {
+            const select = document.getElementById("slideSelect");
+            select.innerHTML = "";
+            slideTitles.forEach((title, index) => {
+                const opt = document.createElement("option");
+                opt.value = index + 1;
+                opt.textContent = title;
+                select.appendChild(opt);
+            });
+        }
+
+        // Navigation Functions
+        function updateSlideView() {
+            document.querySelectorAll(".slide").forEach((slide, idx) => {
+                if (idx + 1 === currentSlide) {
+                    slide.classList.add("active");
+                } else {
+                    slide.classList.remove("active");
+                }
+            });
+
+            // Update UI elements
+            document.getElementById("slideCounter").textContent = `Slide ${currentSlide} / ${totalSlides}`;
+            document.getElementById("slideSelect").value = currentSlide;
+            
+            // Progress Bar
+            const progressPercent = ((currentSlide - 1) / (totalSlides - 1)) * 100;
+            document.getElementById("progressBar").style.width = `${progressPercent}%`;
+
+            // Button states
+            document.getElementById("prevBtn").disabled = currentSlide === 1;
+            document.getElementById("nextBtn").disabled = currentSlide === totalSlides;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateSlideView();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateSlideView();
+            }
+        }
+
+        function jumpToSlide(slideNum) {
+            currentSlide = parseInt(slideNum);
+            updateSlideView();
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Checklist Handler (Slide 40)
+        function toggleCheck(checkbox) {
+            const item = checkbox.closest('.checklist-item');
+            if (checkbox.checked) {
+                item.classList.add('checked');
+            } else {
+                item.classList.remove('checked');
+            }
+        }
+
+        // Quiz Handler (Slide 44)
+        function checkQuiz(cardId, button, isCorrect) {
+            const card = document.getElementById(cardId);
+            const options = card.querySelectorAll('.quiz-opt');
+            const feedback = card.querySelector('.quiz-feedback');
+
+            // Reset selection styles for this question
+            options.forEach(opt => {
+                opt.classList.remove('correct', 'incorrect');
+                opt.disabled = true; // Disable after selection
+            });
+
+            if (isCorrect) {
+                button.classList.add('correct');
+                feedback.textContent = '✅ Tepat sekali!';
+                feedback.style.color = '#4ade80';
+            } else {
+                button.classList.add('incorrect');
+                feedback.textContent = '❌ Kurang tepat. Sila semak semula konsep!';
+                feedback.style.color = '#fca5a5';
+            }
+            feedback.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

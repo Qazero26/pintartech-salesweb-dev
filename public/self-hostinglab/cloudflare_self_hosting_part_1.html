@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Tunnel — Dari Localhost Terus Ke Internet</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cf: {
+                            orange: '#F38020',
+                            darkorange: '#E06B07',
+                            black: '#0D1117',
+                            card: '#161B22',
+                            border: '#30363D',
+                            accent: '#38BDF8',
+                            purple: '#A855F7',
+                            green: '#10B981',
+                            red: '#EF4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0E14;
+            color: #F3F4F6;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Custom Scrollbar for slide content overflow */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #161B22;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #30363D;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #F38020;
+        }
+
+        /* Pulse and Flow Animations */
+        @keyframes flowPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+        .animate-flow {
+            animation: flowPulse 2.5s infinite ease-in-out;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -40;
+            }
+        }
+        .animate-dash {
+            stroke-dasharray: 8;
+            animation: dash 1.5s linear infinite;
+        }
+
+        /* Slide Animation Transitions */
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Gradient Glowing Borders */
+        .glow-orange {
+            box-shadow: 0 0 25px -5px rgba(243, 128, 32, 0.25);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 25px -5px rgba(56, 189, 248, 0.25);
+        }
+        .glow-green {
+            box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
+        }
+        .glow-red {
+            box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.25);
+        }
+
+        /* Card backdrop grid effect */
+        .bg-grid {
+            background-image: radial-gradient(#30363D 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-grid">
+
+    <!-- TOP NAVBAR -->
+    <header class="h-14 border-b border-cf-border bg-cf-card/90 backdrop-blur-md flex items-center justify-between px-4 z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-r from-cf-orange to-amber-500 p-2 rounded-lg text-white shadow-lg">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white tracking-wide uppercase">Cloudflare Tunnel</h1>
+                <p class="text-xs text-gray-400 hidden sm:block">Dari Localhost Terus Ke Internet</p>
+            </div>
+        </div>
+
+        <!-- Slide Navigator Controls -->
+        <div class="flex items-center space-x-2">
+            <button id="prevBtn" onclick="prevSlide()" class="p-2 rounded-lg bg-cf-border hover:bg-gray-700 text-gray-300 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <span class="text-xs font-mono px-3 py-1 bg-cf-black rounded-md border border-cf-border text-cf-orange font-bold">
+                <span id="currentSlideNum">1</span> / <span id="totalSlidesNum">36</span>
+            </span>
+            <button id="nextBtn" onclick="nextSlide()" class="p-2 rounded-lg bg-cf-orange hover:bg-cf-darkorange text-white transition disabled:opacity-40 disabled:cursor-not-allowed font-medium shadow-md">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <button onclick="toggleOverviewModal()" class="p-2 rounded-lg bg-cf-border hover:bg-gray-700 text-gray-300 transition ml-2" title="Slide Overview Grid (Shortcut: O)">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            </button>
+            <button onclick="toggleFullscreen()" class="p-2 rounded-lg bg-cf-border hover:bg-gray-700 text-gray-300 transition hidden md:block" title="Toggle Fullscreen">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- TOP PROGRESS BAR -->
+    <div class="w-full bg-cf-black h-1">
+        <div id="progressBar" class="bg-gradient-to-r from-cf-orange via-amber-400 to-cf-accent h-1 transition-all duration-300" style="width: 2.77%;"></div>
+    </div>
+
+    <!-- SLIDES CONTAINER CONTAINER -->
+    <main id="slideContainer" class="flex-1 relative overflow-hidden p-3 sm:p-6 md:p-10 flex items-center justify-center">
+
+        <!-- ==========================================
+             SLIDE 1 — TAJUK
+        =========================================== -->
+        <section class="slide active flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll text-center relative glow-orange">
+            <div class="space-y-4">
+                <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cf-orange/10 border border-cf-orange/30 text-cf-orange text-xs sm:text-sm font-semibold tracking-wide">
+                    🚀 Modern Local Expose Guide
+                </span>
+                <h1 class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-tight">
+                    Cloudflare Tunnel
+                </h1>
+                <p class="text-lg sm:text-2xl font-medium text-cf-accent max-w-3xl mx-auto">
+                    "Dari Localhost Terus Ke Internet"
+                </p>
+                <p class="text-sm sm:text-base text-gray-400 max-w-2xl mx-auto">
+                    Belajar expose aplikasi local tanpa Public IP dan Port Forwarding.
+                </p>
+            </div>
+
+            <!-- Visual Flow Diagram -->
+            <div class="w-full my-6 p-4 sm:p-6 bg-cf-black/70 rounded-xl border border-cf-border">
+                <div class="flex flex-col md:flex-row items-center justify-center gap-3 sm:gap-6">
+                    <div class="flex items-center gap-3 bg-gray-800/80 px-4 py-3 rounded-lg border border-gray-700 w-full md:w-auto justify-center">
+                        <span class="text-2xl">💻</span>
+                        <div class="text-left">
+                            <p class="text-xs text-gray-400 font-mono">Windows PC</p>
+                            <p class="text-sm font-bold text-green-400 font-mono">Python :8080</p>
+                        </div>
+                    </div>
+
+                    <div class="text-cf-orange font-bold rotate-90 md:rotate-0 text-xl">➔</div>
+
+                    <div class="flex items-center gap-3 bg-amber-950/40 border border-amber-800/60 px-4 py-3 rounded-lg w-full md:w-auto justify-center">
+                        <span class="text-2xl">🚇</span>
+                        <div class="text-left">
+                            <p class="text-xs text-amber-400 font-mono">Connector</p>
+                            <p class="text-sm font-bold text-amber-300 font-mono">cloudflared</p>
+                        </div>
+                    </div>
+
+                    <div class="text-cf-orange font-bold rotate-90 md:rotate-0 text-xl">➔</div>
+
+                    <div class="flex items-center gap-3 bg-cf-orange/20 border border-cf-orange/40 px-4 py-3 rounded-lg w-full md:w-auto justify-center">
+                        <span class="text-2xl">☁️</span>
+                        <div class="text-left">
+                            <p class="text-xs text-orange-300 font-mono">Edge Network</p>
+                            <p class="text-sm font-bold text-orange-400">Cloudflare</p>
+                        </div>
+                    </div>
+
+                    <div class="text-cf-orange font-bold rotate-90 md:rotate-0 text-xl">➔</div>
+
+                    <div class="flex items-center gap-3 bg-blue-950/40 border border-blue-800/60 px-4 py-3 rounded-lg w-full md:w-auto justify-center">
+                        <span class="text-2xl">🌍</span>
+                        <div class="text-left">
+                            <p class="text-xs text-blue-300 font-mono">Public Access</p>
+                            <p class="text-sm font-bold text-blue-400">Internet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Highlight Quote -->
+            <div class="bg-gradient-to-r from-cf-orange/20 via-cf-orange/10 to-transparent border-l-4 border-cf-orange p-4 rounded-r-xl w-full text-left">
+                <p class="text-sm sm:text-base font-semibold text-white">
+                    💡 "Kita tak perlu expose Public IP dan tak perlu Port Forwarding."
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 2 — KITA MULA DARI MANA?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 02</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Kita Mula Dari Mana?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Keadaan asal aplikasi web yang sedang berjalan secara local.</p>
+            </div>
+
+            <div class="w-full my-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <!-- Visual Box -->
+                <div class="bg-cf-black p-6 rounded-xl border border-cf-border flex flex-col items-center text-center space-y-4 glow-cyan">
+                    <div class="w-16 h-16 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-3xl font-bold">
+                        🐍
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Python Web Server</h3>
+                        <p class="text-sm text-gray-400 mt-1">Berjalan secara tempatan (Local Machine)</p>
+                    </div>
+                    <div class="w-full py-3 bg-gray-900 border border-gray-700 rounded-lg text-green-400 font-mono font-bold text-base">
+                        http://localhost:8080
+                    </div>
+                </div>
+
+                <!-- Code Example & Explanation -->
+                <div class="space-y-4 text-left">
+                    <div class="bg-cf-black p-4 rounded-xl border border-cf-border">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-gray-400 font-mono">Terminal / Command Prompt</span>
+                            <button onclick="copyCode('pyCmd')" class="text-xs bg-cf-border hover:bg-gray-700 text-gray-300 px-2 py-1 rounded transition">Copy</button>
+                        </div>
+                        <code id="pyCmd" class="code-font text-sm text-yellow-300 block bg-gray-900 p-3 rounded">python -m http.server 8080 --bind 0.0.0.0</code>
+                    </div>
+
+                    <ul class="space-y-3 text-sm text-gray-300">
+                        <li class="flex items-start gap-2">
+                            <span class="text-cf-orange font-bold">✓</span>
+                            <span><strong>Python Server:</strong> Menjalankan web server simple untuk serve fail atau web app.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cf-orange font-bold">✓</span>
+                            <span><strong>Komputer Sendiri:</strong> Server hanya berada dan diproses di dalam komputer kita sahaja.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-cf-orange font-bold">✓</span>
+                            <span><strong>Port 8080:</strong> Port khas tempat aplikasi Python menerima laluan data tempatan.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="w-full bg-red-950/30 border border-red-800/50 p-3 rounded-lg text-xs sm:text-sm text-red-300 text-left">
+                ⚠️ <strong>Cabaran:</strong> Kawal akses localhost — Orang luar di Internet TIDAK BOLEH akses <code>http://localhost:8080</code> komputer korang secara terus.
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 3 — APA YANG KITA MAHU?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 03</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Yang Kita Mahu?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Objektif utama: Hubungkan domain awam ke localhost dengan selamat.</p>
+            </div>
+
+            <div class="w-full my-6 bg-cf-black p-6 rounded-xl border border-cf-border space-y-6">
+                <div class="text-center space-y-2">
+                    <p class="text-sm text-gray-400">Pengguna di Internet membuka URL HTTPS Domain Khas:</p>
+                    <div class="inline-block px-6 py-2.5 bg-gradient-to-r from-cf-orange to-amber-500 rounded-xl text-white font-mono font-bold text-lg sm:text-xl shadow-lg">
+                        https://app.domainbos.com
+                    </div>
+                </div>
+
+                <!-- Visual Connection Chain -->
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center text-center font-mono text-xs sm:text-sm">
+                    <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <div class="text-xl">👤</div>
+                        <div class="text-gray-300 mt-1">User</div>
+                    </div>
+                    <div class="text-cf-accent font-bold">➔</div>
+                    <div class="p-3 bg-cf-orange/20 rounded-lg border border-cf-orange/40">
+                        <div class="text-xl">☁️</div>
+                        <div class="text-cf-orange font-bold mt-1">Cloudflare</div>
+                    </div>
+                    <div class="text-cf-accent font-bold">➔</div>
+                    <div class="p-3 bg-green-950/40 rounded-lg border border-green-800">
+                        <div class="text-xl">🐍</div>
+                        <div class="text-green-400 font-bold mt-1">localhost:8080</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-border/50 p-4 rounded-xl text-left border border-gray-700 space-y-2">
+                <p class="text-sm text-white font-semibold">🎯 Target Akhir:</p>
+                <p class="text-xs sm:text-sm text-gray-300">
+                    Setiap request dari Internet ke <code>https://app.domainbos.com</code> akan dihantar secara selamat melalui Tunnel hingga sampai ke <code>http://localhost:8080</code> (Python Server) pada laptop/PC kita.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 4 — DUA CARA YANG BERBEZA
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 04</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Dua Cara Yang Berbeza</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Perbandingan senbina Direct Public IP vs Cloudflare Tunnel.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                <!-- Tradisional -->
+                <div class="bg-red-950/10 border border-red-900/50 p-5 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-red-400 text-base">❌ CARA TRADISIONAL</h3>
+                        <span class="text-xs bg-red-900/40 text-red-300 px-2 py-0.5 rounded">Inbound Open Port</span>
+                    </div>
+                    <div class="font-mono text-xs text-gray-300 space-y-1.5 bg-cf-black p-3 rounded border border-red-950">
+                        <p>Internet</p>
+                        <p>└─► Public IP (Kena ada static IP)</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;└─► Router Home/Office</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─► ⚠️ Port Forwarding (80/443)</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─► Local Server</p>
+                    </div>
+                    <p class="text-xs text-red-300">Perlu dedahkan router kepada serangan luar (Inbound Open Port).</p>
+                </div>
+
+                <!-- Cloudflare Tunnel -->
+                <div class="bg-green-950/10 border border-green-800/50 p-5 rounded-xl space-y-3 glow-green">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-green-400 text-base">✅ CARA CLOUDFLARE TUNNEL</h3>
+                        <span class="text-xs bg-green-900/40 text-green-300 px-2 py-0.5 rounded">Outbound Only</span>
+                    </div>
+                    <div class="font-mono text-xs text-gray-300 space-y-1.5 bg-cf-black p-3 rounded border border-green-950">
+                        <p>Internet</p>
+                        <p>└─► Cloudflare Network</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;└─► Secure Encrypted Tunnel</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─► cloudflared (Outbound)</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─► Local Server</p>
+                    </div>
+                    <p class="text-xs text-green-300">Hanya buat outbound connection. Router kekal tertutup rapat!</p>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-orange/10 border border-cf-orange/30 p-4 rounded-xl text-left">
+                <p class="text-sm font-bold text-cf-orange">🌟 Highlight Utama:</p>
+                <p class="text-xs sm:text-sm text-gray-200 mt-1">
+                    "Untuk Tunnel, kita tidak perlu membuka inbound port pada router." Cloudflare Tunnel menggunakan connection outbound daripada <code>cloudflared</code> ke Cloudflare.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 5 — APA ITU CLOUDFLARE?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 05</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Itu Cloudflare?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Memahami peranan Cloudflare dalam infrastruktur web moden.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="bg-cf-black p-6 rounded-xl border border-cf-border text-center space-y-4">
+                    <div class="text-5xl">🏰</div>
+                    <h3 class="text-lg font-bold text-cf-orange">Analogi Pintu Hadapan</h3>
+                    <p class="text-sm text-gray-300 leading-relaxed">
+                        "Cloudflare ialah seperti <strong>Pintu Hadapan & Pengawal Keselamatan</strong> untuk website."
+                    </p>
+                    <p class="text-xs text-gray-400">
+                        User di Internet berhubung dengan pintu hadapan ini terlebih dahulu, bukannya berhubung terus dengan rumah/server tempatan kita.
+                    </p>
+                </div>
+
+                <div class="space-y-3 text-left">
+                    <h4 class="text-sm font-bold text-white uppercase tracking-wider">Cloudflare Menyediakan:</h4>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-xs sm:text-sm text-gray-300">
+                        🌐 <strong>DNS Manager:</strong> Menguruskan carian nama domain (Domain Name System).
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-xs sm:text-sm text-gray-300">
+                        🔒 <strong>Automated HTTPS:</strong> Menyediakan sijil SSL/TLS automatik.
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-xs sm:text-sm text-gray-300">
+                        🛡️ <strong>DDoS Protection:</strong> Menapis trafik jahat & bots berbahaya.
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-xs sm:text-sm text-gray-300">
+                        🔀 <strong>Traffic Routing:</strong> Mengarahkan trafik dengan pantas ke server yang betul.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Flow -->
+            <div class="w-full py-3 bg-cf-black rounded-lg border border-cf-border flex justify-center items-center gap-4 text-xs sm:text-sm font-mono">
+                <span class="text-gray-300">User</span> ➔ <span class="text-cf-orange font-bold">☁️ Cloudflare</span> ➔ <span class="text-green-400 font-bold">Server Kita</span>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 6 — APA ITU CLOUDFLARE TUNNEL?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 06</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Itu Cloudflare Tunnel?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Jambatan terowong berasaskan perisian untuk keselamatan maksimum.</p>
+            </div>
+
+            <div class="w-full my-6 bg-cf-black p-6 rounded-xl border border-cf-border space-y-6 text-left">
+                <p class="text-sm sm:text-base text-gray-300 leading-relaxed">
+                    <strong>Cloudflare Tunnel</strong> ialah sambungan terenkripsi yang menghubungkan server/komputer local kita secara langsung ke rangkaian global Cloudflare.
+                </p>
+
+                <div class="bg-gray-900 p-4 rounded-xl border border-cf-border flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-3 bg-cf-orange/20 rounded-lg text-cf-orange font-mono font-bold">cloudflared</div>
+                        <div class="text-xs text-gray-300">
+                            Aplikasi ringan (daemon) yang dipasang pada PC/server korang.
+                        </div>
+                    </div>
+                    <span class="text-xs font-semibold px-3 py-1 bg-green-900/50 text-green-300 rounded border border-green-700">Outbound Daemon</span>
+                </div>
+
+                <!-- Outbound Diagram -->
+                <div class="p-4 bg-cf-black border border-gray-800 rounded-lg text-center space-y-2">
+                    <div class="flex items-center justify-center gap-4 text-sm font-mono">
+                        <span class="p-2 bg-gray-800 rounded text-white">💻 Server Tempatan</span>
+                        <div class="flex items-center text-cf-orange font-bold">
+                            ── outbound connection ──►
+                        </div>
+                        <span class="p-2 bg-cf-orange/20 text-cf-orange rounded">☁️ Cloudflare</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-orange/10 border border-cf-orange/40 p-4 rounded-xl text-left">
+                <p class="text-sm font-bold text-cf-orange">📌 Perkara Penting:</p>
+                <p class="text-xs sm:text-sm text-gray-200 mt-1">
+                    "Server kita yang membuat connection keluar." cloudflared memulakan sambungan dari dalam ke luar, jadi firewall tak akan menyekatnya!
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 7 — ANALOGI MUDAH
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 07</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Analogi Mudah (Rumah & Pagar)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Bagaimana Tunnel mengubah cara tetamu masuk ke rumah anda.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                <!-- Analogi Public IP -->
+                <div class="bg-gray-900/90 border border-gray-800 p-5 rounded-xl space-y-3">
+                    <h3 class="font-bold text-amber-400 text-sm sm:text-base flex items-center gap-2">
+                        🏠 Cara Public IP + Port Forward
+                    </h3>
+                    <div class="text-xs text-gray-300 space-y-2 bg-cf-black p-3 rounded">
+                        <p>1. Orang luar tanya alamat rumah (Public IP).</p>
+                        <p>2. Orang luar berjalan sampai depan pagar (Router).</p>
+                        <p>3. Pagar rumah dibuka kekal 24 jam (Port Forwarding).</p>
+                        <p>4. Orang terus masuk ke bilik server.</p>
+                    </div>
+                    <p class="text-xs text-red-400 font-medium">⚠️ Berisiko: Semua orang tahu alamat fizikal rumah & pintu sentiasa terbuka.</p>
+                </div>
+
+                <!-- Analogi Cloudflare Tunnel -->
+                <div class="bg-cf-black border border-cf-orange/40 p-5 rounded-xl space-y-3 glow-orange">
+                    <h3 class="font-bold text-cf-orange text-sm sm:text-base flex items-center gap-2">
+                        🚇 Cara Cloudflare Tunnel
+                    </h3>
+                    <div class="text-xs text-gray-300 space-y-2 bg-gray-900 p-3 rounded">
+                        <p>1. Server rumah gali terowong rahsia dari dalam keluar ke pejabat Cloudflare.</p>
+                        <p>2. Orang luar hanya jumpa pejabat Cloudflare.</p>
+                        <p>3. Cloudflare tapis orang luar & hantar melalui terowong rahsia.</p>
+                    </div>
+                    <p class="text-xs text-green-400 font-medium">✅ Selamat: Orang luar tak tahu alamat rumah & pagar rumah berkunci rapat!</p>
+                </div>
+            </div>
+
+            <div class="w-full bg-gradient-to-r from-cf-orange to-amber-600 p-4 rounded-xl text-center shadow-lg">
+                <p class="text-base sm:text-lg font-black text-white uppercase tracking-wider">
+                    "Cloudflare Menjadi Pintu Hadapan Utama!"
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 8 — APA ITU CLOUDFLARED?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 08</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Itu `cloudflared`?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Agen perisian penting yang dipasang pada komputer/server tempatan.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-3 text-left">
+                    <p class="text-sm text-gray-300">
+                        <code>cloudflared</code> ialah program perisian CLI ringkas daripada Cloudflare. 4 Fungsi Utamanya:
+                    </p>
+                    <div class="space-y-2 text-xs sm:text-sm">
+                        <div class="p-3 bg-cf-black border border-cf-border rounded-lg text-gray-200">
+                            1. 🔗 <strong>Connect:</strong> Sambung secara selamat ke rangkaian Cloudflare Edge.
+                        </div>
+                        <div class="p-3 bg-cf-black border border-cf-border rounded-lg text-gray-200">
+                            2. 🔄 <strong>Kekalkan Tunnel:</strong> Re-connect automatik jika internet terputus.
+                        </div>
+                        <div class="p-3 bg-cf-black border border-cf-border rounded-lg text-gray-200">
+                            3. 📥 <strong>Terima Traffic:</strong> Menyambut data web request daripada Cloudflare.
+                        </div>
+                        <div class="p-3 bg-cf-black border border-cf-border rounded-lg text-gray-200">
+                            4. ⏩ <strong>Forward Traffic:</strong> Salurkan request ke local app (port 8080).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cf-black p-6 rounded-xl border border-cf-border flex flex-col items-center justify-center space-y-4 font-mono text-xs sm:text-sm">
+                    <div class="p-3 bg-cf-orange/20 text-cf-orange rounded-lg border border-cf-orange/40 w-full text-center">
+                        ☁️ Cloudflare Network
+                    </div>
+                    <div class="text-cf-orange font-bold">│ ⬇️ Tunnel Request</div>
+                    <div class="p-3 bg-amber-950/60 text-amber-300 rounded-lg border border-amber-800 w-full text-center font-bold">
+                        🚇 cloudflared CLI
+                    </div>
+                    <div class="text-green-400 font-bold">│ ⬇️ Local Forward</div>
+                    <div class="p-3 bg-green-950/60 text-green-300 rounded-lg border border-green-800 w-full text-center">
+                        💻 localhost:8080
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 9 — PERSEDIAAN
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 09</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Persediaan (Checklist Sebelum Mula)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Senarai keperluan asas sebelum mencipta Cloudflare Tunnel.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                <div class="p-4 bg-cf-black rounded-xl border border-cf-border flex items-start gap-3">
+                    <span class="text-xl">✅</span>
+                    <div>
+                        <h4 class="font-bold text-white text-sm">Akaun Cloudflare Active</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Daftar akaun percuma di cloudflare.com</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-cf-black rounded-xl border border-cf-border flex items-start gap-3">
+                    <span class="text-xl">✅</span>
+                    <div>
+                        <h4 class="font-bold text-white text-sm">Domain Sendiri di Cloudflare</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Contoh: <code>domainbos.com</code> diaktifkan</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-cf-black rounded-xl border border-cf-border flex items-start gap-3">
+                    <span class="text-xl">✅</span>
+                    <div>
+                        <h4 class="font-bold text-white text-sm">Komputer / Server Host</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Windows, Mac, atau Linux tempatan</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-cf-black rounded-xl border border-cf-border flex items-start gap-3">
+                    <span class="text-xl">✅</span>
+                    <div>
+                        <h4 class="font-bold text-white text-sm">Sambungan Internet Outbound</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Internet biasa tanpa port forwarding</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full p-4 bg-green-950/30 border border-green-800/60 rounded-xl flex items-center gap-3 text-left">
+                <span class="text-2xl">🐍</span>
+                <div>
+                    <h4 class="font-bold text-green-300 text-sm">Python Web Server sedia ada</h4>
+                    <p class="text-xs text-gray-300">Aplikasi Python mesti sudah aktif berjalan di <code>http://localhost:8080</code></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 10 — DOMAIN DI CLOUDFLARE
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 10</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Domain di Cloudflare</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Kenapa domain anda perlu diuruskan oleh Cloudflare.</p>
+            </div>
+
+            <div class="w-full my-6 bg-cf-black p-6 rounded-xl border border-cf-border space-y-6">
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+                    <div class="px-5 py-3 bg-gray-800 rounded-lg border border-gray-700 font-mono text-base font-bold text-amber-300">
+                        domainbos.com
+                    </div>
+                    <span class="text-cf-orange font-bold text-xl">➔</span>
+                    <div class="px-5 py-3 bg-cf-orange/20 rounded-lg border border-cf-orange/40 text-cf-orange font-bold text-base">
+                        ☁️ Cloudflare DNS
+                    </div>
+                    <span class="text-cf-orange font-bold text-xl">➔</span>
+                    <div class="px-5 py-3 bg-blue-950/50 rounded-lg border border-blue-800 text-blue-300 font-mono text-base">
+                        Tunnel + HTTPS + Security
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 p-4 rounded-xl text-left border border-cf-border space-y-2 text-xs sm:text-sm text-gray-300">
+                    <p class="font-bold text-white">💡 Konsep Asas:</p>
+                    <p>
+                        Domain seperti <code>domainbos.com</code> perlu ditambah ke Cloudflare supaya Cloudflare boleh menguruskan rekod DNS dan HTTPS secara automatik bila tunnel dihubungkan.
+                    </p>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-border/40 p-3 rounded-lg text-xs text-gray-400 text-left">
+                ℹ️ <strong>Nota:</strong> Tidak perlu risau pasal tetapan Nameserver yang rumit buat masa ini. Cukup sekadar faham bahawa Cloudflare bertindak sebagai pengurus DNS domain anda.
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 11 — MASUK CLOUDFLARE DASHBOARD
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 11</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Masuk Cloudflare Dashboard</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Langkah navigasi menu di dalam dashboard Cloudflare.</p>
+            </div>
+
+            <!-- UI Mockup Dashboard -->
+            <div class="w-full my-4 bg-gray-950 rounded-xl border border-cf-border overflow-hidden text-left shadow-xl">
+                <div class="bg-gray-900 px-4 py-2 border-b border-gray-800 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+                        <span class="text-xs text-gray-400 font-mono ml-2">dash.cloudflare.com</span>
+                    </div>
+                    <span class="text-xs text-cf-orange font-bold">Cloudflare Zero Trust / Dashboard</span>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 text-center">
+                        <span class="text-xs text-gray-400 font-mono block mb-1">LANGKAH 1</span>
+                        <span class="font-bold text-white text-base">Cloudflare Dashboard</span>
+                    </div>
+                    <div class="text-center text-cf-orange font-bold">➔</div>
+                    <div class="p-4 bg-cf-orange/10 rounded-lg border border-cf-orange/50 text-center">
+                        <span class="text-xs text-cf-orange font-mono block mb-1">LANGKAH 2</span>
+                        <span class="font-bold text-cf-orange text-base">Networking ➔ Tunnels</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-black p-4 rounded-xl border border-cf-border text-left text-xs sm:text-sm text-gray-300">
+                📌 <strong>Lokasi Menu:</strong> Pergi ke menu utama <strong>Networking</strong> ➔ pilih sub-menu <strong>Tunnels</strong> untuk mula menguruskan terowong anda.
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 12 — CREATE TUNNEL
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 12</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Create Tunnel</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Mencipta Tunnel baharu dan meletakkan nama identiti.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border space-y-4 text-left">
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 bg-cf-orange text-white text-xs font-bold rounded">Klik Button</span>
+                    <span class="font-mono text-white text-sm font-bold">+ Create a Tunnel</span>
+                </div>
+
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 space-y-2">
+                    <label class="text-xs text-gray-400 font-mono block">Tunnel Name:</label>
+                    <input type="text" readonly value="my-python-app" class="w-full bg-gray-950 border border-cf-orange/60 rounded px-3 py-2 text-cf-accent font-mono text-sm font-bold focus:outline-none">
+                </div>
+
+                <div class="text-xs sm:text-sm text-gray-300 space-y-2">
+                    <p class="font-bold text-white">💡 Fungsi Nama Tunnel:</p>
+                    <p>Nama tunnel ini hanyalah label rujukan untuk kita mengenali terowong ini di dalam dashboard.</p>
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-mono">python-server</span>
+                        <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-mono">home-server</span>
+                        <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-mono">t-afsirbot</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 13 — PILIH OPERATING SYSTEM
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 13</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Pilih Operating System (OS)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Cloudflare menyediakan arahan khas mengikut persekitaran OS anda.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-4 bg-cf-orange/20 border-2 border-cf-orange rounded-xl text-center cursor-pointer">
+                    <div class="text-3xl mb-1">🪟</div>
+                    <div class="font-bold text-white text-sm">Windows</div>
+                    <div class="text-[10px] text-cf-orange font-mono">Selected</div>
+                </div>
+                <div class="p-4 bg-cf-black border border-cf-border rounded-xl text-center opacity-60">
+                    <div class="text-3xl mb-1">🐧</div>
+                    <div class="font-bold text-gray-300 text-sm">Linux</div>
+                    <div class="text-[10px] text-gray-500 font-mono">Deb/RPM</div>
+                </div>
+                <div class="p-4 bg-cf-black border border-cf-border rounded-xl text-center opacity-60">
+                    <div class="text-3xl mb-1">🍎</div>
+                    <div class="font-bold text-gray-300 text-sm">macOS</div>
+                    <div class="text-[10px] text-gray-500 font-mono">Homebrew</div>
+                </div>
+                <div class="p-4 bg-cf-black border border-cf-border rounded-xl text-center opacity-60">
+                    <div class="text-3xl mb-1">🐳</div>
+                    <div class="font-bold text-gray-300 text-sm">Docker</div>
+                    <div class="text-[10px] text-gray-500 font-mono">Container</div>
+                </div>
+            </div>
+
+            <div class="w-full bg-cf-black p-4 rounded-xl border border-cf-border text-left space-y-2">
+                <p class="text-sm font-bold text-white">📋 Salin Arahan Pemasangan:</p>
+                <p class="text-xs sm:text-sm text-gray-300">
+                    Cloudflare akan menjana arahan CLI secara automatik mengikut OS yang dipilih.
+                </p>
+                <div class="p-3 bg-gray-900 rounded border border-gray-800 text-xs text-amber-300 font-mono">
+                    "Copy command yang Cloudflare tunjukkan untuk OS bos."
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 14 — INSTALL CLOUDFLARED
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 14</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Install `cloudflared`</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Pemasangan fail boleh laksana (executable) pada PC anda.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border space-y-4 text-left">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚙️</span>
+                    <div>
+                        <h3 class="font-bold text-white text-base">cloudflared.exe</h3>
+                        <p class="text-xs text-gray-400">Program kecil daripada Cloudflare yang berjalan di latar belakang server.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-400 font-mono">Semak versi pemasangan di Terminal / PowerShell:</span>
+                        <button onclick="copyCode('verCmd')" class="text-xs bg-cf-border hover:bg-gray-700 text-gray-300 px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <code id="verCmd" class="code-font text-sm text-green-400 block bg-gray-900 p-3 rounded border border-gray-800">
+cloudflared --version
+                    </code>
+                    <p class="text-xs text-gray-400 italic">Atau jika menggunakan manual executable file:</p>
+                    <code class="code-font text-xs text-green-400 block bg-gray-900 p-2 rounded">
+.\cloudflared.exe --version
+                    </code>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 15 — JALANKAN CLOUDFLARED
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 15</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Jalankan `cloudflared` (Token)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Mendaftarkan perkhidmatan menggunakan Tunnel Token rahsia.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border space-y-4 text-left">
+                <p class="text-xs sm:text-sm text-gray-300">
+                    Cloudflare memberikan arahan beserta token unik untuk mendaftarkan <code>cloudflared</code> sebagai Service pada Windows:
+                </p>
+
+                <div class="bg-gray-900 p-4 rounded-xl border border-cf-border space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-400 font-mono">Service Installation Command:</span>
+                        <button onclick="copyCode('tokenCmd')" class="text-xs bg-cf-border text-gray-300 px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <code id="tokenCmd" class="code-font text-xs sm:text-sm text-amber-300 block bg-black p-3 rounded overflow-x-auto">
+cloudflared service install &lt;TUNNEL_TOKEN&gt;
+                    </code>
+                </div>
+
+                <div class="p-4 bg-red-950/40 border border-red-800/60 rounded-xl text-left space-y-1">
+                    <p class="text-sm font-bold text-red-400">🔒 KESELAMATAN TOKEN:</p>
+                    <p class="text-xs text-red-200">
+                        "Jangan kongsi Tunnel Token!" Siapa yang ada token ini boleh meletakkan terowong ke dalam rangkaian Cloudflare anda.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 16 — TUNNEL CONNECTED
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 16</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Tunnel Connected!</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Pengesahan status sambungan terowong di dashboard.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4 glow-green">
+                <div class="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-800">
+                    <div>
+                        <div class="text-xs text-gray-400 font-mono">Tunnel Name</div>
+                        <div class="text-base font-bold text-white font-mono">python-server</div>
+                    </div>
+                    <div class="flex items-center gap-2 px-3 py-1 bg-green-950 text-green-400 rounded-full border border-green-700 text-sm font-bold animate-pulse">
+                        🟢 Healthy
+                    </div>
+                </div>
+
+                <p class="text-xs sm:text-sm text-gray-300">
+                    Apabila <code>cloudflared</code> berjaya connect ke Cloudflare, dashboard akan memaparkan status <strong>Healthy</strong>. Ini bermakna laluan terowong sedia untuk menghantar trafik!
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 17 — SEKARANG KITA SAMBUNGKAN APP
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 17</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Sekarang Kita Sambungkan App</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Mementakan Published Application ke perkhidmatan tempatan.</p>
+            </div>
+
+            <div class="w-full my-6 bg-cf-black p-6 rounded-xl border border-cf-border space-y-6">
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+                    <div class="p-3 bg-blue-950/60 border border-blue-800 rounded-lg text-blue-300 font-mono text-sm font-bold">
+                        app.domainbos.com
+                    </div>
+                    <span class="text-cf-orange font-bold text-xl">➔</span>
+                    <div class="p-3 bg-cf-orange/20 border border-cf-orange/40 rounded-lg text-cf-orange font-bold text-sm">
+                        Cloudflare Tunnel
+                    </div>
+                    <span class="text-cf-orange font-bold text-xl">➔</span>
+                    <div class="p-3 bg-green-950/60 border border-green-800 rounded-lg text-green-300 font-mono text-sm font-bold">
+                        http://localhost:8080
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-900 rounded-xl text-left border border-gray-800">
+                    <p class="text-xs font-mono text-cf-orange font-bold uppercase">Istilah Penting:</p>
+                    <h3 class="text-lg font-bold text-white mt-1">"Published Application"</h3>
+                    <p class="text-xs sm:text-sm text-gray-300 mt-1">
+                        Proses memetakan alamat domain awam kepada port perkhidmatan tempatan yang sedang berjalan di dalam server kita.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 18 — ADD ROUTE
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 18</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Add Route (Laluan)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Menambah haluan laluan data dalam tetapan Tunnel.</p>
+            </div>
+
+            <!-- UI Step Visualizer -->
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="flex items-center space-x-3 text-xs sm:text-sm font-mono">
+                    <span class="px-3 py-1 bg-gray-800 text-gray-300 rounded border border-gray-700">Routes Tab</span>
+                    <span>➔</span>
+                    <span class="px-3 py-1 bg-cf-orange text-white rounded font-bold">+ Add Route</span>
+                    <span>➔</span>
+                    <span class="px-3 py-1 bg-amber-900/60 text-amber-300 rounded border border-amber-700">Published Application</span>
+                </div>
+
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 space-y-2 text-xs text-gray-300">
+                    <p class="font-bold text-white text-sm">Penerangan Pilihan:</p>
+                    <p>• <strong>Published Application:</strong> Membuka aplikasi HTTP/HTTPS tempatan untuk diakses awam di Internet.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 19 — HOSTNAME
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 19</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Tetapan Hostname</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Menentukan alamat URL web yang akan dibuka oleh orang ramai.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+                        <label class="text-xs text-gray-400 font-mono">Subdomain:</label>
+                        <input type="text" readonly value="app" class="w-full bg-black border border-gray-700 rounded p-2 text-amber-300 font-mono text-sm font-bold mt-1">
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800">
+                        <label class="text-xs text-gray-400 font-mono">Domain:</label>
+                        <input type="text" readonly value="domainbos.com" class="w-full bg-black border border-gray-700 rounded p-2 text-amber-300 font-mono text-sm font-bold mt-1">
+                    </div>
+                </div>
+
+                <div class="p-4 bg-cf-orange/10 border border-cf-orange/40 rounded-xl text-center">
+                    <span class="text-xs text-cf-orange font-mono block">HASIL ALAMAT PUBLIC:</span>
+                    <span class="text-lg sm:text-xl font-bold text-white font-mono">app.domainbos.com</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 20 — SERVICE URL
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 20</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Service URL (Paling Penting!)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Destinasi akhir data selepas melepasi terowong.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4 glow-cyan">
+                <div>
+                    <label class="text-xs text-gray-400 font-mono">Service Type & URL:</label>
+                    <div class="flex gap-2 mt-1">
+                        <span class="px-3 py-2 bg-blue-900/60 text-blue-300 rounded border border-blue-700 font-mono text-sm font-bold">HTTP</span>
+                        <input type="text" readonly value="http://localhost:8080" class="w-full bg-gray-900 border border-green-700 rounded px-3 py-2 text-green-400 font-mono text-sm font-bold">
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 space-y-1">
+                    <p class="text-sm font-bold text-cf-accent">💡 Mengapa Ini Penting?</p>
+                    <p class="text-xs sm:text-sm text-gray-300">
+                        "Cloudflare tidak perlu tahu Public IP server." Cloudflare hanya perlu tahu bahawa trafik yang masuk perlu diserahkan kepada perkhidmatan local <code>http://localhost:8080</code>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 21 — SAVE ROUTE
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 21</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Save Route</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Menyimpan konfigurasi pemetaan perkhidmatan.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="flex justify-center">
+                    <button class="px-6 py-2.5 bg-cf-orange hover:bg-cf-darkorange text-white font-bold rounded-lg shadow-lg text-sm">
+                        💾 Save / Add route
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
+                        <span class="text-xs text-gray-400 block font-mono">PUBLIC HOSTNAME:</span>
+                        <span class="text-sm font-bold text-cf-accent font-mono">app.domainbos.com</span>
+                    </div>
+                    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
+                        <span class="text-xs text-gray-400 block font-mono">SERVICE DESTINATION:</span>
+                        <span class="text-sm font-bold text-green-400 font-mono">http://localhost:8080</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 22 — DNS AUTOMATIC
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 22</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">DNS Automatic Management</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Cloudflare menguruskan rekod CNAME secara automatik.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border space-y-4 text-left">
+                <p class="text-xs sm:text-sm text-gray-300">
+                    Sebaik sahaja route disimpan, Cloudflare membuat rekod CNAME automatik di dalam DNS zone:
+                </p>
+
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 font-mono text-xs sm:text-sm space-y-2">
+                    <div class="flex justify-between text-gray-400">
+                        <span>TYPE</span>
+                        <span>NAME</span>
+                        <span>TARGET</span>
+                    </div>
+                    <div class="flex justify-between text-white font-bold">
+                        <span class="text-cf-orange">CNAME</span>
+                        <span class="text-cf-accent">app</span>
+                        <span class="text-amber-300">&lt;TUNNEL-ID&gt;.cfargotunnel.com</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 23 — APA ITU CNAME DALAM TUNNEL?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 23</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Itu CNAME Dalam Tunnel?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Memahami CNAME sebagai "Penunjuk Nama Alias", bukan server.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 text-center font-mono text-xs sm:text-sm">
+                    app.domainbos.com ➔ CNAME ➔ <span class="text-cf-orange font-bold">&lt;TUNNEL-ID&gt;.cfargotunnel.com</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                    <div class="p-3 bg-red-950/30 border border-red-800/40 rounded-lg text-red-300">
+                        ❌ CNAME Bukan Tempat Simpan Website
+                    </div>
+                    <div class="p-3 bg-red-950/30 border border-red-800/40 rounded-lg text-red-300">
+                        ❌ CNAME Bukan Tempat Upload Fail
+                    </div>
+                </div>
+
+                <div class="p-3 bg-green-950/30 border border-green-800/40 rounded-lg text-green-300 text-xs sm:text-sm">
+                    ✅ CNAME hanyalah "Penunjuk Nama" (Alias) yang memberitahu Cloudflare untuk menghantar trafik ke ID terowong tertentu.
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 24 — HTTPS
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 24</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">HTTPS Automatik Untuk Localhost</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Mendapatkan padlock keselamatan tanpa ubah kod Python.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="flex items-center justify-center gap-2 text-green-400 font-mono font-bold text-base sm:text-lg">
+                    🔒 https://app.domainbos.com
+                </div>
+
+                <!-- Chain visual -->
+                <div class="p-4 bg-gray-900 rounded-lg border border-gray-800 text-xs font-mono space-y-2">
+                    <p class="text-gray-400">1. Browser User ➔ <span class="text-green-400">HTTPS Encrypted</span> ➔ Cloudflare Edge</p>
+                    <p class="text-gray-400">2. Cloudflare Edge ➔ <span class="text-cf-orange">Encrypted Tunnel</span> ➔ cloudflared</p>
+                    <p class="text-gray-400">3. cloudflared ➔ <span class="text-amber-300">HTTP Internal Forward</span> ➔ Python (8080)</p>
+                </div>
+
+                <p class="text-xs text-gray-300">
+                    💡 Perkhidmatan tempatan (Python) boleh kekal menggunakan HTTP biasa pada port 8080, kerana Cloudflare yang menguruskan enkripsi HTTPS di hadapan.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 25 — UJIAN
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 25</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Ujian Akses Browser</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Membuat ujian panggilan web secara langsung dari Internet.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border space-y-4 text-center glow-green">
+                <div class="text-4xl">🎉</div>
+                <h3 class="text-lg font-bold text-green-400">Website Python Berjaya Keluar!</h3>
+                <div class="p-3 bg-gray-900 rounded-lg text-green-300 font-mono text-sm inline-block border border-green-800">
+                    https://app.domainbos.com
+                </div>
+
+                <div class="text-left bg-gray-900 p-4 rounded-lg border border-gray-800 text-xs font-mono text-gray-300 space-y-1">
+                    <p class="text-cf-orange font-bold">ALIRAN PENUH:</p>
+                    <p>Browser ➔ HTTPS ➔ Cloudflare ➔ Tunnel ➔ cloudflared ➔ localhost:8080 ➔ Python ➔ index.html</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 26 — PERKARA PALING PENTING
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 26</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">3 PERKARA PALING PENTING</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Kelebihan utama Cloudflare Tunnel berbanding kaedah tradisi.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                <div class="p-5 bg-red-950/20 border border-red-800/60 rounded-xl space-y-2">
+                    <div class="text-3xl">❌</div>
+                    <h4 class="font-bold text-white text-sm">NO PUBLIC IP</h4>
+                    <p class="text-xs text-gray-400">Tidak perlu membeli atau expose Public IP address rumah/office.</p>
+                </div>
+
+                <div class="p-5 bg-red-950/20 border border-red-800/60 rounded-xl space-y-2">
+                    <div class="text-3xl">❌</div>
+                    <h4 class="font-bold text-white text-sm">NO PORT FORWARDING</h4>
+                    <p class="text-xs text-gray-400">Tidak perlu pening setting Port Forwarding dalam router.</p>
+                </div>
+
+                <div class="p-5 bg-red-950/20 border border-red-800/60 rounded-xl space-y-2">
+                    <div class="text-3xl">❌</div>
+                    <h4 class="font-bold text-white text-sm">NO INBOUND PORTS</h4>
+                    <p class="text-xs text-gray-400">Tidak perlu membuka mana-mana pintu masuk pada firewall router.</p>
+                </div>
+            </div>
+
+            <div class="w-full p-4 bg-green-950/40 border border-green-700/60 rounded-xl text-left glow-green">
+                <p class="text-sm font-bold text-green-400">✓ Hanya Outbound Connectivity:</p>
+                <p class="text-xs text-gray-200 mt-0.5">
+                    Server hanya memerlukan sambungan internet keluar (Outbound) ke Cloudflare.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 27 — BANDINGKAN DENGAN CARA LAMA
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 27</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Perbandingan Visual</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Kenapa kaedah lama semakin ditinggalkan untuk server peribadi.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-left font-mono text-xs">
+                <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+                    <span class="text-red-400 font-bold block">CARA PUBLIC IP (RUMIT & RISIKO)</span>
+                    <div class="p-3 bg-black rounded border border-gray-800 text-gray-400 space-y-1">
+                        <p>Internet ➔ Public IP ➔ Router ➔ Port Forwarding ➔ Windows ➔ Python</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-cf-black rounded-xl border border-cf-orange/50 space-y-2 glow-orange">
+                    <span class="text-green-400 font-bold block">CARA CLOUDFLARE TUNNEL (RINGKAS & SELAMAT)</span>
+                    <div class="p-3 bg-gray-900 rounded border border-gray-800 text-gray-200 space-y-1">
+                        <p>Internet ➔ Cloudflare ➔ Tunnel ➔ cloudflared ➔ Python</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full p-3 bg-cf-orange/10 border border-cf-orange/30 rounded-lg text-center text-xs font-bold text-cf-orange">
+                "Ini sebab kita tak perlu port forwarding!"
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 28 — APA YANG BERLAKU SEBENARNYA?
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 28</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Apa Yang Berlaku Sebenarnya?</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Langkah demi langkah kitaran hayat data (Request & Response Lifecycle).</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-4 rounded-xl border border-cf-border text-left space-y-2 text-xs font-mono custom-scroll overflow-y-auto max-h-[350px]">
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">1. User buka: <span class="text-cf-accent">https://app.domainbos.com</span></div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">2. DNS membawa hostname kepada Cloudflare/Tunnel.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">3. Cloudflare menerima request di Edge Network.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">4. Cloudflare hantar request melalui terowong outbound tunnel.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">5. <code>cloudflared</code> pada PC menerima request.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">6. <code>cloudflared</code> forward ke <span class="text-green-400">http://localhost:8080</span>.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">7. Python Web Server memproses & beri jawapan.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">8. Response kembali melalui tunnel ke Cloudflare.</div>
+                <div class="p-2 bg-gray-900 rounded border border-gray-800">9. User menerima paparan webpage dengan selamat.</div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 29 — SATU TUNNEL, BANYAK APP
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 29</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Satu Tunnel, Banyak App</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Multi-routing aplikasi dalam satu daemon `cloudflared`.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4 font-mono text-xs sm:text-sm">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-center">
+                        <span class="text-cf-accent font-bold block">app.domainbos.com</span>
+                        <span class="text-green-400 text-xs">➔ localhost:8080</span>
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-center">
+                        <span class="text-cf-accent font-bold block">api.domainbos.com</span>
+                        <span class="text-green-400 text-xs">➔ localhost:5000</span>
+                    </div>
+                    <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-center">
+                        <span class="text-cf-accent font-bold block">admin.domainbos.com</span>
+                        <span class="text-green-400 text-xs">➔ localhost:3000</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-900/60 rounded-xl text-center text-xs text-gray-300">
+                    💡 Satu perkhidmatan <code>cloudflared</code> yang sama boleh mengendalikan pelbagai subdomain dan mengarahkannya ke port berbeza di PC tempatan anda!
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 30 — CLOUDFLARE ACCESS
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 30</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Pengenalan Cloudflare Access</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Menambah lapisan keselamatan login & autentikasi di hadapan web.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-6 rounded-xl border border-cf-border text-left space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                    <div class="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
+                        <h4 class="font-bold text-white">🚇 Tunnel Sahaja:</h4>
+                        <p class="text-gray-400">"Siapa-siapa yang tahu URL boleh terus buka website."</p>
+                    </div>
+
+                    <div class="p-4 bg-purple-950/30 border border-purple-800/50 rounded-xl space-y-2">
+                        <h4 class="font-bold text-purple-300">🔑 Tunnel + Cloudflare Access:</h4>
+                        <p class="text-purple-200">"Kena login dengan e-mel / OTP dahulu sebelum dibenarkan melepasi tunnel."</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-gray-900 rounded-lg text-xs text-gray-300 font-mono text-center">
+                    User ➔ <span class="text-purple-400 font-bold">Cloudflare Access Login</span> ➔ Cloudflare Tunnel ➔ Local App
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 31 — UNTUK ADMIN VS PELAJAR
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 31</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Contoh Penggunaan Access</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Membezakan kawalan akses mengikut jenis aplikasi.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 sm:grid-cols-2 gap-6 text-left">
+                <div class="p-5 bg-purple-950/20 border border-purple-800/60 rounded-xl space-y-3">
+                    <span class="text-xs font-mono bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded">ADMIN APP (DENGAN ACCESS)</span>
+                    <div class="font-mono text-xs text-gray-300 space-y-1 bg-black p-3 rounded">
+                        <p>admin.domainbos.com</p>
+                        <p>└─► 🔑 Cloudflare Access (Login Khas)</p>
+                        <p>&nbsp;&nbsp;&nbsp;&nbsp;└─► Tunnel ➔ Local App</p>
+                    </div>
+                </div>
+
+                <div class="p-5 bg-blue-950/20 border border-blue-800/60 rounded-xl space-y-3">
+                    <span class="text-xs font-mono bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded">STUDENT APP (AWAM)</span>
+                    <div class="font-mono text-xs text-gray-300 space-y-1 bg-black p-3 rounded">
+                        <p>student.domainbos.com</p>
+                        <p>└─► 🌐 Tunnel Terus ➔ Local App</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full p-3 bg-cf-black rounded-lg text-xs text-gray-400 text-left border border-cf-border">
+                💡 Tidak semestinya semua aplikasi memerlukan login Cloudflare Access. Korang boleh pilih mana yang mahu dilindungi!
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 32 — QUICK TUNNEL VS NAMED TUNNEL
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 32</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Quick Tunnel vs Managed Tunnel</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Dua mod penggunaan Cloudflare Tunnel.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                <div class="p-5 bg-gray-900 border border-gray-800 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-amber-300 text-sm">⚡ QUICK TUNNEL</h4>
+                        <span class="text-[10px] bg-amber-950 text-amber-400 px-2 py-0.5 rounded">Testing / Demo</span>
+                    </div>
+                    <code class="code-font text-xs text-amber-300 block bg-black p-2 rounded">
+cloudflared tunnel --url http://localhost:8080
+                    </code>
+                    <p class="text-xs text-gray-400">Dapat URL rawak seperti <code>xxx.trycloudflare.com</code> tanpa perlu domain sendiri.</p>
+                </div>
+
+                <div class="p-5 bg-cf-black border border-cf-orange/40 rounded-xl space-y-3 glow-orange">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-cf-orange text-sm">🏷️ NAMED / MANAGED TUNNEL</h4>
+                        <span class="text-[10px] bg-cf-orange/20 text-cf-orange px-2 py-0.5 rounded">Production</span>
+                    </div>
+                    <p class="text-xs text-gray-300">Tunnel rasmi yang dibuat dalam Cloudflare Dashboard.</p>
+                    <p class="text-xs text-gray-400">Guna domain sendiri (<code>app.domainbos.com</code>), kekal & boleh dikawal penuh.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 33 — CHECKLIST
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 33</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Checklist Kejayaan</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Semak semula semua keperluan tetapan anda.</p>
+            </div>
+
+            <div class="w-full my-4 bg-cf-black p-4 rounded-xl border border-cf-border text-left space-y-2 text-xs sm:text-sm font-mono custom-scroll overflow-y-auto max-h-[350px]">
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Python app berjalan di port 8080</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Domain diaktifkan dalam Cloudflare</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Tunnel dibuat dalam Dashboard</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>cloudflared dipasang di server</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>cloudflared connected & Healthy</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Published Application route dibuat</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Hostname ditetapkan (app.domainbos.com)</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Service URL = http://localhost:8080</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 bg-gray-900 rounded cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 accent-cf-orange"> <span>Website boleh dibuka via HTTPS!</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 34 — FINAL FLOW
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 34</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Carta Alir Akhir (Final Architecture)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Gambaran lengkap dari pengguna ke fail Python tempatan.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-left">
+                <!-- Large Flow Diagram -->
+                <div class="md:col-span-2 bg-cf-black p-4 rounded-xl border border-cf-border font-mono text-xs space-y-2">
+                    <div class="p-2 bg-blue-950/60 text-blue-300 rounded text-center">🌍 USER</div>
+                    <div class="text-center text-cf-orange font-bold">⬇️ https://app.domainbos.com</div>
+                    <div class="p-2 bg-cf-orange/20 text-cf-orange rounded text-center font-bold">☁️ CLOUDFLARE</div>
+                    <div class="text-center text-cf-orange font-bold">⬇️ CLOUDFLARE TUNNEL</div>
+                    <div class="p-2 bg-amber-950/60 text-amber-300 rounded text-center font-bold">🚇 cloudflared</div>
+                    <div class="text-center text-green-400 font-bold">⬇️ http://localhost:8080</div>
+                    <div class="p-2 bg-green-950/60 text-green-300 rounded text-center font-bold">🐍 PYTHON (index.html)</div>
+                </div>
+
+                <!-- 3 BIG NOs Badge -->
+                <div class="space-y-3">
+                    <div class="p-3 bg-red-950/40 border border-red-800 rounded-lg text-red-300 font-bold text-xs text-center">
+                        🚫 NO PUBLIC IP
+                    </div>
+                    <div class="p-3 bg-red-950/40 border border-red-800 rounded-lg text-red-300 font-bold text-xs text-center">
+                        🚫 NO PORT FORWARDING
+                    </div>
+                    <div class="p-3 bg-red-950/40 border border-red-800 rounded-lg text-red-300 font-bold text-xs text-center">
+                        🚫 NO INBOUND ROUTER PORT
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 35 — RUMUSAN
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll text-center">
+            <div class="space-y-3">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 35 — Rumusan</div>
+                <h2 class="text-2xl sm:text-4xl font-black text-white">Cloudflare Tunnel Dalam Satu Ayat</h2>
+            </div>
+
+            <div class="my-6 p-6 bg-gradient-to-r from-cf-orange/20 via-cf-orange/10 to-transparent border-l-4 border-cf-orange rounded-r-2xl text-left">
+                <blockquote class="text-base sm:text-xl font-bold text-white leading-relaxed">
+                    "Cloudflare Tunnel membolehkan kita publish aplikasi yang berjalan secara local ke Internet melalui sambungan keluar ke Cloudflare."
+                </blockquote>
+            </div>
+
+            <!-- Simple Chain -->
+            <div class="w-full py-4 bg-cf-black rounded-xl border border-cf-border flex flex-wrap justify-center items-center gap-3 text-xs sm:text-sm font-mono">
+                <span class="text-green-400 font-bold">Local App</span> ➔ 
+                <span class="text-amber-300 font-bold">cloudflared</span> ➔ 
+                <span class="text-cf-orange font-bold">Cloudflare</span> ➔ 
+                <span class="text-cf-accent font-bold">Public Hostname</span> ➔ 
+                <span class="text-gray-300 font-bold">User</span>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SLIDE 36 — NEXT LEVEL
+        =========================================== -->
+        <section class="slide flex-col items-center justify-between w-full max-w-5xl h-full max-h-[750px] bg-cf-card/80 border border-cf-border rounded-2xl p-6 sm:p-10 shadow-2xl overflow-y-auto custom-scroll">
+            <div class="w-full text-left space-y-2">
+                <div class="text-xs font-mono text-cf-orange uppercase tracking-wider">Slide 36 — Masa Depan</div>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white">Langkah Seterusnya (Next Level)</h2>
+                <p class="text-gray-400 text-sm sm:text-base">Topik mendalam yang boleh anda terokai selepas ini.</p>
+            </div>
+
+            <div class="w-full my-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs sm:text-sm text-left">
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ Cloudflare DNS</div>
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ SSL / TLS Advanced</div>
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ Cloudflare Access</div>
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ Zero Trust Policy</div>
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ WAF & Firewall Rules</div>
+                <div class="p-3 bg-gray-900 rounded-lg border border-gray-800 text-gray-300">➔ Raspberry Pi Hosting</div>
+            </div>
+
+            <div class="w-full p-4 bg-cf-black rounded-xl border border-cf-orange/40 text-center glow-orange">
+                <p class="text-sm sm:text-base font-bold text-white">
+                    🎉 "Sekarang kita dah faham beza dua dunia: Direct Public IP vs Cloudflare Tunnel."
+                </p>
+                <p class="text-xs text-cf-orange font-mono mt-1">Tahniah kerana berjaya menyelesaikan slaid pembelajaran ini!</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER NAVBAR -->
+    <footer class="h-12 border-t border-cf-border bg-cf-card/90 backdrop-blur-md flex items-center justify-between px-4 text-xs text-gray-400 shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
+            <span class="font-mono text-gray-300">Cloudflare Tunnel Guide</span>
+        </div>
+        <div class="hidden sm:flex items-center space-x-4 text-[11px]">
+            <span>Guna anak panah ◄ ► pada papan kekunci untuk ubah slaid</span>
+        </div>
+        <div>
+            <span class="font-mono text-cf-orange">Port 8080 ➔ Tunnel</span>
+        </div>
+    </footer>
+
+    <!-- OVERVIEW GRID MODAL -->
+    <div id="overviewModal" class="fixed inset-0 bg-black/90 z-50 backdrop-blur-md hidden flex-col p-6 overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-white font-mono">Pilih Slaid (1 - 36)</h3>
+            <button onclick="toggleOverviewModal()" class="px-4 py-2 bg-cf-orange text-white rounded-lg text-sm font-bold">
+                ✕ Tutup
+            </button>
+        </div>
+        <div id="overviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
+            <!-- Dynamically populated via JavaScript -->
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SLIDE ENGINE -->
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        // DOM Elements
+        const currentSlideNumEl = document.getElementById('currentSlideNum');
+        const totalSlidesNumEl = document.getElementById('totalSlidesNum');
+        const progressBarEl = document.getElementById('progressBar');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const overviewModal = document.getElementById('overviewModal');
+        const overviewGrid = document.getElementById('overviewGrid');
+
+        totalSlidesNumEl.textContent = totalSlides;
+
+        // Populate Overview Grid Items
+        slides.forEach((slide, index) => {
+            const heading = slide.querySelector('h1, h2, h3')?.innerText || `Slide ${index + 1}`;
+            const card = document.createElement('div');
+            card.className = `p-3 bg-cf-card border ${index === 0 ? 'border-cf-orange' : 'border-cf-border'} rounded-xl cursor-pointer hover:border-cf-orange transition text-left flex flex-col justify-between h-28`;
+            card.onclick = () => {
+                goToSlide(index);
+                toggleOverviewModal();
+            };
+            card.innerHTML = `
+                <span class="text-[10px] font-mono text-cf-orange">SLIDE ${String(index + 1).padStart(2, '0')}</span>
+                <p class="text-xs font-semibold text-white line-clamp-2">${heading}</p>
+                <span class="text-[9px] text-gray-500 font-mono">Buka Slaid ➔</span>
+            `;
+            overviewGrid.appendChild(card);
+        });
+
+        function updateSlideUI() {
+            slides.forEach((slide, index) => {
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                    slide.scrollTop = 0; // Reset scroll position for long slide content
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            currentSlideNumEl.textContent = currentSlide + 1;
+            const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+            progressBarEl.style.width = `${progressPercent}%`;
+
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === totalSlides - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlideUI();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlideUI();
+            }
+        }
+
+        function goToSlide(index) {
+            if (index >= 0 && index < totalSlides) {
+                currentSlide = index;
+                updateSlideUI();
+            }
+        }
+
+        function toggleOverviewModal() {
+            if (overviewModal.classList.contains('hidden')) {
+                overviewModal.classList.remove('hidden');
+                overviewModal.classList.add('flex');
+            } else {
+                overviewModal.classList.add('hidden');
+                overviewModal.classList.remove('flex');
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {});
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Copy Code Helper
+        function copyCode(elementId) {
+            const codeEl = document.getElementById(elementId);
+            if (!codeEl) return;
+            const textToCopy = codeEl.innerText || codeEl.textContent;
+
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                // Temporary feedback indicator
+                const origBg = codeEl.style.backgroundColor;
+                codeEl.style.backgroundColor = '#164E63';
+                setTimeout(() => {
+                    codeEl.style.backgroundColor = origBg;
+                }, 400);
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Keyboard Navigation Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (overviewModal.classList.contains('flex')) {
+                if (e.key === 'Escape') toggleOverviewModal();
+                return;
+            }
+
+            if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key.toLowerCase() === 'o') {
+                toggleOverviewModal();
+            }
+        });
+
+        // Touch Swipe Support for Mobile Devices
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const slideContainer = document.getElementById('slideContainer');
+
+        slideContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        slideContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, { passive: true });
+
+        function handleSwipe() {
+            const threshold = 50;
+            if (touchStartX - touchEndX > threshold) {
+                nextSlide(); // Swipe Left
+            } else if (touchEndX - touchStartX > threshold) {
+                prevSlide(); // Swipe Right
+            }
+        }
+
+        // Initialize UI
+        updateSlideUI();
+    </script>
+</body>
+</html>

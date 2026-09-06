@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Hosting Server Part 2: Dari Public IP ke HTTPS & Cloudflare Tunnel</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#080c14',
+                            card: '#0f172a',
+                            cardBorder: '#1e293b',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#8b5cf6',
+                            orange: '#f97316'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #060911;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            height: 100%;
+            width: 100%;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card-hover {
+            transition: all 0.2s ease;
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(249, 115, 22, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #090d16;
+            border: 1px solid #1e293b;
+        }
+
+        .slide-content {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #374151 transparent;
+        }
+        .slide-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .slide-content::-webkit-scrollbar-thumb {
+            background-color: #374151;
+            border-radius: 9999px;
+        }
+
+        .glow-orange {
+            box-shadow: 0 0 25px rgba(249, 115, 22, 0.25);
+        }
+        .glow-purple {
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.25);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.25);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+        }
+
+        .modal-bg {
+            background: rgba(4, 7, 13, 0.88);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between relative overflow-hidden">
+
+    <!-- TOP BAR -->
+    <header class="h-14 px-6 border-b border-gray-800/80 flex items-center justify-between z-20 bg-brand-dark/90 backdrop-blur-md shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-orange-500/20">
+                <i class="fa-solid fa-cloud text-xs"></i>
+            </div>
+            <span class="font-semibold text-sm tracking-wide text-gray-200 hidden sm:inline">Self-Hosting Server Part 2</span>
+            <span class="text-xs text-orange-400 bg-orange-950/60 border border-orange-800/50 px-2.5 py-0.5 rounded-full font-medium">Domain, HTTPS & Cloudflare Tunnel</span>
+        </div>
+
+        <!-- Slide Counter & Quick Actions -->
+        <div class="flex items-center gap-4">
+            <button id="overviewBtn" class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition flex items-center gap-2 border border-gray-700">
+                <i class="fa-solid fa-border-all text-xs"></i>
+                <span class="hidden md:inline">Semua Slide</span>
+            </button>
+            <div class="text-xs font-mono bg-gray-900 border border-gray-800 text-gray-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span id="currentSlideNum" class="text-orange-400 font-bold">1</span>
+                <span class="text-gray-600">/</span>
+                <span id="totalSlidesNum">30</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- TOP PROGRESS BAR -->
+    <div class="w-full bg-gray-900 h-1 relative z-20">
+        <div id="progressBar" class="bg-gradient-to-r from-cyan-500 via-amber-500 to-orange-500 h-full w-0 transition-all duration-300"></div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 relative overflow-hidden p-4 sm:p-6 md:p-8 flex items-center justify-center">
+
+        <!-- SLIDE 1: SAMBUNGAN -->
+        <section class="slide active flex-col justify-center items-center text-center max-w-5xl mx-auto my-auto slide-content py-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold mb-6">
+                <i class="fa-solid fa-rocket"></i> Sambungan Bahagian 2: Langkah Ke Hadapan
+            </div>
+            <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight mb-6">
+                Dari Public Server ke Server yang <span class="bg-gradient-to-r from-orange-400 via-amber-300 to-emerald-400 bg-clip-text text-transparent">Lebih Selamat</span>
+            </h1>
+            <p class="text-lg sm:text-xl text-gray-300 max-w-2xl mb-8 font-normal leading-relaxed">
+                "Sebelum ini kita dah berjaya expose server rumah ke internet. Sekarang, bagaimana kita nak jadikan ia kemas, selamat dan profesional?"
+            </p>
+
+            <!-- Current State Flow Visual -->
+            <div class="glass-card p-5 rounded-2xl max-w-3xl w-full border border-gray-800 mb-8">
+                <div class="text-xs text-gray-400 uppercase font-mono tracking-wider mb-3">Pencapaian Kita Sekarang (Part 1):</div>
+                <div class="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+                    <span class="px-2.5 py-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">Internet</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-800">Public IP (203.xxx)</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-amber-900/50 text-amber-200 border border-amber-700">Router</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-slate-900 text-gray-300 border border-gray-700">Port Forwarding (8080)</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">Python Server</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+                <span class="px-3 py-1.5 rounded-md bg-gray-900 border border-gray-800 font-mono"><i class="fa-regular fa-keyboard text-orange-400 mr-1"></i> Gunakan Anak Panah Keyboard [←] [→]</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: MASALAH PUBLIC IP -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Kekurangan Setup Direct</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Cabaran Menggunakan Direct Public IP</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-3">
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-400 text-lg mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">1. Public IP Selalu Berubah (Dynamic IP)</h4>
+                            <p class="text-xs text-gray-300">ISP biasa (seperti TM Unifi) tukar IP rumah anda setiap kali router di-restart.</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 flex items-start gap-3">
+                        <i class="fa-solid fa-shield-virus text-rose-400 text-lg mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">2. Server Terdedah Terus (Direct Exposure)</h4>
+                            <p class="text-xs text-gray-300">Bot dan penggodam di internet boleh *scan* Public IP anda 24 jam sehari.</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 flex items-start gap-3">
+                        <i class="fa-solid fa-lock-open text-rose-400 text-lg mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">3. Sambungan HTTP Tidak Encrypted</h4>
+                            <p class="text-xs text-gray-300">Tiada ikon mangga keselamatan (HTTPS). Browser tunjuk "Not Secure".</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diagram Exposure -->
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/40 bg-gray-950/80 text-center space-y-4">
+                    <div class="inline-block px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 font-mono text-xs font-bold">
+                        ⚠️ Direct Exposure Danger
+                    </div>
+                    <div class="flex items-center justify-center gap-3 font-mono text-xs">
+                        <span class="p-2 bg-indigo-950 rounded text-indigo-300">Internet / Hacker</span>
+                        <i class="fa-solid fa-arrow-right text-rose-400"></i>
+                        <span class="p-2 bg-amber-950 rounded text-amber-300">Public IP Rumah</span>
+                        <i class="fa-solid fa-arrow-right text-rose-400"></i>
+                        <span class="p-2 bg-emerald-950 rounded text-emerald-300">PC Server</span>
+                    </div>
+                    <p class="text-xs text-gray-400 italic">
+                        "Router anda dipaksa menjadi sasaran secara terus tanpa sebarang perisai tambahan di internet."
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: DOMAIN -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Konsep #1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Domain?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Manusia susah nak ingat nombor seperti <code class="text-amber-300 font-mono">203.106.55.120:8080</code>, tetapi sangat mudah ingat nama!
+                    </p>
+
+                    <div class="glass-card p-5 rounded-xl border border-cyan-500/30 bg-cyan-950/10 space-y-2">
+                        <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Analogi Mudah:</h4>
+                        <p class="text-xs text-gray-200 leading-relaxed">
+                            📍 <strong>Public IP</strong> = Koordinat Latitude & Longitude GPS (Nombor)<br>
+                            🏷️ <strong>Domain Name</strong> = Nama Bangunan / Alamat Surat (Contoh: <code class="text-cyan-300 font-mono">app.domainbos.com</code>)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Comparison Box -->
+                <div class="space-y-4">
+                    <div class="code-block p-4 rounded-xl border border-rose-500/40 opacity-70">
+                        <div class="text-[10px] text-rose-400 font-mono mb-1">❌ SUSAH DIINGAT</div>
+                        <div class="text-sm font-mono text-gray-300">http://203.106.55.120:8080</div>
+                    </div>
+
+                    <div class="code-block p-4 rounded-xl border border-emerald-500/50 glow-emerald">
+                        <div class="text-[10px] text-emerald-400 font-mono mb-1">✅ MESRA PENGGUNA</div>
+                        <div class="text-base font-mono text-cyan-300 font-bold">http://app.domainbos.com:8080</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: DNS -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Konsep #2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu DNS? (Domain Name System)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-address-book text-cyan-400"></i> "Buku Telefon Internet"
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <strong>DNS</strong> ialah sistem global yang menterjemahkan nama domain yang ditaip oleh manusia kepada nombor IP Address yang difahami oleh komputer.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Interactive DNS Flow Visual -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-4">
+                    <div class="text-xs font-mono text-cyan-400">Aliran DNS Translation</div>
+                    <div class="bg-gray-900 border border-gray-700 p-2.5 rounded-lg font-mono text-xs text-white">
+                        app.domainbos.com
+                    </div>
+                    <i class="fa-solid fa-arrow-down text-cyan-400"></i>
+                    <div class="bg-cyan-950/60 border border-cyan-500/40 p-3 rounded-lg text-xs font-bold text-cyan-300">
+                        <i class="fa-solid fa-server mr-1"></i> DNS Server (Buku Telefon)
+                    </div>
+                    <i class="fa-solid fa-arrow-down text-cyan-400"></i>
+                    <div class="bg-amber-950/60 border border-amber-500/40 p-2.5 rounded-lg font-mono text-xs text-amber-300 font-bold">
+                        203.106.55.120
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: A RECORD -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Tetapan DNS</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu A Record?</h2>
+                <p class="text-gray-400 text-sm mt-1">Rekod DNS paling asas untuk menghubungkan domain ke IP Address.</p>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 bg-gray-950/80 max-w-2xl mx-auto space-y-4 font-mono text-sm">
+                <div class="text-xs text-cyan-400 font-semibold uppercase tracking-wider mb-2 border-b border-gray-800 pb-2">
+                    📋 Contoh Setting A Record Di Provider Domain (Namecheap / GoDaddy / Cloudflare):
+                </div>
+
+                <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                    <span class="text-gray-400">Type:</span>
+                    <span class="text-emerald-400 font-bold bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">A</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                    <span class="text-gray-400">Host / Name:</span>
+                    <span class="text-cyan-300 font-bold">app</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                    <span class="text-gray-400">IPv4 Address:</span>
+                    <span class="text-amber-400 font-bold">203.106.55.120</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400">Proxy Status:</span>
+                    <span class="text-gray-300 bg-gray-800 px-2 py-1 rounded text-xs">DNS Only (Latihan Direct)</span>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+                💡 <strong class="text-gray-200">Nota:</strong> Rekod <code class="text-emerald-400">A</code> hanya menerima alamat <strong>IPv4</strong>. Ia dipanggil "A" kerana singkatan bagi "Address".
+            </p>
+        </section>
+
+        <!-- SLIDE 6: FLOW DOMAIN -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Aliran Lengkap #1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Aliran Akses Menggunakan Domain</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60 overflow-x-auto">
+                <div class="flex items-center justify-between min-w-[700px] text-center font-mono text-xs gap-2">
+                    <div class="p-3 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300">
+                        <i class="fa-solid fa-globe text-lg mb-1 block"></i>
+                        Browser<br><span class="text-[10px] text-gray-400">app.domainbos.com:8080</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/50 text-cyan-300">
+                        <i class="fa-solid fa-book-atlas text-lg mb-1 block"></i>
+                        DNS<br><span class="text-[10px] text-cyan-400 font-bold">A Record Translation</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 text-amber-300">
+                        <i class="fa-solid fa-wifi text-lg mb-1 block"></i>
+                        203.106.55.120<br><span class="text-[10px] text-amber-400">Public IP Router</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-slate-900 border border-gray-700 text-gray-300">
+                        <i class="fa-solid fa-route text-lg mb-1 block"></i>
+                        Port Forwarding<br><span class="text-[10px] text-gray-400">Pintu 8080</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-400">
+                        <i class="fa-brands fa-python text-lg mb-1 block"></i>
+                        Python Server<br><span class="text-[10px] text-emerald-300">192.168.1.50:8080</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: MASALAH HTTP -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Masalah Keselamatan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Kenapa HTTP Tidak Cukup?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="code-block p-4 rounded-xl text-rose-400 font-mono text-base border border-rose-500/40">
+                        http://app.domainbos.com:8080
+                    </div>
+
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Apabila laman web menggunakan <strong>HTTP (HyperText Transfer Protocol)</strong> biasa, semua data dihantar dalam bentuk <em>plain text</em> (teks biasa tanpa encrypt).
+                    </p>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 text-xs text-rose-200 space-y-1">
+                        <div>⚠️ Password & data boleh diintip di tengah jalan (Eavesdropping).</div>
+                        <div>⚠️ Browser moden akan tunjuk amaran merah <strong>"Not Secure"</strong>.</div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 bg-gray-950/80 text-center space-y-3">
+                    <i class="fa-solid fa-lock-open text-4xl text-rose-500 mb-2"></i>
+                    <h4 class="text-white font-bold text-base">Paparan Pelayar Web (Browser Warning)</h4>
+                    <div class="bg-gray-900 border border-gray-800 p-2.5 rounded-lg text-xs font-mono text-rose-400 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-circle-exclamation"></i> Not Secure — http://app.domainbos.com
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: HTTPS -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Solusi Keselamatan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu HTTPS?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-emerald-500/30 bg-emerald-950/10">
+                        <h3 class="text-lg font-bold text-emerald-300 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved"></i> HTTP + Encryption + Certificate
+                        </h3>
+                        <p class="text-sm text-gray-200 leading-relaxed">
+                            <strong>HTTPS (HTTP Secure)</strong> meng-encrypt semua lalu lintas data antara browser pengguna dan web server supaya tidak boleh dibaca oleh pihak ketiga.
+                        </p>
+                    </div>
+
+                    <div class="code-block p-4 rounded-xl text-emerald-400 font-mono text-base border border-emerald-500/40 glow-emerald">
+                        https://app.domainbos.com
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 bg-gray-950/80 text-center space-y-3">
+                    <i class="fa-solid fa-lock text-4xl text-emerald-400 mb-2"></i>
+                    <h4 class="text-white font-bold text-base">Paparan Pelayar Selamat</h4>
+                    <div class="bg-gray-900 border border-emerald-800 p-2.5 rounded-lg text-xs font-mono text-emerald-400 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-lock text-emerald-400"></i> https://app.domainbos.com
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: PORT 80 DAN 443 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Standard Internet Port</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Port Standard: 80 & 443</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <div class="glass-card p-6 rounded-2xl border border-amber-500/30 bg-gray-900/60 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold font-mono text-amber-400 uppercase">HTTP Non-Secure</span>
+                        <span class="px-2 py-1 rounded bg-amber-950 text-amber-300 font-mono text-xs font-bold">PORT 80</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">http://</h3>
+                    <p class="text-xs text-gray-300">Port standard dunia untuk trafik web biasa (tanpa encryption).</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 bg-gray-900/60 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold font-mono text-emerald-400 uppercase">HTTPS Encrypted</span>
+                        <span class="px-2 py-1 rounded bg-emerald-950 text-emerald-300 font-mono text-xs font-bold">PORT 443</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">https://</h3>
+                    <p class="text-xs text-gray-300">Port standard dunia untuk trafik web selamat (SSL/TLS Encrypted).</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: SSL CERTIFICATE -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Identiti Web</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu SSL / TLS Certificate?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-id-card text-cyan-400"></i> Cad Pengenalan Rasmi Website
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <strong>SSL Certificate</strong> ialah fail digital khas yang membuktikan identiti domain anda dan menyediakan "kunci encryption" untuk keselamatan.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/10">
+                        <div class="text-xs font-bold text-emerald-400 mb-1"><i class="fa-solid fa-gift"></i> Percuma Dengan Let's Encrypt</div>
+                        <p class="text-xs text-gray-300">Zaman dulu SSL mahal, tetapi kini badan seperti Let's Encrypt menyediakannya secara percuma untuk semua orang!</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-3">
+                    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-3xl mx-auto">
+                        <i class="fa-solid fa-certificate"></i>
+                    </div>
+                    <h4 class="text-white font-bold text-sm">SSL Certificate Digunakan Untuk:</h4>
+                    <div class="text-xs text-gray-300 space-y-1 text-left list-disc pl-6">
+                        <li>Membina saluran data selamat (Encrypted Tunnel)</li>
+                        <li>Memastikan tiada sesiapa boleh ubah isi kandung laman web</li>
+                        <li>Menghapuskan amaran "Not Secure" di pelayar web</li>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11: MASALAH SETERUSNYA -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Cabaran Teknikal</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Masalah Port Python vs HTTPS</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Server Python latihan kita sedang berjalan di <strong>Port 8080 (HTTP)</strong>.
+                    </p>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Tetapi pengguna internet mahu melawat melalui <strong>Port 443 (HTTPS)</strong> secara standard tanpa perlu menaip nombor port di belakang URL!
+                    </p>
+                    <div class="glass-card p-4 rounded-xl border border-amber-500/30 bg-amber-950/10 text-xs text-amber-300">
+                        🤔 "Bagaimana nak sambungkan pelawat Port 443 ke Python Port 8080 secara selamat?"
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-4 font-mono text-xs">
+                    <div class="p-3 bg-indigo-950 rounded text-indigo-300">Internet Pelawat (Port 443 HTTPS)</div>
+                    <i class="fa-solid fa-arrow-down text-amber-400"></i>
+                    <div class="p-3 bg-amber-950 rounded text-amber-400 font-bold">❓ PERLU PENGANTARA ❓</div>
+                    <i class="fa-solid fa-arrow-down text-amber-400"></i>
+                    <div class="p-3 bg-emerald-950 rounded text-emerald-300">Python Server (Port 8080 Local)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 12: REVERSE PROXY -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-indigo-400 tracking-wider">Konsep #3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Reverse Proxy?</h2>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass-card p-5 rounded-xl border border-indigo-500/30 bg-indigo-950/10">
+                    <h3 class="text-lg font-bold text-indigo-300 mb-2">Definisi "Pengantara":</h3>
+                    <p class="text-sm text-gray-200 leading-relaxed">
+                        <strong>Reverse Proxy</strong> ialah sebuah server hadapan yang menerima sambungan HTTPS dari luar (Port 443), mengurus SSL Certificate, dan meneruskan (*forward*) trafik itu ke aplikasi dalaman (Python Port 8080).
+                    </p>
+                </div>
+
+                <!-- Visual Diagram -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60">
+                    <div class="flex items-center justify-between text-center font-mono text-xs gap-2">
+                        <div class="p-3 rounded-xl bg-slate-900 text-cyan-300">
+                            Browser (HTTPS :443)
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-indigo-400"></i>
+                        <div class="p-3 rounded-xl bg-indigo-950 border border-indigo-500 text-indigo-300 font-bold glow-purple">
+                            REVERSE PROXY<br><span class="text-[10px] text-gray-400">Mengurus SSL & Certificate</span>
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-emerald-400"></i>
+                        <div class="p-3 rounded-xl bg-emerald-950 text-emerald-300">
+                            Python Server (:8080)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 13: CADDY -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Perisian Contoh</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Memperkenalkan Caddy Server</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-emerald-400"></i> Reverse Proxy Moden & Mudah
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            Selain Nginx atau Apache, <strong>Caddy</strong> sangat popular kerana ia memohon dan memperbaharui SSL Certificate (Let's Encrypt) <u>secara automatik 100%</u> tanpa tetapan yang rumit!
+                        </p>
+                    </div>
+
+                    <div class="text-xs text-gray-400 bg-gray-900 p-3 rounded-lg border border-gray-800">
+                        * Nota: Nginx dan Traefik juga popular, tetapi Caddy adalah contoh paling mesra beginner.
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/10 text-center space-y-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-4xl text-emerald-400 mb-2"></i>
+                    <h4 class="text-white font-bold text-sm">Fungsi Utama Caddy:</h4>
+                    <div class="text-xs text-gray-300 space-y-2 text-left">
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">1. Terima HTTPS di Port 443</div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">2. Request SSL Certificate Automatik</div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">3. Pass traffic terus ke <code class="text-cyan-300 font-mono">localhost:8080</code></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14: CONTOH CADDYFILE -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Konfigurasi Ringkas</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Contoh Fail Konfigurasi Caddyfile</h2>
+                <p class="text-gray-400 text-sm mt-1">Lihat betapa mudahnya menetapkan Reverse Proxy dengan Caddy:</p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="code-block p-5 rounded-xl border border-emerald-500/40 relative">
+                    <div class="text-xs text-gray-400 mb-2 border-b border-gray-800 pb-2 flex justify-between">
+                        <span><i class="fa-regular fa-file-code text-emerald-400 mr-2"></i>Caddyfile</span>
+                        <button onclick="copyCode(this, 'app.domainbos.com {\n    reverse_proxy localhost:8080\n}')" class="hover:text-cyan-400 transition text-xs">
+                            <i class="fa-regular fa-copy"></i> Salin
+                        </button>
+                    </div>
+                    <pre class="text-sm sm:text-base text-emerald-300 font-mono">app.domainbos.com {
+    reverse_proxy localhost:8080
+}</pre>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-300 leading-relaxed">
+                    💡 <strong>Penjelasan:</strong> Halaman web <code class="text-cyan-300">app.domainbos.com</code> di port 443 HTTPS secara automatik di-hantar ke program Python tempatan yang sedang berjalan di <code class="text-emerald-400">localhost:8080</code>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14B: ALTERNATIF NGINX -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Alternatif Standard Industri</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Alternatif: Reverse Proxy Menggunakan Nginx</h2>
+                <p class="text-gray-400 text-sm mt-1">Nginx ialah perisian web server & reverse proxy paling popular di dunia enterprise.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="code-block p-4 rounded-xl border border-cyan-500/40 relative">
+                        <div class="text-xs text-gray-400 mb-2 border-b border-gray-800 pb-2 flex justify-between">
+                            <span><i class="fa-regular fa-file-code text-cyan-400 mr-2"></i>nginx.conf (Server Block)</span>
+                            <button onclick="copyCode(this, 'server {\n    listen 80;\n    server_name app.domainbos.com;\n\n    location / {\n        proxy_pass http://localhost:8080;\n        proxy_set_header Host $host;\n    }\n}')" class="hover:text-cyan-400 transition text-xs">
+                                <i class="fa-regular fa-copy"></i> Salin
+                            </button>
+                        </div>
+                        <pre class="text-xs sm:text-sm text-cyan-300 font-mono leading-relaxed">server {
+    listen 80;
+    server_name app.domainbos.com;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+    }
+}</pre>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-300 space-y-1">
+                        <div>🔹 <code class="text-cyan-300 font-mono">proxy_pass http://localhost:8080;</code> — Menghantar trafik dari domain ke Python server tempatan.</div>
+                        <div>🔹 Nginx biasanya digabungkan dengan tool <code class="text-emerald-400 font-mono">Certbot</code> (Let's Encrypt) untuk pengurusan HTTPS / SSL.</div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl border border-cyan-500/30 bg-gray-950/80 text-center space-y-3">
+                    <i class="fa-solid fa-server text-4xl text-cyan-400 mb-2"></i>
+                    <h4 class="text-white font-bold text-sm">Caddy vs Nginx (Perbandingan Ringkas)</h4>
+                    <div class="text-xs text-gray-300 space-y-2 text-left">
+                        <div class="bg-gray-900 p-2.5 rounded border border-gray-800">
+                            <strong class="text-emerald-400">Caddy:</strong> Konfigurasi mudah 2 baris, SSL automatik tersedia (Sangat Mesra Beginner).
+                        </div>
+                        <div class="bg-gray-900 p-2.5 rounded border border-gray-800">
+                            <strong class="text-cyan-400">Nginx:</strong> Prestasi ultra-tinggi, sangat fleksibel (Standard Industri), tetapi perlukan tetapan SSL/Certbot secara berasingan.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15: FLOW CADDY -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Aliran Lengkap #2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Aliran Trafik Bersama Reverse Proxy</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60 overflow-x-auto">
+                <div class="flex items-center justify-between min-w-[750px] text-center font-mono text-xs gap-2">
+                    <div class="p-3 rounded-xl bg-slate-900 text-cyan-300">
+                        <i class="fa-solid fa-globe text-lg mb-1 block"></i>
+                        Browser<br><span class="text-[10px] text-gray-400">https://app.domainbos.com</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300">
+                        <i class="fa-solid fa-lock text-lg mb-1 block"></i>
+                        Port 443<br><span class="text-[10px] text-emerald-400">Encrypted HTTPS</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-indigo-950/60 border border-indigo-500/50 text-indigo-300">
+                        <i class="fa-solid fa-server text-lg mb-1 block"></i>
+                        Caddy Server<br><span class="text-[10px] text-gray-400">Reverse Proxy</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300">
+                        <i class="fa-solid fa-desktop text-lg mb-1 block"></i>
+                        localhost:8080<br><span class="text-[10px] text-gray-400">Local Traffic</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-400">
+                        <i class="fa-brands fa-python text-lg mb-1 block"></i>
+                        Python Server<br><span class="text-[10px] text-emerald-300">index.html</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 16: MASALAH PUBLIC IP TERUS ADA -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-orange-400 tracking-wider">Pemerhatian Utama</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Tetapi... Masalah Asal Masih Ada!</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-3">
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Walaupun kita sudah mempunyai Domain & HTTPS, setup ini <strong>masih bergantung</strong> kepada:
+                    </p>
+
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Public IP rumah yang masih terdedah secara terus.</li>
+                        <li>Router rumah yang dipaksa membuka Inbound Port (80 & 443).</li>
+                        <li>Masalah IP berubah-ubah (Dynamic IP) jika ISP restart.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-orange-500/40 bg-orange-950/10 text-center space-y-4">
+                    <h4 class="text-orange-400 font-bold text-sm">Soalan Penting:</h4>
+                    <p class="text-gray-200 text-base font-semibold">
+                        "Bolehkah kita *expose* website ke internet TANPA perlu dedahkan Public IP rumah & TANPA perlu Port Forwarding?"
+                    </p>
+                    <div class="text-xs font-bold text-emerald-400 bg-emerald-950/60 p-2.5 rounded-lg border border-emerald-800">
+                        Jawapannya: BOLEH! 🎉
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17: CLOUDFLARE -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-orange-400 tracking-wider">Perisai Internet</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Memperkenalkan Cloudflare</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud text-orange-400"></i> Pintu Hadapan Rangkaian Global
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <strong>Cloudflare</strong> ialah perkhidmatan rangkaian global yang bertindak sebagai pengantara (*Reverse Proxy Giant*) di antara pelawat di internet dan server anda.
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-300 space-y-1">
+                        <div>🛡️ Perisai Serangan DDoS</div>
+                        <div>⚡ Caching Website Laju</div>
+                        <div>🔒 Pengurusan DNS & HTTPS Percuma</div>
+                    </div>
+                </div>
+
+                <!-- Cloudflare Diagram -->
+                <div class="glass-card p-6 rounded-2xl border border-orange-500/40 bg-gray-950/80 text-center space-y-3">
+                    <div class="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 text-3xl mx-auto glow-orange">
+                        <i class="fa-solid fa-cloud"></i>
+                    </div>
+                    <div class="text-xs font-mono text-orange-400 font-bold">Laluan Dilindungi Cloudflare</div>
+                    <div class="text-xs text-gray-300 font-mono">
+                        User <i class="fa-solid fa-arrow-right text-orange-400"></i> Cloudflare Network <i class="fa-solid fa-arrow-right text-emerald-400"></i> Server Rumah
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18: CLOUDFLARE PROXY -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-orange-400 tracking-wider">Ciri DNS Cloudflare</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">DNS Only vs Proxied (Awan Oren)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <div class="glass-card p-6 rounded-2xl border border-gray-700 bg-gray-900/60 space-y-3">
+                    <div class="flex items-center gap-2 text-gray-400 font-bold text-xs uppercase">
+                        <i class="fa-solid fa-cloud text-gray-500"></i> DNS ONLY (Awan Kelabu)
+                    </div>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        Cloudflare hanya memberitahu Public IP anda kepada pelawat. Pelawat terus berhubung secara terus ke router rumah anda.
+                    </p>
+                    <div class="text-[11px] font-mono text-rose-400 bg-rose-950/40 p-2 rounded">
+                        Public IP Rumah Masih Terdedah!
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-orange-500/40 bg-orange-950/10 space-y-3 glow-orange">
+                    <div class="flex items-center gap-2 text-orange-400 font-bold text-xs uppercase">
+                        <i class="fa-solid fa-cloud text-orange-400"></i> PROXIED (Awan Oren)
+                    </div>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        Pelawat hanya nampak IP milik Cloudflare! Cloudflare yang akan mengambil data dari server anda dan menyerahkannya kepada pelawat.
+                    </p>
+                    <div class="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 p-2 rounded">
+                        Public IP Rumah Tersembunyi Dengan Selamat!
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 19: MASALAH MASIH ADA -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Masalah Port Forwarding</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Masalah Port Inbound Masih Ada!</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Walaupun Cloudflare Proxied menyembunyikan IP, <strong>Cloudflare still perlu laluan masuk (*Inbound*)</strong> untuk sambung ke Router rumah anda.
+                    </p>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 text-xs text-rose-300 space-y-1">
+                        <div>❌ Masih perlu buat Port Forwarding di Router.</div>
+                        <div>❌ Sesetengah ISP menghalang (*block*) Inbound Port 80 / 443.</div>
+                        <div>❌ Masalah Carrier-Grade NAT (CGNAT) di mana pengguna tiada Public IP sebenar!</div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-3">
+                    <div class="text-xs font-mono text-rose-400 font-bold">Laluan Masuk Yang Masih Diperlukan:</div>
+                    <div class="bg-gray-900 p-3 rounded-xl border border-rose-500/30 text-xs font-mono text-gray-300">
+                        Cloudflare <i class="fa-solid fa-arrow-right text-rose-400"></i> Inbound Port Router <i class="fa-solid fa-arrow-right text-emerald-400"></i> Server
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 20: CLOUDFLARE TUNNEL -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Solusi Muktamad</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Cloudflare Tunnel?</h2>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass-card p-5 rounded-xl border border-purple-500/40 bg-purple-950/10">
+                    <h3 class="text-lg font-bold text-purple-300 mb-2">Revolusi Sambungan Outbound:</h3>
+                    <p class="text-sm text-gray-200 leading-relaxed">
+                        <strong>Cloudflare Tunnel</strong> membuatkan server rumah anda <u>membuat sambungan KELUAR (*Outbound Connection*)</u> secara terus ke Cloudflare.
+                    </p>
+                </div>
+
+                <!-- Comparison Flow -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="bg-gray-950 p-4 rounded-xl border border-rose-500/40">
+                        <div class="text-rose-400 font-bold mb-2">❌ TRADISIONAL (INBOUND):</div>
+                        <div class="text-gray-400">Internet → Public IP → Router → Server</div>
+                    </div>
+
+                    <div class="bg-gray-950 p-4 rounded-xl border border-emerald-500/40 glow-emerald">
+                        <div class="text-emerald-400 font-bold mb-2">✅ CLOUDFLARE TUNNEL (OUTBOUND):</div>
+                        <div class="text-gray-200">Server → Encrypted Tunnel → Cloudflare</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 21: ANALOGI TUNNEL -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Analogi Mudah</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Analogi Pintu Rumah vs Tunnel</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <!-- Analogy 1 -->
+                <div class="glass-card p-5 rounded-2xl border border-amber-500/30 bg-gray-900/60 space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-door-open"></i>
+                    </div>
+                    <h3 class="font-bold text-white text-base">Direct Port Forwarding</h3>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        "Membuka pintu pagar rumah luas-luas supaya orang luar dari jalan raya boleh terus ketuk pintu bilik tidur anda."
+                    </p>
+                </div>
+
+                <!-- Analogy 2 -->
+                <div class="glass-card p-5 rounded-2xl border border-purple-500/40 bg-purple-950/20 space-y-3 glow-purple">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-shield-cat"></i>
+                    </div>
+                    <h3 class="font-bold text-white text-base">Cloudflare Tunnel</h3>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        "Pintu pagar rumah sentiasa dikunci rapat. Komputer anda membina *terowong bawah tanah rahsia* terus ke pejabat pengawal (Cloudflare). Orang ramai hanya boleh berjumpa di pejabat pengawal sahaja!"
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 22: CLOUDFLARE TUNNEL FLOW -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Aliran Lengkap #3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Aliran Keseluruhan Cloudflare Tunnel</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60 overflow-x-auto">
+                <div class="flex items-center justify-between min-w-[800px] text-center font-mono text-xs gap-2">
+                    <div class="p-3 rounded-xl bg-slate-900 text-cyan-300">
+                        <i class="fa-solid fa-globe text-lg mb-1 block"></i>
+                        Browser Pelawat<br><span class="text-[10px] text-gray-400">https://app.domainbos.com</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-orange-950/50 border border-orange-500/50 text-orange-300">
+                        <i class="fa-solid fa-cloud text-lg mb-1 block"></i>
+                        Cloudflare Edge<br><span class="text-[10px] text-orange-400">HTTPS / Security</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-purple-950/60 border border-purple-500/50 text-purple-300 glow-purple">
+                        <i class="fa-solid fa-network-wired text-lg mb-1 block"></i>
+                        Encrypted Tunnel<br><span class="text-[10px] text-purple-400">Outbound Connection</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-slate-900 border border-gray-700 text-gray-200">
+                        <i class="fa-solid fa-terminal text-lg mb-1 block"></i>
+                        cloudflared<br><span class="text-[10px] text-gray-400">Daemon Server</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                    <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-400">
+                        <i class="fa-brands fa-python text-lg mb-1 block"></i>
+                        Python Server<br><span class="text-[10px] text-emerald-300">localhost:8080</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-xl bg-emerald-950/30 border border-emerald-800 text-center text-xs text-emerald-300">
+                🎉 <strong>HASILNYA:</strong> Public IP rumah tersembunyi, Router port 80/443 tidak perlu dibuka, HTTPS percuma automatik!
+            </div>
+        </section>
+
+        <!-- SLIDE 23: CLOUDFLARED -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Perisian Daemon</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu <code class="text-purple-300 font-mono">cloudflared</code>?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-gear text-purple-400"></i> Agent Khas Di Server Anda
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <code class="text-purple-300 font-mono">cloudflared</code> ialah program kecil (executable) yang dipasang di komputer server anda untuk menguruskan laluan Tunnel keluar.
+                        </p>
+                    </div>
+
+                    <div class="code-block p-4 rounded-xl text-xs font-mono text-purple-300">
+                        # Contoh arahan menjalankan tunnel:<br>
+                        cloudflared tunnel run my-app
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-purple-950/10 text-center space-y-3">
+                    <i class="fa-solid fa-robot text-4xl text-purple-400 mb-2"></i>
+                    <h4 class="text-white font-bold text-sm">Tugas Utama cloudflared:</h4>
+                    <div class="text-xs text-gray-300 space-y-2 text-left">
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">1. Kekalkan sambungan terowong ke Cloudflare</div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">2. Terima request pelawat dari Cloudflare</div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">3. Hantar terus ke <code class="text-emerald-400 font-mono">http://localhost:8080</code></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 24: DNS UNTUK TUNNEL -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Tetapan DNS Tunnel</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">DNS Untuk Cloudflare Tunnel</h2>
+            </div>
+
+            <div class="space-y-4">
+                <p class="text-gray-300 text-sm leading-relaxed">
+                    Berbeza dengan Direct Public IP yang menggunakan <strong>A Record (IP Address)</strong>, Cloudflare Tunnel mengarahkan domain anda terus ke <strong>CNAME Hostname Tunnel</strong>!
+                </p>
+
+                <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-gray-950/80 max-w-2xl mx-auto space-y-3 font-mono text-xs sm:text-sm">
+                    <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                        <span class="text-gray-400">Type:</span>
+                        <span class="text-purple-400 font-bold bg-purple-950 px-2.5 py-1 rounded border border-purple-800">CNAME</span>
+                    </div>
+                    <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                        <span class="text-gray-400">Name:</span>
+                        <span class="text-cyan-300 font-bold">app</span>
+                    </div>
+                    <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                        <span class="text-gray-400">Target / Target Host:</span>
+                        <span class="text-purple-300 font-bold">xxxx-xxxx.cfargotunnel.com</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Proxy Status:</span>
+                        <span class="text-orange-400 font-bold bg-orange-950/60 px-2 py-1 rounded">Proxied (Awan Oren)</span>
+                    </div>
+                </div>
+
+                <p class="text-center text-xs text-gray-400">
+                    🔒 Tidak ada Public IP rumah yang ditulis langsung dalam DNS!
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 25: DIRECT PUBLIC IP VS TUNNEL -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Perbandingan Visual</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Direct Public IP vs Cloudflare Tunnel</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <!-- Direct Card -->
+                <div class="glass-card p-5 rounded-2xl border border-rose-500/30 bg-gray-900/60 space-y-3">
+                    <div class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 font-mono text-xs font-bold inline-block">DIRECT PUBLIC IP</div>
+                    <div class="text-xs text-gray-300 space-y-2 font-mono">
+                        <div>User</div>
+                        <i class="fa-solid fa-arrow-down text-rose-400"></i>
+                        <div>Public IP Rumah (203.xxx)</div>
+                        <i class="fa-solid fa-arrow-down text-rose-400"></i>
+                        <div>Router (Port Forwarding 8080)</div>
+                        <i class="fa-solid fa-arrow-down text-rose-400"></i>
+                        <div>Python Server</div>
+                    </div>
+                    <div class="text-[11px] text-rose-300 border-t border-gray-800 pt-2">
+                        ❌ High Network Exposure & Perlu Port Forwarding
+                    </div>
+                </div>
+
+                <!-- Tunnel Card -->
+                <div class="glass-card p-5 rounded-2xl border border-purple-500/40 bg-purple-950/20 space-y-3 glow-purple">
+                    <div class="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-mono text-xs font-bold inline-block">CLOUDFLARE TUNNEL</div>
+                    <div class="text-xs text-gray-300 space-y-2 font-mono">
+                        <div>User</div>
+                        <i class="fa-solid fa-arrow-down text-purple-400"></i>
+                        <div>Cloudflare Edge (Proxied)</div>
+                        <i class="fa-solid fa-arrow-down text-purple-400"></i>
+                        <div>Encrypted Outbound Tunnel</div>
+                        <i class="fa-solid fa-arrow-down text-purple-400"></i>
+                        <div>cloudflared → Python Server</div>
+                    </div>
+                    <div class="text-[11px] text-emerald-300 border-t border-gray-800 pt-2">
+                        ✅ Zero Inbound Ports & IP Rumah Tersembunyi
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 26: SECURITY COMPARISON -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Jadual Ringkasan Keselamatan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Jadual Perbandingan Keselamatan</h2>
+            </div>
+
+            <div class="glass-card rounded-2xl border border-gray-800 overflow-hidden text-xs sm:text-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-900 text-gray-200 border-b border-gray-800 font-mono text-xs">
+                            <th class="p-3">Ciri-Ciri (Feature)</th>
+                            <th class="p-3 text-amber-400">Direct Public IP</th>
+                            <th class="p-3 text-purple-400">Cloudflare Tunnel</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-300">
+                        <tr>
+                            <td class="p-3 font-semibold">Public IP Terdedah?</td>
+                            <td class="p-3 text-rose-400">Ya (Terbuka di Internet)</td>
+                            <td class="p-3 text-emerald-400">Tidak Perlu Didedahkan</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Router Port Forwarding?</td>
+                            <td class="p-3 text-rose-400">Perlu Buka Port Inbound</td>
+                            <td class="p-3 text-emerald-400">Tidak Perlu Port Inbound</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">HTTPS / SSL Setup</td>
+                            <td class="p-3 text-amber-400">Perlu Setup Manual (Caddy/Nginx)</td>
+                            <td class="p-3 text-emerald-400">Cloudflare Automatik Handle</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Sokongan CGNAT / No Public IP</td>
+                            <td class="p-3 text-rose-400">Gagal (Perlu Public IP)</td>
+                            <td class="p-3 text-emerald-400">Berjaya 100%</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 font-semibold">Perlindungan DDoS</td>
+                            <td class="p-3 text-rose-400">Tiada (Kena Firewall PC)</td>
+                            <td class="p-3 text-emerald-400">Perisai Cloudflare Global</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SLIDE 27: FLOW KESELURUHAN -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Perjalanan Evolusi</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">6 Tahap Evolusi Self-Hosting</h2>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 my-auto text-xs font-mono">
+                <div class="glass-card p-3 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-cyan-400 font-bold block mb-1">LEVEL 1</span>
+                    <div class="text-white font-bold mb-1">Localhost</div>
+                    <p class="text-[11px] text-gray-400">localhost:8080 (PC Sendiri)</p>
+                </div>
+
+                <div class="glass-card p-3 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-cyan-400 font-bold block mb-1">LEVEL 2</span>
+                    <div class="text-white font-bold mb-1">Private IP</div>
+                    <p class="text-[11px] text-gray-400">192.168.1.50 (Wi-Fi Rumah)</p>
+                </div>
+
+                <div class="glass-card p-3 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-amber-400 font-bold block mb-1">LEVEL 3</span>
+                    <div class="text-white font-bold mb-1">Public IP</div>
+                    <p class="text-[11px] text-gray-400">Public IP + Port Forwarding</p>
+                </div>
+
+                <div class="glass-card p-3 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-cyan-400 font-bold block mb-1">LEVEL 4</span>
+                    <div class="text-white font-bold mb-1">Domain & DNS</div>
+                    <p class="text-[11px] text-gray-400">app.domainbos.com (A Record)</p>
+                </div>
+
+                <div class="glass-card p-3 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-emerald-400 font-bold block mb-1">LEVEL 5</span>
+                    <div class="text-white font-bold mb-1">HTTPS & Proxy</div>
+                    <p class="text-[11px] text-gray-400">Port 443 + Caddy Server</p>
+                </div>
+
+                <div class="glass-card p-3 rounded-xl border border-purple-500/50 bg-purple-950/20 text-purple-300 glow-purple">
+                    <span class="text-[10px] text-purple-400 font-bold block mb-1">LEVEL 6 (MODEN)</span>
+                    <div class="text-white font-bold mb-1">Cloudflare Tunnel</div>
+                    <p class="text-[11px] text-purple-300">Zero Trust Outbound Tunnel</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 28: APA YANG KITA DAH BELAJAR -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Ringkasan Modul</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Senarai Penuh Topik Yang Dikuasai</h2>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 my-auto text-xs">
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Localhost
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Private IP
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Port Numbers
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Firewall Rules
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Public IP
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Router Gateway
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Port Forwarding
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Domain Name
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> DNS & A Record
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> HTTP vs HTTPS
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> SSL Certificate
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Reverse Proxy
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Caddy Server
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Cloudflare Proxy
+                </div>
+                <div class="glass-card p-2.5 rounded-xl border border-emerald-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Cloudflare Tunnel
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 29: BILA PATUT GUNA YANG MANA? -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Panduan Keputusan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Bila Patut Guna Yang Mana?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <!-- Scenario 1 -->
+                <div class="glass-card p-5 rounded-2xl border border-amber-500/30 space-y-3">
+                    <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-flask"></i> Direct Public IP / Port Forwarding
+                    </h3>
+                    <p class="text-xs text-gray-300">Sesuai digunakan jika:</p>
+                    <ul class="text-xs text-gray-300 space-y-1.5 list-disc pl-4">
+                        <li>Sedang belajar konsep asas networking & paket data.</li>
+                        <li>Membuat makmal latihan tempatan (Lab Environment).</li>
+                        <li>Perlu protokol khas selain HTTP/HTTPS yang tidak disokong tunnel biasa.</li>
+                    </ul>
+                </div>
+
+                <!-- Scenario 2 -->
+                <div class="glass-card p-5 rounded-2xl border border-purple-500/40 bg-purple-950/20 space-y-3 glow-purple">
+                    <h3 class="text-base font-bold text-purple-300 flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved"></i> Cloudflare Tunnel
+                    </h3>
+                    <p class="text-xs text-gray-300">Sesuai digunakan jika:</p>
+                    <ul class="text-xs text-gray-300 space-y-1.5 list-disc pl-4">
+                        <li>Mahu *expose* aplikasi web rumah tanpa risiko port terdedah.</li>
+                        <li>Menggunakan ISP berunsur CGNAT (Tiada Public IP).</li>
+                        <li>Mahukan HTTPS percuma dan perlindungan DDoS serta-merta.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 30: PENUTUP -->
+        <section class="slide flex-col justify-center items-center text-center max-w-5xl mx-auto my-auto slide-content py-6">
+            <span class="text-xs font-semibold uppercase text-orange-400 tracking-wider mb-2">Penutup Akhir</span>
+            <h2 class="text-3xl sm:text-5xl font-extrabold text-white mb-6">Daripada Localhost Kepada Internet</h2>
+
+            <!-- Grand Final Visual Flow -->
+            <div class="glass-card p-6 rounded-2xl border border-orange-500/40 bg-gray-950/80 w-full max-w-3xl mb-8">
+                <div class="flex flex-wrap items-center justify-center gap-1.5 text-[11px] font-mono">
+                    <span class="px-2 py-1 rounded bg-cyan-950 text-cyan-300">LOCALHOST</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-slate-900 text-gray-300">PRIVATE IP</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-amber-950 text-amber-300">PUBLIC IP</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-gray-900 text-gray-300">PORT FORWARDING</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-cyan-950 text-cyan-300">DOMAIN & DNS</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-emerald-950 text-emerald-300">HTTPS</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-indigo-950 text-indigo-300">REVERSE PROXY</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-orange-950 text-orange-300">CLOUDFLARE</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2 py-1 rounded bg-purple-950 text-purple-300 font-bold">CLOUDFLARE TUNNEL</span>
+                </div>
+            </div>
+
+            <p class="text-lg sm:text-xl text-gray-200 font-medium italic max-w-2xl leading-relaxed">
+                "Yang penting bukan sekadar tahu command. Faham dulu ke mana request bergerak!" 🚀
+            </p>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM CONTROLS BAR -->
+    <footer class="h-16 px-6 border-t border-gray-800/80 flex items-center justify-between z-20 bg-brand-dark/95 backdrop-blur-md shrink-0">
+        <button id="prevBtn" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-semibold transition flex items-center gap-2 border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-chevron-left text-xs"></i> Prev
+        </button>
+
+        <!-- Slide Dots Navigation -->
+        <div id="slideDots" class="hidden md:flex items-center gap-1 overflow-x-auto max-w-md px-2 py-1">
+            <!-- Dynamic Dots via JS -->
+        </div>
+
+        <button id="nextBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white text-sm font-semibold transition flex items-center gap-2 shadow-lg shadow-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+    </footer>
+
+    <!-- OVERVIEW GRID MODAL -->
+    <div id="overviewModal" class="fixed inset-0 z-50 modal-bg flex items-center justify-center p-4 sm:p-6 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-card w-full max-w-5xl h-[85vh] rounded-2xl border border-gray-700 flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/80">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-border-all text-orange-400"></i> Pilih Slide (Bahagian 2)
+                </h3>
+                <button id="closeOverviewBtn" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="overviewGrid" class="flex-1 p-6 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                <!-- Dynamically Populated Cards -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = document.querySelectorAll('.slide');
+            const totalSlides = slides.length;
+            let currentSlide = 0;
+
+            const currentSlideNumEl = document.getElementById('currentSlideNum');
+            const totalSlidesNumEl = document.getElementById('totalSlidesNum');
+            const progressBar = document.getElementById('progressBar');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const slideDotsContainer = document.getElementById('slideDots');
+            const overviewBtn = document.getElementById('overviewBtn');
+            const overviewModal = document.getElementById('overviewModal');
+            const closeOverviewBtn = document.getElementById('closeOverviewBtn');
+            const overviewGrid = document.getElementById('overviewGrid');
+
+            totalSlidesNumEl.textContent = totalSlides;
+
+            // Generate slide dots
+            slides.forEach((_, idx) => {
+                const dot = document.createElement('button');
+                dot.className = `w-1.5 h-1.5 rounded-full transition-all duration-200 ${idx === 0 ? 'bg-orange-400 w-4' : 'bg-gray-700 hover:bg-gray-500'}`;
+                dot.addEventListener('click', () => goToSlide(idx));
+                slideDotsContainer.appendChild(dot);
+            });
+
+            // Generate modal grid items
+            slides.forEach((slide, idx) => {
+                const heading = slide.querySelector('h1, h2')?.innerText || `Slide ${idx + 1}`;
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border border-gray-800 bg-gray-900/60 hover:border-orange-500/50 cursor-pointer transition flex flex-col justify-between h-24 ${idx === 0 ? 'border-orange-500/50 bg-orange-950/20' : ''}`;
+                card.innerHTML = `
+                    <div class="text-[9px] font-mono text-orange-400 font-bold">SLIDE ${idx + 1}</div>
+                    <div class="text-[11px] font-semibold text-gray-200 line-clamp-2 leading-tight">${heading}</div>
+                    <div class="text-[9px] text-gray-500">Klik untuk buka →</div>
+                `;
+                card.addEventListener('click', () => {
+                    goToSlide(idx);
+                    closeModal();
+                });
+                overviewGrid.appendChild(card);
+            });
+
+            function updateUI() {
+                slides.forEach((slide, idx) => {
+                    if (idx === currentSlide) {
+                        slide.classList.add('active');
+                    } else {
+                        slide.classList.remove('active');
+                    }
+                });
+
+                currentSlideNumEl.textContent = currentSlide + 1;
+                progressBar.style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
+
+                prevBtn.disabled = currentSlide === 0;
+                nextBtn.disabled = currentSlide === totalSlides - 1;
+
+                const dots = slideDotsContainer.querySelectorAll('button');
+                dots.forEach((dot, idx) => {
+                    if (idx === currentSlide) {
+                        dot.className = 'w-4 h-1.5 rounded-full bg-orange-400 transition-all duration-200';
+                    } else {
+                        dot.className = 'w-1.5 h-1.5 rounded-full bg-gray-700 hover:bg-gray-500 transition-all duration-200';
+                    }
+                });
+
+                const activeSlideObj = slides[currentSlide];
+                if (activeSlideObj) {
+                    activeSlideObj.scrollTop = 0;
+                }
+            }
+
+            function goToSlide(index) {
+                if (index >= 0 && index < totalSlides) {
+                    currentSlide = index;
+                    updateUI();
+                }
+            }
+
+            function nextSlide() {
+                if (currentSlide < totalSlides - 1) {
+                    currentSlide++;
+                    updateUI();
+                }
+            }
+
+            function prevSlide() {
+                if (currentSlide > 0) {
+                    currentSlide--;
+                    updateUI();
+                }
+            }
+
+            // Event Listeners
+            prevBtn.addEventListener('click', prevSlide);
+            nextBtn.addEventListener('click', nextSlide);
+
+            // Keyboard Controls
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'Space' || e.key === 'PageDown') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    goToSlide(0);
+                } else if (e.key === 'End') {
+                    goToSlide(totalSlides - 1);
+                } else if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+
+            // Touch Swipe Handling
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            document.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, false);
+
+            document.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+
+            function handleSwipe() {
+                const threshold = 50;
+                if (touchEndX < touchStartX - threshold) {
+                    nextSlide();
+                }
+                if (touchEndX > touchStartX + threshold) {
+                    prevSlide();
+                }
+            }
+
+            // Modal Controls
+            function openModal() {
+                overviewModal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+            function closeModal() {
+                overviewModal.classList.add('opacity-0', 'pointer-events-none');
+            }
+
+            overviewBtn.addEventListener('click', openModal);
+            closeOverviewBtn.addEventListener('click', closeModal);
+            overviewModal.addEventListener('click', (e) => {
+                if (e.target === overviewModal) closeModal();
+            });
+
+            // Copy helper
+            window.copyCode = function(buttonEl, text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = buttonEl.innerHTML;
+                    buttonEl.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Disalin!';
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalText;
+                    }, 2000);
+                }).catch(() => {
+                    const tempInput = document.createElement('textarea');
+                    tempInput.value = text;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    
+                    const originalText = buttonEl.innerHTML;
+                    buttonEl.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Disalin!';
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalText;
+                    }, 2000);
+                });
+            };
+
+            updateUI();
+        });
+    </script>
+</body>
+</html>

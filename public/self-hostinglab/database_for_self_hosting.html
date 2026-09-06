@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database for Self-Hosting - Slide Deck</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        dbTeal: { DEFAULT: '#14b8a6', dark: '#0d9488', light: '#5eead4' },
+                        pgBlue: { DEFAULT: '#3b82f6', dark: '#2563eb', light: '#93c5fd' },
+                        dockCyan: { DEFAULT: '#06b6d4', dark: '#0891b2', light: '#67e8f9' },
+                        storeGreen: { DEFAULT: '#22c55e', dark: '#16a34a', light: '#86efac' },
+                        backPurple: { DEFAULT: '#a855f7', dark: '#9333ea', light: '#d8b4fe' },
+                        cfOrange: { DEFAULT: '#f97316', dark: '#ea580c', light: '#ffedd5' },
+                        secRed: { DEFAULT: '#ef4444', dark: '#dc2626', light: '#fca5a5' },
+                        monYellow: { DEFAULT: '#eab308', dark: '#ca8a04', light: '#fef08a' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f3f4f6;
+            overflow: hidden;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .slide-enter {
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        /* Custom Scrollbar for Drawer/Code */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 1); }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between select-none">
+
+    <!-- HEADER BAR -->
+    <header class="h-14 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-30 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 font-bold text-lg">
+                🗄️
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-slate-100 leading-tight">Database for Self-Hosting</h1>
+                <p class="text-[11px] text-teal-400 font-medium">Sambungan "Docker Deep Dive"</p>
+            </div>
+        </div>
+
+        <!-- Slide Navigation Dropdown & Counter -->
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleIndexDrawer()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium flex items-center space-x-1.5 border border-slate-700 transition">
+                <span>📋 Indeks Slide</span>
+            </button>
+            <div class="bg-slate-950 px-3 py-1 rounded-md border border-slate-800 font-mono text-xs text-slate-300">
+                Slide <span id="current-slide-num" class="text-teal-400 font-bold">1</span> / <span id="total-slides-num">86</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- PROGRESS BAR -->
+    <div class="w-full bg-slate-900 h-1">
+        <div id="progress-bar" class="bg-gradient-to-r from-teal-500 via-blue-500 to-cyan-400 h-full transition-all duration-300 w-[1.16%]"></div>
+    </div>
+
+    <!-- MAIN SLIDE VIEWPORT -->
+    <main class="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-6 md:p-8">
+        <div id="slide-container" class="w-full max-w-6xl h-full flex flex-col justify-center slide-enter">
+            <!-- Dynamic Slide Content Inserted Here by JavaScript -->
+        </div>
+    </main>
+
+    <!-- FOOTER NAVIGATION BAR -->
+    <footer class="h-16 bg-slate-900/95 border-t border-slate-800 px-4 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center space-x-2">
+            <button onclick="goToFirstSlide()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition" title="Mula (Home)">
+                ⏮️ Mula
+            </button>
+            <button onclick="prevSlide()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center space-x-1 shadow-lg shadow-teal-950 transition">
+                <span>◄</span> <span>Sebelumnya</span>
+            </button>
+        </div>
+
+        <!-- Keyboard Hint -->
+        <div class="hidden md:flex items-center space-x-3 text-[11px] text-slate-400 font-mono">
+            <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">←</kbd> Prev</span>
+            <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">→</kbd> Next</span>
+            <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">Home</kbd> Mula</span>
+            <span><kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300">End</kbd> Akhir</span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="nextSlide()" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center space-x-1 shadow-lg shadow-teal-950 transition">
+                <span>Seterusnya</span> <span>►</span>
+            </button>
+            <button onclick="goToLastSlide()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition" title="Akhir (End)">
+                ⏭️ Akhir
+            </button>
+        </div>
+    </footer>
+
+    <!-- SLIDE INDEX DRAWER MODAL -->
+    <div id="index-drawer" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden transition-opacity flex justify-end">
+        <div class="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col p-4 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h2 class="text-base font-bold text-slate-100">Senarai 86 Slide</h2>
+                <button onclick="toggleIndexDrawer()" class="p-1 rounded bg-slate-800 text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div class="my-3">
+                <input type="text" id="index-search" oninput="filterSlides()" placeholder="Cari tajuk slide..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-teal-500">
+            </div>
+            <div id="index-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                <!-- Slide index items rendered via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Structure for 86 Slides
+        const slidesData = [
+            // SLIDE 1
+            {
+                title: "Database for Self-Hosting",
+                subtitle: "Bagaimana Application Menyimpan, Melindungi dan Memulihkan Data",
+                tag: "Pengenalan Kursus",
+                icon: "🗄️",
+                html: `
+                    <div class="text-center max-w-3xl mx-auto space-y-6">
+                        <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-semibold uppercase tracking-wider">
+                            🚀 Modul Lanjutan Self-Hosting
+                        </div>
+                        <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-100 tracking-tight leading-tight">
+                            Database for Self-Hosting
+                        </h1>
+                        <p class="text-lg sm:text-xl text-teal-400 font-medium">
+                            "Bagaimana Application Menyimpan, Melindungi dan Memulihkan Data"
+                        </p>
+                        
+                        <!-- Flow Diagram -->
+                        <div class="py-6 px-4 bg-slate-900/80 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-center gap-2 sm:gap-4 font-mono text-xs sm:text-sm">
+                            <span class="px-3 py-2 bg-slate-800 rounded-lg border border-slate-700 text-slate-200">👤 User</span>
+                            <span class="text-teal-400">→</span>
+                            <span class="px-3 py-2 bg-blue-900/40 border border-blue-500/40 text-blue-300 rounded-lg">🚀 Application</span>
+                            <span class="text-teal-400">→</span>
+                            <span class="px-3 py-2 bg-teal-900/40 border border-teal-500/40 text-teal-300 rounded-lg">🗄️ Database</span>
+                            <span class="text-teal-400">→</span>
+                            <span class="px-3 py-2 bg-green-900/40 border border-green-500/40 text-green-300 rounded-lg">💾 Storage</span>
+                            <span class="text-teal-400">→</span>
+                            <span class="px-3 py-2 bg-purple-900/40 border border-purple-500/40 text-purple-300 rounded-lg">💿 Backup</span>
+                        </div>
+
+                        <div class="p-4 bg-red-950/30 border border-red-500/30 rounded-xl text-red-200 text-sm sm:text-base font-semibold italic">
+                            "Application boleh di-rebuild secara automatik. Data yang hilang biasanya tidak boleh diganti."
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 2
+            {
+                title: "Kenapa Database Penting?",
+                subtitle: "Aplikasi memerlukan ingatan kekal (State Persistence)",
+                tag: "Konsep Asas",
+                icon: "💡",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4">
+                            <h3 class="text-xl font-bold text-slate-100">Setiap Aplikasi Memerlukan Storage Data:</h3>
+                            <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">🔐 Login Session</div>
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">👥 Users Profile</div>
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">📦 Orders & Sales</div>
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">📝 Posts & Content</div>
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">⚙️ App Settings</div>
+                                <div class="p-3 bg-slate-800/80 rounded-lg border border-slate-700">💬 Messages / Chat</div>
+                            </div>
+                            <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-lg text-xs text-amber-200">
+                                <strong>Tanpa Database:</strong> Application menjadi <em>stateless</em>. Sebaik sahaja container restart, semua maklumat user hilang!
+                            </div>
+                        </div>
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4 font-mono text-xs">
+                            <div class="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Web Application Flow</div>
+                            <div class="flex items-center justify-between p-3 bg-slate-900 rounded border border-slate-800">
+                                <span>🌐 Browser Client</span>
+                                <span class="text-slate-500">HTTP Request</span>
+                            </div>
+                            <div class="text-center text-teal-400">↓</div>
+                            <div class="flex items-center justify-between p-3 bg-blue-950/50 rounded border border-blue-800/50 text-blue-300">
+                                <span>⚡ Application (Python/Node)</span>
+                                <span class="text-blue-400">Business Logic</span>
+                            </div>
+                            <div class="text-center text-teal-400">↓</div>
+                            <div class="flex items-center justify-between p-3 bg-teal-950/50 rounded border border-teal-800/50 text-teal-300">
+                                <span>🗄️ Database Server</span>
+                                <span class="text-teal-400">Persistent Data</span>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 3
+            {
+                title: "Application vs Database",
+                subtitle: "Memahami Perbezaan Peranan dan Responsibiliti",
+                tag: "Seni Bina Software",
+                icon: "⚖️",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-950/20 border border-blue-500/30 p-6 rounded-2xl space-y-3">
+                            <div class="badge bg-blue-500/20 text-blue-400">APPLICATION</div>
+                            <h3 class="text-lg font-bold text-blue-200 font-mono">"Bagaimana sistem berfungsi?"</h3>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc list-inside">
+                                <li>Ditulis dalam Python, Node.js, Go, PHP, Rust.</li>
+                                <li>Memproses input user & paparan UI.</li>
+                                <li>Logik perniagaan (Authentication, Validation).</li>
+                                <li>Boleh dimusnahkan dan di-rebuild bila-bila masa.</li>
+                            </ul>
+                        </div>
+                        <div class="bg-teal-950/20 border border-teal-500/30 p-6 rounded-2xl space-y-3">
+                            <div class="badge bg-teal-500/20 text-teal-400">DATABASE</div>
+                            <h3 class="text-lg font-bold text-teal-200 font-mono">"Apakah data yang sistem simpan?"</h3>
+                            <ul class="text-xs space-y-2 text-slate-300 list-disc list-inside">
+                                <li>Perisian khusus (PostgreSQL, MariaDB, SQLite).</li>
+                                <li>Menguruskan integriti data & hubungan (relationships).</li>
+                                <li>Menjamin transaksi selamat & konsisten.</li>
+                                <li>Mesti dilindungi dengan persistent storage & backup.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="mt-6 p-4 bg-slate-900 rounded-xl border border-slate-800 font-mono text-xs flex justify-between items-center text-slate-300 overflow-x-auto">
+                        <span>User Request</span> ➔ <span>App (Node)</span> ➔ <span class="text-teal-400">SQL Query ("SELECT * FROM users")</span> ➔ <span>PostgreSQL</span> ➔ <span class="text-teal-400">Result (JSON/Rows)</span> ➔ <span>App Response</span>
+                    </div>
+                `
+            },
+            // SLIDE 4
+            {
+                title: "Apa Itu Database?",
+                subtitle: "Definisi Mudah & Komponen Utama Perkhidmatan Database",
+                tag: "Konsep Utama",
+                icon: "📖",
+                html: `
+                    <div class="space-y-6">
+                        <div class="p-6 bg-slate-900 rounded-2xl border border-teal-500/40 text-center">
+                            <h3 class="text-xs uppercase tracking-widest text-teal-400 font-bold mb-2">DEFINISI MUDAH</h3>
+                            <p class="text-lg sm:text-xl text-slate-100 font-semibold max-w-2xl mx-auto">
+                                "Database ialah sistem perisian yang direka khusus untuk menyimpan, mengurus, dan mengambil semula data secara terstruktur dan efisien."
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">🔍 Query Engine</span>
+                                <p class="text-slate-400 mt-1">Carian data pantas menggunakan bahasa SQL.</p>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">⚡ Indexing</span>
+                                <p class="text-slate-400 mt-1">Struktur data untuk mempercepat carian jutaan rekod.</p>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">🛡️ Transactions</span>
+                                <p class="text-slate-400 mt-1">Memastikan proses simpanan lengkap atau dibatalkan bersih.</p>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">🔒 Permissions</span>
+                                <p class="text-slate-400 mt-1">Kawalan akses user bagi mengelak kecurian data.</p>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">🔄 Concurrency</span>
+                                <p class="text-slate-400 mt-1">Menguruskan ribuan user yang membaca/menulis serentak.</p>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">💾 Recovery</span>
+                                <p class="text-slate-400 mt-1">Jaminan data tidak rosak jika sistem terhenti mengejut.</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 5
+            {
+                title: "Database Server vs Database",
+                subtitle: "Memahami Hierarki dalam Engine Database",
+                tag: "Seni Bina Database",
+                icon: "🖥️",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-4 text-xs">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <span class="badge bg-blue-500/20 text-blue-400">DATABASE SERVER</span>
+                                <p class="text-slate-200 font-semibold text-sm">Perisian Daemon / Process Service</p>
+                                <p class="text-slate-400">Contoh: PostgreSQL Service (Process engine yang berjalan di Port 5432). Ia boleh menguruskan banyak database berasingan serentak.</p>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <span class="badge bg-teal-500/20 text-teal-400">INDIVIDUAL DATABASE</span>
+                                <p class="text-slate-200 font-semibold text-sm">Bekas Data (Logical Container)</p>
+                                <p class="text-slate-400">Contoh: <code class="mono text-teal-300">nextcloud_db</code>, <code class="mono text-teal-300">wordpress_db</code>. Setiap aplikasi mempunyai databasenya sendiri di dalam server yang sama.</p>
+                            </div>
+                        </div>
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300 space-y-3">
+                            <div class="text-blue-400 font-bold">🖥️ PostgreSQL Server Instance</div>
+                            <div class="pl-4 border-l-2 border-slate-700 space-y-3">
+                                <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-teal-300">
+                                    📁 Database: app_production
+                                </div>
+                                <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-teal-300">
+                                    📁 Database: nextcloud
+                                </div>
+                                <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-teal-300">
+                                    📁 Database: vaultwarden
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 6
+            {
+                title: "Relational Database (RDBMS)",
+                subtitle: "Struktur Berjadual yang Tersusun dan Saling Berhubung",
+                tag: "Model Data",
+                icon: "📊",
+                html: `
+                    <div class="space-y-6">
+                        <p class="text-sm text-slate-300">
+                            Database Relational (seperti PostgreSQL, MariaDB, MySQL) menyusun data dalam format jadual (Tables) yang mempunyai lajur (Columns) dan baris (Rows).
+                        </p>
+                        <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 flex justify-center items-center">
+                            <div class="space-y-2 text-center font-mono text-xs">
+                                <div class="px-6 py-2 bg-blue-900/40 border border-blue-500/40 rounded-lg text-blue-300 font-bold">🗄️ DATABASE (e.g. appdb)</div>
+                                <div class="text-slate-500">↓</div>
+                                <div class="px-6 py-2 bg-teal-900/40 border border-teal-500/40 rounded-lg text-teal-300 font-bold">📋 TABLES (e.g. users, orders)</div>
+                                <div class="text-slate-500">↓</div>
+                                <div class="flex justify-center space-x-4">
+                                    <div class="px-4 py-2 bg-slate-800 border border-slate-700 rounded text-amber-300">↔️ ROWS (Data Records)</div>
+                                    <div class="px-4 py-2 bg-slate-800 border border-slate-700 rounded text-cyan-300">↕️ COLUMNS (Attributes)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 7
+            {
+                title: "Konsep Table",
+                subtitle: "Wadah Menyimpan Entiti Data Spesifik",
+                tag: "Struktur Database",
+                icon: "📋",
+                html: `
+                    <div class="space-y-4">
+                        <p class="text-xs text-slate-300">Contoh Jadual <code class="mono text-teal-400">USERS</code> dalam RDBMS:</p>
+                        <div class="overflow-x-auto rounded-xl border border-slate-800">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="bg-slate-900 text-teal-400 border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">id (PK)</th>
+                                        <th class="p-3">name</th>
+                                        <th class="p-3">email</th>
+                                        <th class="p-3">created_at</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-200">
+                                    <tr>
+                                        <td class="p-3 text-amber-400 font-bold">1</td>
+                                        <td class="p-3">Ali</td>
+                                        <td class="p-3">ali@example.com</td>
+                                        <td class="p-3 text-slate-500">2026-08-01 10:00</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 text-amber-400 font-bold">2</td>
+                                        <td class="p-3">Abu</td>
+                                        <td class="p-3">abu@example.com</td>
+                                        <td class="p-3 text-slate-500">2026-08-02 11:30</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-xs text-slate-400 italic">
+                            Setiap jadual menyimpan data entiti yang homogen (cth: users sahaja, orders sahaja).
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 8
+            {
+                title: "Row & Column",
+                subtitle: "Komponen Asas Pembina Jadual",
+                tag: "Struktur Database",
+                icon: "📐",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="p-5 bg-slate-900 rounded-2xl border border-amber-500/30 space-y-2">
+                            <div class="badge bg-amber-500/20 text-amber-300">ROW (Baris / Record)</div>
+                            <p class="text-xs text-slate-300">
+                                Mewakili <strong>SATU entiti data lengkap</strong> dalam jadual.
+                            </p>
+                            <div class="p-3 bg-slate-950 rounded border border-slate-800 font-mono text-xs text-amber-300">
+                                [ 1 | Ali | ali@example.com ]
+                            </div>
+                        </div>
+                        <div class="p-5 bg-slate-900 rounded-2xl border border-cyan-500/30 space-y-2">
+                            <div class="badge bg-cyan-500/20 text-cyan-300">COLUMN (Lajur / Attribute)</div>
+                            <p class="text-xs text-slate-300">
+                                Mewakili <strong>jenis maklumat spesifik</strong> dengan Jenis Data (Data Type) tertentu.
+                            </p>
+                            <div class="p-3 bg-slate-950 rounded border border-slate-800 font-mono text-xs text-cyan-300">
+                                email (VARCHAR / TEXT)
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 9
+            {
+                title: "Primary Key (PK)",
+                subtitle: "Identiti Unik Bagi Setiap Rekod",
+                tag: "Integriti Data",
+                icon: "🔑",
+                html: `
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                            <div class="space-y-3 text-xs">
+                                <h3 class="text-sm font-bold text-slate-100">Ciri-ciri Primary Key:</h3>
+                                <ul class="space-y-2 text-slate-300 list-disc list-inside">
+                                    <li>Mesti <strong>UNIQUE</strong> (tiada pertindihan nilai).</li>
+                                    <li>Mengenalpasti setiap Row secara pasti.</li>
+                                    <li>Tidak boleh bernilai <code class="mono text-red-400">NULL</code>.</li>
+                                    <li>Biasanya menggunakan Auto-Increment ID atau UUID.</li>
+                                </ul>
+                            </div>
+                            <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300 space-y-2">
+                                <div class="text-amber-400 font-bold">users table</div>
+                                <div class="p-2 bg-amber-950/40 border border-amber-500/40 rounded text-amber-200">🔑 id: 1 (Primary Key)</div>
+                                <div class="p-2 bg-amber-950/40 border border-amber-500/40 rounded text-amber-200">🔑 id: 2 (Primary Key)</div>
+                                <div class="p-2 bg-amber-950/40 border border-amber-500/40 rounded text-amber-200">🔑 id: 3 (Primary Key)</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 10
+            {
+                title: "Foreign Key (FK)",
+                subtitle: "Menghubungkan Dua Jadual Berbeza",
+                tag: "Integriti Data",
+                icon: "🔗",
+                html: `
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs">
+                                <div class="text-amber-400 font-bold mb-2">USERS (Parent)</div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">id: <span class="text-amber-400 font-bold">1</span> | name: Ali</div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800 mt-1">id: <span class="text-amber-400 font-bold">2</span> | name: Abu</div>
+                            </div>
+                            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs">
+                                <div class="text-teal-400 font-bold mb-2">ORDERS (Child)</div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800">id: 101 | user_id: <span class="text-amber-400 font-bold">1</span> (FK)</div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800 mt-1">id: 102 | user_id: <span class="text-amber-400 font-bold">1</span> (FK)</div>
+                                <div class="p-2 bg-slate-900 rounded border border-slate-800 mt-1">id: 103 | user_id: <span class="text-amber-400 font-bold">2</span> (FK)</div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-300 text-center">
+                            Lajur <code class="mono text-teal-300">orders.user_id</code> merujuk terus kepada <code class="mono text-amber-300">users.id</code>. Ini dipanggil <strong>Foreign Key Relationship</strong>.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 11
+            {
+                title: "Database Relationships",
+                subtitle: "Jenis Hubungan Data: One-to-One, One-to-Many, Many-to-Many",
+                tag: "Model Data",
+                icon: "🌐",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <span class="badge bg-blue-500/20 text-blue-300">One-to-One (1:1)</span>
+                            <p class="text-slate-400">1 User mempunyai 1 Profile detail lanjutan.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <span class="badge bg-teal-500/20 text-teal-300">One-to-Many (1:N)</span>
+                            <p class="text-slate-400">1 User boleh membuat BANYAK Orders.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <span class="badge bg-purple-500/20 text-purple-300">Many-to-Many (N:M)</span>
+                            <p class="text-slate-400">BANYAK Order boleh mempunyai BANYAK Product (Menggunakan Junction Table).</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 12
+            {
+                title: "Database Index",
+                subtitle: "Mempercepatkan Carian Query (Tetapi Ada Kosnya)",
+                tag: "Prestasi",
+                icon: "⚡",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl">
+                                <span class="text-red-400 font-bold">❌ Tanpa Index (Full Table Scan)</span>
+                                <p class="text-slate-300 mt-1">Cari 1 email dari 1,000,000 rows = DB kena semak SATU PER SATU baris data (Lambat!).</p>
+                            </div>
+                            <div class="p-4 bg-teal-950/20 border border-teal-500/30 rounded-xl">
+                                <span class="text-teal-400 font-bold">✅ Dengan Index (B-Tree Search)</span>
+                                <p class="text-slate-300 mt-1">Cari email ber-index = DB lompat terus ke lokasi spesifik dalam milisaat.</p>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-200">
+                            <strong>⚠️ PENTING:</strong> Index bukan percuma! Setiap Index mengambil ruang storage tambahan & sedikit melambat operasi WRITE (INSERT/UPDATE) kerana Index perlu dikemas kini.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 13
+            {
+                title: "Database Query",
+                subtitle: "Komunikasi Antara Application dan Database Server",
+                tag: "Asas SQL",
+                icon: "💬",
+                html: `
+                    <div class="space-y-4">
+                        <p class="text-xs text-slate-300">Contoh Query SQL ringkas dihantar oleh Aplikasi:</p>
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-teal-300 space-y-2">
+                            <p class="text-slate-500">// Ambil semua rekod users</p>
+                            <p class="text-blue-400">SELECT <span class="text-slate-200">*</span> FROM <span class="text-slate-200">users;</span></p>
+                            <br>
+                            <p class="text-slate-500">// Cari user spesifik berdasarkan email</p>
+                            <p class="text-blue-400">SELECT <span class="text-slate-200">*</span> FROM <span class="text-slate-200">users</span> WHERE <span class="text-slate-200">email = 'ali@example.com';</span></p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 14
+            {
+                title: "Kategori Arahan SQL",
+                subtitle: "DML, DDL dan Perintah Utama SQL",
+                tag: "Asas SQL",
+                icon: "📝",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-blue-400 font-bold">SELECT</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Baca data</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-teal-400 font-bold">INSERT</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Tambah data</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-amber-400 font-bold">UPDATE</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Kemaskini data</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-red-400 font-bold">DELETE</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Padam data</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-purple-400 font-bold">CREATE</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Bina Table/DB</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-purple-400 font-bold">ALTER</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Ubah Struktur</p>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-purple-400 font-bold">DROP</span>
+                            <p class="text-slate-400 text-[11px] mt-1">Buang Table/DB</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 15
+            {
+                title: "Database Transaction",
+                subtitle: "Memastikan Semua Perubahan Berjaya Atau Batalkan Semua",
+                tag: "Integriti Data",
+                icon: "🔄",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono">
+                            <span class="text-amber-400 font-bold">BEGIN TRANSACTION;</span><br>
+                            <span class="text-slate-300">UPDATE accounts SET balance = balance - 100 WHERE id = A;</span><br>
+                            <span class="text-slate-300">UPDATE accounts SET balance = balance + 100 WHERE id = B;</span><br>
+                            <span class="text-teal-400 font-bold">COMMIT;</span> <span class="text-slate-500">// Jika gagal -> ROLLBACK;</span>
+                        </div>
+                        <p class="text-slate-300">
+                            Transaction menghalang data tergantung. Jika server terputus bekalan elektrik sewaktu pemindahan wang dari Account A ke Account B, transaksi akan di-<code class="mono text-red-400">ROLLBACK</code> semula secara automatik!
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 16
+            {
+                title: "Prinsip ACID",
+                subtitle: "Standard Emas Ketahanan Database Relational",
+                tag: "Teori Database",
+                icon: "🏛️",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-teal-400 font-bold text-base">A - Atomicity</span>
+                            <p class="text-slate-400 mt-1">"Semua atau tiada langsung". Transaksi tidak boleh separuh jalan.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-blue-400 font-bold text-base">C - Consistency</span>
+                            <p class="text-slate-400 mt-1">Data mesti mematuhi semua rule & constraint database.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-purple-400 font-bold text-base">I - Isolation</span>
+                            <p class="text-slate-400 mt-1">Transaksi serentak tidak ganggu satu sama lain.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-storeGreen font-bold text-base">D - Durability</span>
+                            <p class="text-slate-400 mt-1">Sekali COMMIT dibuat, data kekal selamat walau server mati.</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 17
+            {
+                title: "PostgreSQL",
+                subtitle: "Database Relational Paling Stabil & Popular Untuk Self-Hosting",
+                tag: "Database Engine",
+                icon: "🐘",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-3 text-xs">
+                            <div class="badge bg-blue-500/20 text-blue-300">RECOMMENDED FOR SELF-HOSTING</div>
+                            <h3 class="text-lg font-bold text-slate-100">Kenapa PostgreSQL Pilihan Utama?</h3>
+                            <ul class="space-y-2 text-slate-300 list-disc list-inside">
+                                <li>Patuhi piawaian ACID secara sangat ketat.</li>
+                                <li>Menyokong JSONB (Hybrid SQL + NoSQL).</li>
+                                <li>Sangat popular dalam aplikasi moden (Nextcloud, Mastodon, Vaultwarden, Supabase).</li>
+                                <li>Open-source percuma tanpa lesen korporat tersembunyi.</li>
+                            </ul>
+                        </div>
+                        <div class="p-5 bg-slate-950 rounded-2xl border border-blue-500/30 font-mono text-xs space-y-2">
+                            <div class="text-blue-400 font-bold">Standard Postgres Port:</div>
+                            <div class="text-2xl font-extrabold text-slate-100">5432</div>
+                            <div class="text-slate-500 text-[11px]">Default superuser: <code class="text-teal-300">postgres</code></div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 18
+            {
+                title: "MariaDB / MySQL",
+                subtitle: "Engine Utama Untuk Aplikasi Web Tradisional & CMS",
+                tag: "Database Engine",
+                icon: "🐬",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-slate-300">
+                            MariaDB ialah fork open-source tulen daripada MySQL. Banyak digunakan oleh aplikasi PHP seperti WordPress, Ghost, Nginx Proxy Manager, dsb.
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold text-sm">🦭 MariaDB</span>
+                                <p class="text-slate-400 mt-1">100% Community-driven, sangat ringan, serasi dengan ekosistem MySQL.</p>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                                <span class="text-blue-400 font-bold text-sm">🐬 MySQL</span>
+                                <p class="text-slate-400 mt-1">Database web paling meluas di dunia (Dimiliki oleh Oracle Corporation).</p>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded border border-slate-800 font-mono text-xs text-center text-slate-400">
+                            Standard MySQL / MariaDB Port: <span class="text-amber-400 font-bold">3306</span>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 19
+            {
+                title: "PostgreSQL vs MariaDB vs MySQL",
+                subtitle: "Perbandingan Ringkas Untuk Membuat Pilihan Tepat",
+                tag: "Perbandingan Engine",
+                icon: "⚖️",
+                html: `
+                    <div class="overflow-x-auto rounded-xl border border-slate-800 font-mono text-xs">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-900 text-teal-400 border-b border-slate-800">
+                                <tr>
+                                    <th class="p-3">Ciri-ciri</th>
+                                    <th class="p-3">PostgreSQL</th>
+                                    <th class="p-3">MariaDB / MySQL</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-300">
+                                <tr>
+                                    <td class="p-3 font-bold text-slate-100">Ciri Utama</td>
+                                    <td class="p-3">Advanced SQL, JSONB, Strict ACID</td>
+                                    <td class="p-3">Laju untuk read heavy, CMS popular</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-bold text-slate-100">Port Default</td>
+                                    <td class="p-3 text-blue-400">5432</td>
+                                    <td class="p-3 text-amber-400">3306</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-bold text-slate-100">Kesesuaian</td>
+                                    <td class="p-3">App moden, SaaS, Analytics</td>
+                                    <td class="p-3">WordPress, LAMP Stack</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `
+            },
+            // SLIDE 20
+            {
+                title: "SQL vs NoSQL",
+                subtitle: "Struktur Berjadual vs Format Terbuka (Key-Value / Document)",
+                tag: "Kategori Database",
+                icon: "🔀",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                        <div class="p-5 bg-slate-900 rounded-2xl border border-teal-500/30 space-y-3">
+                            <span class="badge bg-teal-500/20 text-teal-300">SQL (Relational)</span>
+                            <p class="text-slate-300">Data terstruktur dalam Tables. Memerlukan Schema awal.</p>
+                            <p class="text-slate-400">Contoh: PostgreSQL, MariaDB, SQLite.</p>
+                        </div>
+                        <div class="p-5 bg-slate-900 rounded-2xl border border-purple-500/30 space-y-3">
+                            <span class="badge bg-purple-500/20 text-purple-300">NoSQL (Non-Relational)</span>
+                            <p class="text-slate-300">Format fleksibel (JSON Document, Key-Value store, Graph).</p>
+                            <p class="text-slate-400">Contoh: MongoDB, Redis, KeyDB.</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-amber-300 italic text-center">
+                        Nota: Redis selalunya diguna sebagai Cache / Session store sementara, bukan pengganti RDBMS utama.
+                    </div>
+                `
+            },
+            // SLIDE 21
+            {
+                title: "Database Port",
+                subtitle: "Port Rangkaian Bukannya Database, Tetapi Pintu Laluan",
+                tag: "Networking DB",
+                icon: "🔌",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 flex justify-around text-center font-mono">
+                            <div>
+                                <span class="text-slate-400 block text-[10px]">PostgreSQL</span>
+                                <span class="text-xl font-bold text-blue-400">5432</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px]">MySQL / MariaDB</span>
+                                <span class="text-xl font-bold text-amber-400">3306</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px]">Redis</span>
+                                <span class="text-xl font-bold text-red-400">6379</span>
+                            </div>
+                        </div>
+                        <p class="text-slate-300">
+                            Ingat balik modul <em>Networking Deep Dive</em>: Port hanya nombor pintu servis pada sistem. Port membolehkan perisian App menghantar paket data ke daemon database yang betul.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 22
+            {
+                title: "Database Connection",
+                subtitle: "5 Maklumat Penting Menyambungkan App ke Database",
+                tag: "Konfigurasi App",
+                icon: "🔑",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-2 font-mono text-xs">
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800"><span class="text-teal-400 font-bold">HOST:</span> db (atau IP)</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800"><span class="text-teal-400 font-bold">PORT:</span> 5432</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800"><span class="text-teal-400 font-bold">DATABASE:</span> appdb</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800"><span class="text-teal-400 font-bold">USER:</span> appuser</div>
+                            <div class="p-3 bg-slate-900 rounded border border-slate-800"><span class="text-teal-400 font-bold">PASSWORD:</span> SECRET_PASSWORD</div>
+                        </div>
+                        <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300">
+                            <div class="text-slate-500 mb-2">// Database Connection String URL</div>
+                            <code class="text-teal-300 break-all">
+                                postgresql://appuser:SECRET_PASSWORD@db:5432/appdb
+                            </code>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 23
+            {
+                title: "Database Dalam Docker",
+                subtitle: "Konsep Rangkaian Docker Antara App & Container DB",
+                tag: "Docker & DB",
+                icon: "🐳",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-slate-300">
+                            Bila menggunakan Docker Compose, bekas aplikasi merujuk bekas database menggunakan <strong>Service Name (DNS dalaman Docker)</strong>, bukannya <code class="mono text-red-400">localhost</code>.
+                        </p>
+                        <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-center flex flex-wrap justify-center items-center gap-4">
+                            <div class="p-4 bg-blue-950/50 border border-blue-800/50 rounded-xl text-blue-300">
+                                📦 App Container<br><span class="text-[10px] text-slate-400">(DATABASE_HOST=db)</span>
+                            </div>
+                            <span class="text-teal-400 font-bold">➔ Internal Docker Bridge Network ➔</span>
+                            <div class="p-4 bg-teal-950/50 border border-teal-800/50 rounded-xl text-teal-300">
+                                🗄️ PostgreSQL Container<br><span class="text-[10px] text-slate-400">(service name: db)</span>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 24
+            {
+                title: "Docker Database Volume",
+                subtitle: "Memastikan Data Kekal Apabila Container Dihapuskan",
+                tag: "Persistent Volume",
+                icon: "💾",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-200 font-semibold">
+                            ⚠️ Container adalah sementara (ephemeral). Tanpa Volume, semua data DB terpadam bila container di-restart/rebuild!
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 font-mono">
+                                <span class="text-teal-400 font-bold">PostgreSQL Container</span>
+                                <p class="text-slate-400 mt-1 text-[11px]">/var/lib/postgresql/data</p>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 font-mono">
+                                <span class="text-storeGreen font-bold">Docker Named Volume</span>
+                                <p class="text-slate-400 mt-1 text-[11px]">/var/lib/docker/volumes/db-data</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 25
+            {
+                title: "Lifecycle Container Database",
+                subtitle: "Apa Yang Berlaku Sewaktu Container Stopped & Removed?",
+                tag: "Docker & DB",
+                icon: "🔄",
+                html: `
+                    <div class="space-y-4 text-xs font-mono">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <div class="flex items-center space-x-2 text-teal-400">
+                                <span>1. Container Running</span> ➔ <span>2. Container Removed</span> ➔ <span class="text-storeGreen">3. Volume Persists Data</span>
+                            </div>
+                            <div class="p-3 bg-slate-900 rounded text-slate-300 text-[11px]">
+                                Selepas <code class="text-amber-300">docker compose down</code>, container dipadam. Namun apabila kita jalankan semula <code class="text-amber-300">docker compose up -d</code>, container baharu akan mount semula Volume data yang sama!
+                            </div>
+                        </div>
+                        <div class="p-3 bg-red-950/30 border border-red-500/30 rounded text-red-300 text-[11px]">
+                            ❌ <strong>AMARAN:</strong> Volume BUKAN BACKUP! Jika hard disk server rosak, Volume Docker juga akan hilang!
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 26
+            {
+                title: "Docker Compose Database",
+                subtitle: "Contoh Konfigurasi Lengkap docker-compose.yml",
+                tag: "Kod & Praktikal",
+                icon: "📄",
+                html: `
+                    <div class="space-y-3">
+                        <div class="relative bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs overflow-x-auto text-slate-200">
+                            <button onclick="copyCode(this)" class="absolute top-3 right-3 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded border border-slate-700">Copy</button>
+                            <pre><code>services:
+  app:
+    image: myapp:1.0
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:</code></pre>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 27
+            {
+                title: "Database Environment & Secrets",
+                subtitle: "Jangan Pernah Hardcode Katakunci Dalam Kod Utama",
+                tag: "Keselamatan DB",
+                icon: "🔐",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl space-y-1">
+                                <span class="text-red-400 font-bold">❌ CORAK BAHAYA</span>
+                                <p class="text-slate-300 text-[11px]">Hardcode password dalam file source code Git (e.g. index.js):</p>
+                                <code class="mono text-red-300 text-[10px] block bg-slate-950 p-2 rounded">const PASS = "Admin1234!";</code>
+                            </div>
+                            <div class="p-4 bg-teal-950/20 border border-teal-500/30 rounded-xl space-y-1">
+                                <span class="text-teal-400 font-bold">✅ CORAK SELAMAT</span>
+                                <p class="text-slate-300 text-[11px]">Guna Environment Variables atau Docker Secrets file:</p>
+                                <code class="mono text-teal-300 text-[10px] block bg-slate-950 p-2 rounded">DATABASE_PASSWORD_FILE=/run/secrets/db_pass</code>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 28
+            {
+                title: "Database User Architecture",
+                subtitle: "Mengapa Kita Perlu Asingkan Akaun Admin & App User",
+                tag: "Keselamatan DB",
+                icon: "👤",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-red-500/30 space-y-2">
+                                <span class="badge bg-red-500/20 text-red-300">ADMIN ACCOUNT</span>
+                                <p class="text-slate-200 font-mono font-bold">postgres / root</p>
+                                <p class="text-slate-400">Digunakan HANYA untuk penyelenggaraan server DB & cipta database baharu. Jangan dedahkan kepada aplikasi web!</p>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-teal-500/30 space-y-2">
+                                <span class="badge bg-teal-500/20 text-teal-300">APPLICATION ACCOUNT</span>
+                                <p class="text-slate-200 font-mono font-bold">appuser</p>
+                                <p class="text-slate-400">Akaun terhad khusus untuk membaca & menulis data aplikasi sahaja. Mengikut prinsip Least Privilege.</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 29
+            {
+                title: "Database Permissions",
+                subtitle: "Prinsip Least Privilege Dalam Kebenaran Akses SQL",
+                tag: "Keselamatan DB",
+                icon: "🛡️",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono space-y-2">
+                            <span class="text-teal-400 font-bold">// Kebenaran Ideal Untuk Application User:</span>
+                            <div class="text-slate-300 space-y-1 pl-4">
+                                <p class="text-storeGreen font-bold">✅ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO appuser;</p>
+                            </div>
+                            <hr class="border-slate-800 my-2">
+                            <span class="text-red-400 font-bold">// Halang Daripada Menjalankan Arahan Bahaya:</span>
+                            <div class="text-slate-400 space-y-1 pl-4">
+                                <p class="text-red-300">❌ NO DROP DATABASE</p>
+                                <p class="text-red-300">❌ NO ALTER SYSTEM</p>
+                                <p class="text-red-300">❌ NO SUPERUSER</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 30
+            {
+                title: "Senarai Semak Keselamatan Database",
+                subtitle: "8 Peraturan Wajib Sebelum Production",
+                tag: "Keselamatan DB",
+                icon: "📋",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Katakunci Kuat</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Least Privilege</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Network Isolated</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Encrypted Volume</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Kemaskini Patch</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Backup Berjadual</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Audit Logging</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">✅ Tiada Public Access</div>
+                    </div>
+                `
+            },
+            // SLIDE 31
+            {
+                title: "Jangan Expose Database ke Internet",
+                subtitle: "Bahaya Menutup Port Database Daripada Dunia Luar",
+                tag: "Rangkaian & DB",
+                icon: "🚫",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-red-950/30 border border-red-500/40 rounded-xl font-mono text-center">
+                            ❌ BAD: Internet ➔ Public IP:5432 ➔ PostgreSQL (Sasaran Utama Bot Brute Force!)
+                        </div>
+                        <div class="p-4 bg-teal-950/30 border border-teal-500/40 rounded-xl font-mono text-center">
+                            ✅ BETTER: Internet ➔ Cloudflare Tunnel ➔ Reverse Proxy ➔ App ➔ Internal Docker Net ➔ PostgreSQL
+                        </div>
+                        <p class="text-slate-300 text-center">
+                            Port 5432 / 3306 <strong>TIDAK PERLU</strong> dibuka pada firewall public server anda.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 32
+            {
+                title: "Seni Bina Network Database",
+                subtitle: "Perasingan Rangkaian Menggunakan Docker Networks",
+                tag: "Rangkaian & DB",
+                icon: "🕸️",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs space-y-3">
+                        <div class="flex justify-center">
+                            <span class="px-3 py-1 bg-cfOrange/20 text-cfOrange rounded border border-cfOrange/30">🌐 Internet Public</span>
+                        </div>
+                        <div class="text-center text-slate-600">│</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-center text-blue-300">
+                            🔀 Reverse Proxy (Nginx/Caddy) [Public Network]
+                        </div>
+                        <div class="text-center text-slate-600">│</div>
+                        <div class="p-3 bg-blue-950/40 rounded border border-blue-800/40 text-center text-blue-200">
+                            📦 Web Application Container [App Internal Network]
+                        </div>
+                        <div class="text-center text-slate-600">│ (Hanya App & DB Boleh Berhubung)</div>
+                        <div class="p-3 bg-teal-950/40 rounded border border-teal-800/40 text-center text-teal-300">
+                            🗄️ PostgreSQL Database Container [Internal DB Network Only]
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 33
+            {
+                title: "Peraturan Firewall Database",
+                subtitle: "Menggunakan UFW / Cloud Firewall Sekiranya Berada di Server Berasingan",
+                tag: "Keselamatan DB",
+                icon: "🧱",
+                html: `
+                    <div class="space-y-4 text-xs font-mono">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Benarkan hanya IP Server App (192.168.1.50) ke Port DB:</span>
+                            <div class="p-2 bg-slate-900 rounded text-storeGreen">
+                                sudo ufw allow from 192.168.1.50 to any port 5432 proto tcp
+                            </div>
+                            <span class="text-red-400 font-bold">// Halang semua akses luaran lain secara default:</span>
+                            <div class="p-2 bg-slate-900 rounded text-red-300">
+                                sudo ufw deny 5432/tcp
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 34
+            {
+                title: "Connection Pooling",
+                subtitle: "Mengelak Beban Terlampau Terhadap Connection Database",
+                tag: "Prestasi DB",
+                icon: "🏊",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-slate-300">
+                            Setiap connection baharu ke PostgreSQL memakan RAM (~2-5MB). Jika 1,000 pengguna membuat request serentak, server boleh kehabisan RAM dengan pantas!
+                        </p>
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-center space-y-2">
+                            <span class="text-amber-400">1000 Web Requests</span> ➔ <span class="text-purple-400 font-bold">🏊 Connection Pooler (PgBouncer)</span> ➔ <span class="text-teal-400">20 Active DB Connections</span>
+                        </div>
+                        <p class="text-slate-400 italic text-[11px]">
+                            Connection pooling mengitar semula sambungan sedia ada untuk kegunaan pelbagai request.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 35
+            {
+                title: "Konsep Visual Connection Pool",
+                subtitle: "Bagaimana PgBouncer / App Pooler Menguruskan Trafik",
+                tag: "Prestasi DB",
+                icon: "📊",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs space-y-4">
+                        <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+                            <div class="p-2 bg-slate-900 rounded text-slate-300">App Request 1</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-300">App Request 2</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-300">App Request 3</div>
+                        </div>
+                        <div class="text-center text-purple-400 font-bold">↓↓↓ (Antrian Request) ↓↓↓</div>
+                        <div class="p-3 bg-purple-950/40 border border-purple-500/40 rounded-xl text-center text-purple-300">
+                            🏊 PgBouncer Pool (Standard Size: 20-50 Connection Reuse)
+                        </div>
+                        <div class="text-center text-teal-400 font-bold">↓↓↓</div>
+                        <div class="p-3 bg-teal-950/40 border border-teal-500/40 rounded-xl text-center text-teal-300">
+                            🗄️ PostgreSQL Engine
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 36
+            {
+                title: "Database Migration",
+                subtitle: "Menguruskan Perubahan Skema Data Secara Terkawal",
+                tag: "Pengurusan Skema",
+                icon: "🛠️",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-slate-300">
+                            Apabila kod aplikasi dinaik taraf (Version 1 ➔ Version 2), struktur table selalunya perlu ditambah lajur baharu secara automatik dan teratur.
+                        </p>
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono space-y-2">
+                            <div class="text-blue-400 font-bold">v1_initial_schema.sql</div>
+                            <div class="text-slate-400">CREATE TABLE users (id INT, name TEXT);</div>
+                            <div class="text-teal-400 font-bold mt-2">v2_add_email_column.sql</div>
+                            <div class="text-slate-400">ALTER TABLE users ADD COLUMN email TEXT;</div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 37
+            {
+                title: "Perisian Migration Tool",
+                subtitle: "Alat Automasi Skema Mengikut Ekosistem Perisian",
+                tag: "Pengurusan Skema",
+                icon: "🧰",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Prisma (Node/TS)</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Alembic (Python)</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Django Migrations</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Flyway (Java/Generic)</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Liquibase</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">Golang-Migrate</div>
+                    </div>
+                `
+            },
+            // SLIDE 38
+            {
+                title: "Database Backup Strategy",
+                subtitle: "Perlindungan Daripada Bencana & Kerosakan Data",
+                tag: "Backup & Restore",
+                icon: "💿",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-purple-950/30 border border-purple-500/40 rounded-xl text-purple-200">
+                            <strong>Sebab Backup Diperlukan:</strong> Kerosakan SSD, Ransomware, Manusia terpadam data secara tidak sengaja, Bug aplikasi.
+                        </div>
+                        <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-center flex justify-around items-center">
+                            <span>🗄️ Live DB</span>
+                            <span class="text-purple-400">➔ Automated Dump ➔</span>
+                            <span>📦 Encrypted Backup</span>
+                            <span class="text-purple-400">➔ Offsite S3 Storage</span>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 39
+            {
+                title: "Logical Backup (pg_dump)",
+                subtitle: "Eksport Data Kepada Fail Skrip SQL Text",
+                tag: "Backup Strategy",
+                icon: "📜",
+                html: `
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Arahan backup pg_dump untuk PostgreSQL:</span>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">
+                                docker exec -t postgres_db pg_dump -U appuser appdb > backup_2026_08_18.sql
+                            </div>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-300">
+                            <strong>Kelebihan:</strong> Sangat mudah dibaca, mesra merentas versi OS, saiz lebih kecil.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 40
+            {
+                title: "Physical / Volume Backup",
+                subtitle: "Salinan Direct Block Storage Level",
+                tag: "Backup Strategy",
+                icon: "📦",
+                html: `
+                    <div class="space-y-3 text-xs">
+                        <p class="text-slate-300">
+                            Mengambil salinan terus direktori fail binary database (<code class="mono text-teal-300">/var/lib/postgresql/data</code>).
+                        </p>
+                        <div class="p-4 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-200">
+                            <strong>⚠️ AMARAN:</strong> Jangan Simply Copy fail DB sewaktu perkhidmatan DB sedang berjalan (LIVE) tanpa checkpoint! Fail boleh menjadi rosak (corrupted).
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 41
+            {
+                title: "Prinsip 3-2-1 Backup Strategy",
+                subtitle: "Piawaian Penting Keselamatan Data Self-Hosting",
+                tag: "Backup Strategy",
+                icon: "🛡️",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-center">
+                            <span class="text-2xl font-bold text-teal-400 block mb-1">3</span>
+                            <span class="text-slate-200 font-bold">COPIES OF DATA</span>
+                            <p class="text-slate-400 text-[11px] mt-2">1 Data Asal + 2 Salinan Backup</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-center">
+                            <span class="text-2xl font-bold text-blue-400 block mb-1">2</span>
+                            <span class="text-slate-200 font-bold">DIFFERENT MEDIA</span>
+                            <p class="text-slate-400 text-[11px] mt-2">SSD Server + NAS / External Drive</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-center">
+                            <span class="text-2xl font-bold text-purple-400 block mb-1">1</span>
+                            <span class="text-slate-200 font-bold">OFFSITE LOCATION</span>
+                            <p class="text-slate-400 text-[11px] mt-2">Cloud Object Storage (Backblaze B2 / Cloudflare R2)</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 42
+            {
+                title: "Kekerapan Backup (Backup Frequency)",
+                subtitle: "Berapa Kerap Pertukaran Data Perlu Di-backup?",
+                tag: "Backup Strategy",
+                icon: "⏱️",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                                <span class="text-teal-400 font-bold">Daily Full Backup</span>
+                                <p class="text-slate-400 mt-1">Sesuai untuk blog, homelab, app berasaskan penggunaan peribadi.</p>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800">
+                                <span class="text-purple-400 font-bold">Continuous / WAL Archiving</span>
+                                <p class="text-slate-400 mt-1">Sesuai untuk transaksi e-commerce, perbankan, perniagaan kritikal.</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 43
+            {
+                title: "RPO (Recovery Point Objective)",
+                subtitle: "Berapa Banyak Data Yang Sanggup Hilang?",
+                tag: "Disaster Recovery",
+                icon: "📉",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-teal-500/30">
+                            <h3 class="text-sm font-bold text-teal-300">RPO = Toleransi Kehilangan Data</h3>
+                            <p class="text-slate-300 mt-1">
+                                Jika backup berjalan setiap 24 jam sekali (12 malam), dan server crash pada 11 malam: Anda rugi 23 jam data!
+                            </p>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded border border-slate-800 font-mono text-center text-slate-400">
+                            Target RPO kecil (cth: 1 Jam) ➔ Perlu Backup / Replication Lebih Kerap.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 44
+            {
+                title: "RTO (Recovery Time Objective)",
+                subtitle: "Berapa Lama Masa Diperlukan Untuk System Kembali Up?",
+                tag: "Disaster Recovery",
+                icon: "⏱️",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-blue-500/30">
+                            <h3 class="text-sm font-bold text-blue-300">RTO = Masa Terhenti Sistem (Downtime)</h3>
+                            <p class="text-slate-300 mt-1">
+                                Masa yang diambil dari saat server crash sehingga data selesai di-restore dan pengguna boleh melayari app semula.
+                            </p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 45
+            {
+                title: "Backup vs Replication",
+                subtitle: "Jangan Keliru Antara Kedua-duanya!",
+                tag: "Konsep Penting",
+                icon: "⚠️",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                        <div class="p-5 bg-purple-950/20 border border-purple-500/40 rounded-2xl space-y-2">
+                            <span class="badge bg-purple-500/20 text-purple-300">BACKUP</span>
+                            <p class="text-slate-200 font-bold">Untuk Memulihkan Data Dahulu</p>
+                            <p class="text-slate-400">Salinan snapshot masa lalu. Melindungi daripada human error, corruption, ransomware.</p>
+                        </div>
+                        <div class="p-5 bg-blue-950/20 border border-blue-500/40 rounded-2xl space-y-2">
+                            <span class="badge bg-blue-500/20 text-blue-300">REPLICATION</span>
+                            <p class="text-slate-200 font-bold">Untuk High Availability</p>
+                            <p class="text-slate-400">Salinan live serentak. Jika anda <code class="mono text-red-400">DROP TABLE</code> secara tidak sengaja di Primary DB, perbuatan itu turut di-replicate ke Secondary DB serta merta!</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 46
+            {
+                title: "Proses Database Restore",
+                subtitle: "Langkah Memulihkan Backup Ke Server DB",
+                tag: "Backup & Restore",
+                icon: "🔄",
+                html: `
+                    <div class="space-y-4 font-mono text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Restore pg_dump fail SQL ke dalam Postgres Container:</span>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">
+                                cat backup_2026_08_18.sql | docker exec -i postgres_db psql -U appuser -d appdb
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 47
+            {
+                title: "Latihan Restore Drill",
+                subtitle: "Uji Backup Anda Sebelum Bencana Benar-benar Berlaku",
+                tag: "Latihan Ops",
+                icon: "🧪",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 text-center space-y-3">
+                        <h3 class="text-sm font-bold text-amber-400">"Un-tested backup is NOT a backup!"</h3>
+                        <p class="text-xs text-slate-300 max-w-xl mx-auto">
+                            Sentiasa lakukan ujian pemulihan data (Restore Drill) dalam persekitaran Sandbox / Test Staging secara berkala untuk memastikan fail dump tidak rosak.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 48
+            {
+                title: "Pemantauan Database (DB Monitoring)",
+                subtitle: "Metrik Penting Yang Wajib Dipantau",
+                tag: "Pemantauan DB",
+                icon: "📊",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">💻 CPU Usage</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🧠 RAM Memory</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">💾 Disk I/O Latency</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🔌 Active Connections</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🐢 Slow Queries</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🚨 DB Errors Log</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🔒 Table Locks</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">📊 Storage Volume Space</div>
+                    </div>
+                `
+            },
+            // SLIDE 49
+            {
+                title: "Bahaya Storage Disk Penuh",
+                subtitle: "Penyebab Utama Database Crash & Corrupt",
+                tag: "Pemantauan DB",
+                icon: "⚠️",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-red-950/30 border border-red-500/40 rounded-xl text-red-200">
+                            <strong>Apabila Disk Reach 100%:</strong> Engine PostgreSQL tidak boleh menulis WAL log baharu dan akan masuk ke mod Read-Only / Crash serta merta!
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 50
+            {
+                title: "Database Logs",
+                subtitle: "Sumber Diagnostik Utama Apabila Berlinang Masalah",
+                tag: "Troubleshooting",
+                icon: "📜",
+                html: `
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Semak log container database dengan docker logs:</span>
+                            <div class="p-2 bg-slate-900 rounded text-slate-200">
+                                docker logs -f --tail 100 postgres_db
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 51
+            {
+                title: "Database Health Check",
+                subtitle: "Semakan Kesihatan Sambungan Automatik Docker",
+                tag: "Healthcheck",
+                icon: "💓",
+                html: `
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Healthcheck Command dalam docker-compose:</span>
+                            <div class="p-2 bg-slate-900 rounded text-storeGreen">
+                                pg_isready -U appuser -d appdb
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 52
+            {
+                title: "Prestasi Database (Database Performance)",
+                subtitle: "Faktor Pengaruh Kepantasan Tindas DB",
+                tag: "Prestasi DB",
+                icon: "🚀",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">⚡ Hardware CPU/RAM</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🚀 SSD NVMe Speed</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🔍 Reka Bentuk Index</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">📊 Optimasi SQL Query</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🏊 Connection Pooler</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800">🌐 Latensi Rangkaian</div>
+                    </div>
+                `
+            },
+            // SLIDE 53
+            {
+                title: "Mencari Slow Query",
+                subtitle: "Mengesan Query SQL Yang Melambatkan Aplikasi",
+                tag: "Prestasi DB",
+                icon: "🐢",
+                html: `
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                            <span class="text-teal-400 font-bold">// Guna EXPLAIN ANALYZE dalam Postgres:</span>
+                            <div class="p-2 bg-slate-900 rounded text-amber-300">
+                                EXPLAIN ANALYZE SELECT * FROM orders WHERE total > 500;
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 54
+            {
+                title: "Optimasi Index",
+                subtitle: "Bila Waktu Yang Sesuai Menambah Index?",
+                tag: "Prestasi DB",
+                icon: "🎯",
+                html: `
+                    <div class="space-y-3 text-xs">
+                        <p class="text-slate-300">
+                            Tambah Index pada lajur yang Kerap diguna dalam fasal <code class="mono text-teal-300">WHERE</code>, <code class="mono text-teal-300">JOIN</code>, dan <code class="mono text-teal-300">ORDER BY</code>.
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 55
+            {
+                title: "Database Locks & Concurrency",
+                subtitle: "Konsep Kunci Row Sewaktu Kemaskini Data Serentak",
+                tag: "Concurreny DB",
+                icon: "🔒",
+                html: `
+                    <div class="space-y-3 text-xs">
+                        <p class="text-slate-300">
+                            Apabila Transaksi A sedang mengubah rekod Row 1, DB mengunci row tersebut supaya Transaksi B tidak membaca data separa kemaskini (Dirty Read).
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 56
+            {
+                title: "Model Keselamatan Berlapis (Layered Security)",
+                subtitle: "Bukan Sekadar Satu Lapisan Pertahanan",
+                tag: "Keselamatan DB",
+                icon: "🛡️",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs space-y-2 text-center">
+                        <div class="p-2 bg-slate-900 rounded text-cfOrange">☁️ Cloudflare Edge Protection</div>
+                        <div class="p-2 bg-slate-900 rounded text-blue-400">🔀 Reverse Proxy (Nginx / Caddy)</div>
+                        <div class="p-2 bg-slate-900 rounded text-purple-400">📦 Docker Isolated App Network</div>
+                        <div class="p-2 bg-slate-900 rounded text-teal-400">🔐 Strong DB User Credentials & ACL</div>
+                        <div class="p-2 bg-slate-900 rounded text-storeGreen">💾 Encrypted Storage & Offsite Backup</div>
+                    </div>
+                `
+            },
+            // SLIDE 57
+            {
+                title: "Seni Bina DB: Home Server",
+                subtitle: "Setup Tipikal Untuk Raspberry Pi / Mini PC",
+                tag: "Seni Bina DB",
+                icon: "🏠",
+                html: `
+                    <div class="p-5 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs space-y-3">
+                        <div class="flex justify-between items-center text-slate-400">
+                            <span>Cloudflare Tunnel</span> ➔ <span>Caddy Proxy</span> ➔ <span>Local App</span> ➔ <span class="text-teal-400 font-bold">Postgres DB</span>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 58
+            {
+                title: "Seni Bina DB: Docker Stack",
+                subtitle: "Struktur Komponen Dalam Satu Host Docker",
+                tag: "Seni Bina DB",
+                icon: "🐳",
+                html: `
+                    <div class="p-5 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs space-y-2">
+                        <div class="text-teal-400 font-bold">Docker Host Architecture</div>
+                        <div class="pl-4 border-l border-slate-800 space-y-2">
+                            <div>Bridge Network: app-net</div>
+                            <div>Named Volume: db-data</div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 59
+            {
+                title: "Seni Bina DB: Production",
+                subtitle: "Seni Bina Lengkap Bersama Monitoring & Offsite Backup",
+                tag: "Seni Bina DB",
+                icon: "🏢",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs text-center space-y-3">
+                        <div class="text-slate-400">INTERNET</div>
+                        <div class="text-teal-400">↓</div>
+                        <div class="p-2 bg-slate-900 rounded">APPLICATION CLUSTER</div>
+                        <div class="text-teal-400">↓</div>
+                        <div class="p-2 bg-teal-950 border border-teal-500/40 rounded text-teal-300">POSTGRESQL DB</div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div class="p-2 bg-purple-950/40 border border-purple-500/30 rounded text-purple-300">S3 BACKUP</div>
+                            <div class="p-2 bg-amber-950/40 border border-amber-500/30 rounded text-amber-300">PROMETHEUS MONITORING</div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 60
+            {
+                title: "High Availability (HA) Basics",
+                subtitle: "Pengenalan Kepada Redundancy Server Database",
+                tag: "HA Basics",
+                icon: "⚡",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-slate-300">
+                            High Availability memastikan jika 1 Server DB crash, Server DB kedua (Replica) sedia mengambil alih secara automatik (Failover).
+                        </p>
+                    </div>
+                `
+            },
+            // SLIDE 61
+            {
+                title: "Database Replication",
+                subtitle: "Hubungan Primary & Replica Database",
+                tag: "HA Basics",
+                icon: "🔄",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs text-center space-y-3">
+                        <div class="p-3 bg-teal-950 border border-teal-500/40 rounded text-teal-300 font-bold">👑 Primary DB (Read & Write)</div>
+                        <div class="text-slate-500">↓↓ Streaming Replication ↓↓</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="p-2 bg-slate-900 rounded text-slate-300">📖 Replica 1 (Read Only)</div>
+                            <div class="p-2 bg-slate-900 rounded text-slate-300">📖 Replica 2 (Read Only)</div>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 62
+            {
+                title: "Self-Hosted vs Managed Database",
+                subtitle: "Perbandingan Kos, Masa, dan Kawalan Operasi",
+                tag: "Keputusan Infra",
+                icon: "⚖️",
+                html: `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <span class="badge bg-teal-500/20 text-teal-300">SELF-HOSTED</span>
+                            <p class="text-slate-300">Kawalan 100%, Kos perkakasan murah, Anda Urus Semua Backup/Security.</p>
+                        </div>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                            <span class="badge bg-blue-500/20 text-blue-300">MANAGED (AWS RDS / Supabase)</span>
+                            <p class="text-slate-300">Provider urus backup & update, Kos bulanan lebih tinggi.</p>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 63
+            {
+                title: "Bila Patut Self-Host Database?",
+                subtitle: "Panduan Membuat Keputusan Bagi Projek Anda",
+                tag: "Keputusan Infra",
+                icon: "🎯",
+                html: `
+                    <div class="space-y-3 text-xs">
+                        <div class="p-4 bg-teal-950/20 border border-teal-500/30 rounded-xl">
+                            <span class="text-teal-400 font-bold">✅ Sesuai Self-Host:</span> Homelab, Pembelajaran, Internal Tools, Projek Peribadi, Budget Terhad.
+                        </div>
+                        <div class="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl">
+                            <span class="text-amber-400 font-bold">⚠️ Sesuai Managed DB:</span> Business Critical App dengan SLA 99.99%, Tiada Dedicated DevOps Team.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 64
+            {
+                title: "Troubleshooting Flowchart",
+                subtitle: "9 Langkah Sistematik Apabila App Gagal Connect DB",
+                tag: "Troubleshooting",
+                icon: "🔍",
+                html: `
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-[11px] space-y-1 text-slate-300">
+                        <p>1. Container DB Up? ➔ 2. Port Betul? ➔ 3. Host Name Betul? ➔ 4. Network Docker Sama?</p>
+                        <p>➔ 5. Username/Password Match? ➔ 6. DB Exists? ➔ 7. DB Max Connection Limit? ➔ 8. Disk Space Available? ➔ 9. Check Logs!</p>
+                    </div>
+                `
+            },
+            // SLIDE 65
+            {
+                title: "Error: Connection Refused",
+                subtitle: "Penyebab & Solusi Rangkaian DB",
+                tag: "Troubleshooting",
+                icon: "❌",
+                html: `
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl">
+                            <span class="text-red-400 font-bold">Punca:</span> Container DB Down, Salah Port, Salah Hostname.
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-teal-300">
+                            docker ps | grep postgres
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 66
+            {
+                title: "Error: Authentication Failed",
+                subtitle: "Penyebab & Solusi Katakunci / Permission",
+                tag: "Troubleshooting",
+                icon: "🔑",
+                html: `
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl">
+                            <span class="text-red-400 font-bold">Punca:</span> Username / Password / Database Name tidak sepadan dengan file .env.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 67
+            {
+                title: "Error: Database Does Not Exist",
+                subtitle: "Database Belum Dicipta Dalam DB Server Engine",
+                tag: "Troubleshooting",
+                icon: "📁",
+                html: `
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="p-4 bg-red-950/20 border border-red-500/30 rounded-xl">
+                            <span class="text-red-400 font-bold">Solusi:</span> Jalankan <code class="text-teal-300">CREATE DATABASE appdb;</code> melalui psql cli.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 68
+            {
+                title: "Error: Disk Full",
+                subtitle: "Memulihkan Server DB Yang Terhenti Kerana Disk 100%",
+                tag: "Troubleshooting",
+                icon: "💾",
+                html: `
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800 text-slate-200">
+                            df -h<br>
+                            docker system prune -a
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 69
+            {
+                title: "Matriks Troubleshooting Database",
+                subtitle: "Jadual Ringkas Simptom vs Tindakan Semakan",
+                tag: "Troubleshooting",
+                icon: "📊",
+                html: `
+                    <div class="overflow-x-auto rounded-xl border border-slate-800 font-mono text-xs">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-900 text-teal-400">
+                                <tr>
+                                    <th class="p-2">Simptom</th>
+                                    <th class="p-2">Perkara Perlu Disemak</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-300">
+                                <tr><td class="p-2">Connection Refused</td><td class="p-2 text-teal-300">Service Status / Network Port</td></tr>
+                                <tr><td class="p-2">Auth Failed</td><td class="p-2 text-teal-300">User / Pass dalam .env</td></tr>
+                                <tr><td class="p-2">Slow Query</td><td class="p-2 text-teal-300">EXPLAIN ANALYZE / Missing Index</td></tr>
+                                <tr><td class="p-2">Disk Full</td><td class="p-2 text-teal-300">df -h / Volume Clean</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `
+            },
+            // SLIDE 70
+            {
+                title: "10 Kesilapan Lazim Database Self-Hosting",
+                subtitle: "Dosa-dosa Utama Yang Mesti Dihelakkan",
+                tag: "Troubleshooting",
+                icon: "❌",
+                html: `
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">1. Expose Port DB ke Internet</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">2. DB Tanpa Volume Data</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">3. Tiada Backup Berjadual</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">4. Tidak Test Restore</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">5. Guna Account Superuser</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">6. Hardcode Password</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">7. Abai Storage Disk</div>
+                        <div class="p-2 bg-red-950/20 border border-red-500/20 rounded text-red-300">8. Anggap Replication = Backup</div>
+                    </div>
+                `
+            },
+            // SLIDE 71
+            {
+                title: "Database Production Checklist",
+                subtitle: "Senarai Semak Persediaan Sebelum Launch App",
+                tag: "Production Check",
+                icon: "☑️",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Persistent Volume Attached</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Automated Offsite Backup</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Restore Drill Tested</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Non-root App User</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Secrets Management</div>
+                        <div class="p-2 bg-slate-900 rounded border border-slate-800">☑️ Internal Network Isolation</div>
+                    </div>
+                `
+            },
+            // SLIDE 72
+            {
+                title: "INTERACTIVE: Database Architecture Explorer",
+                subtitle: "Klik Mana-mana Node Untuk Memahami Peranannya",
+                tag: "Makmal Interaktif",
+                icon: "🎮",
+                html: `
+                    <div class="space-y-4">
+                        <div class="flex flex-wrap gap-2 justify-center font-mono text-xs" id="arch-nodes">
+                            <button onclick="showArchInfo('cf')" class="px-3 py-2 bg-cfOrange/20 border border-cfOrange text-cfOrange rounded-lg hover:bg-cfOrange/30">☁️ Cloudflare</button>
+                            <button onclick="showArchInfo('rp')" class="px-3 py-2 bg-blue-900/40 border border-blue-500 text-blue-300 rounded-lg hover:bg-blue-900/60">🔀 Proxy</button>
+                            <button onclick="showArchInfo('app')" class="px-3 py-2 bg-indigo-900/40 border border-indigo-500 text-indigo-300 rounded-lg hover:bg-indigo-900/60">🚀 App</button>
+                            <button onclick="showArchInfo('db')" class="px-3 py-2 bg-teal-900/40 border border-teal-500 text-teal-300 rounded-lg hover:bg-teal-900/60">🗄️ Database</button>
+                            <button onclick="showArchInfo('vol')" class="px-3 py-2 bg-storeGreen/20 border border-storeGreen text-storeGreen rounded-lg hover:bg-storeGreen/30">💾 Volume</button>
+                            <button onclick="showArchInfo('bak')" class="px-3 py-2 bg-purple-900/40 border border-purple-500 text-purple-300 rounded-lg hover:bg-purple-900/60">💿 Backup</button>
+                        </div>
+                        <div id="arch-info-box" class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs min-h-[100px] text-slate-300 flex items-center justify-center text-center">
+                            Sila klik salah satu komponen di atas untuk melihat peranan & keselamatan seni bina.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 73
+            {
+                title: "INTERACTIVE: Database Connection String Generator",
+                subtitle: "Uji Pembinaan URL Sambungan Database Moden",
+                tag: "Makmal Interaktif",
+                icon: "🧪",
+                html: `
+                    <div class="space-y-4 text-xs font-mono">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <input type="text" id="conn-host" value="db" oninput="updateConnStr()" placeholder="HOST" class="p-2 bg-slate-900 border border-slate-800 rounded text-slate-200">
+                            <input type="text" id="conn-port" value="5432" oninput="updateConnStr()" placeholder="PORT" class="p-2 bg-slate-900 border border-slate-800 rounded text-slate-200">
+                            <input type="text" id="conn-db" value="appdb" oninput="updateConnStr()" placeholder="DB NAME" class="p-2 bg-slate-900 border border-slate-800 rounded text-slate-200">
+                            <input type="text" id="conn-user" value="appuser" oninput="updateConnStr()" placeholder="USER" class="p-2 bg-slate-900 border border-slate-800 rounded text-slate-200">
+                        </div>
+                        <div class="p-4 bg-slate-950 rounded-xl border border-teal-500/40 text-teal-300 break-all text-sm" id="conn-output">
+                            postgresql://appuser:SECRET_PASSWORD@db:5432/appdb
+                        </div>
+                        <p class="text-[11px] text-amber-300 italic text-center">* Katakunci rahsia sengaja dilindung & tidak dipaparkan secara jelas.</p>
+                    </div>
+                `
+            },
+            // SLIDE 74
+            {
+                title: "INTERACTIVE: Backup & Disaster Restore Simulator",
+                subtitle: "Simulasi Kehilangan Data & Pemulihan Dari Backup",
+                tag: "Makmal Interaktif",
+                icon: "🎮",
+                html: `
+                    <div class="space-y-4 text-xs text-center">
+                        <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 flex justify-center items-center space-x-6 font-mono">
+                            <div>
+                                <span class="text-slate-400 block text-[10px]">Status Database:</span>
+                                <span id="sim-db-status" class="text-base font-bold text-storeGreen">✅ ONLINE (Data OK)</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px]">Backup File:</span>
+                                <span id="sim-bak-status" class="text-base font-bold text-purple-400">📦 Ready (2026-08-18)</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-center space-x-4">
+                            <button onclick="simDataLoss()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold">⚠️ Simulate Data Loss</button>
+                            <button onclick="simRestore()" class="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-bold">🔄 Restore Backup</button>
+                        </div>
+                        <div id="sim-log" class="p-3 bg-slate-900 rounded-lg border border-slate-800 font-mono text-slate-400 text-[11px]">
+                            Sistem sedia. Tekan "Simulate Data Loss" untuk menguji bencana.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 75
+            {
+                title: "INTERACTIVE: RPO & RTO Calculator",
+                subtitle: "Tentukan Strategi Backup Berdasarkan Toleransi Bisnes",
+                tag: "Makmal Interaktif",
+                icon: "🧮",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <label class="font-bold text-teal-300">Pilih RPO (Max Data Loss Tolerance):</label>
+                                <select id="rpo-select" onchange="calcRPO()" class="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-200 font-mono">
+                                    <option value="24">24 Jam (Standard Daily Dump)</option>
+                                    <option value="1">1 Jam (Hourly WAL Backup)</option>
+                                    <option value="0">0 Saat (Realtime Sync Replication)</option>
+                                </select>
+                            </div>
+                            <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                                <label class="font-bold text-blue-300">Pilih RTO (Max Downtime Tolerance):</label>
+                                <select id="rto-select" onchange="calcRPO()" class="w-full p-2 bg-slate-950 border border-slate-800 rounded text-slate-200 font-mono">
+                                    <option value="4">4 Jam (Manual Restore Script)</option>
+                                    <option value="0.25">15 Minit (Automated Failover Stack)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="rpo-advice" class="p-4 bg-slate-950 rounded-xl border border-teal-500/40 text-slate-200 font-mono text-center">
+                            Strategi: Sesuai menggunakan pg_dump harian ke Object Storage S3.
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 76
+            {
+                title: "QUIZ 1: Kedudukan Database Dalam Seni Bina",
+                subtitle: "Uji Kefahaman Rangkaian Self-Hosting Anda",
+                tag: "Kuiz Interaktif",
+                icon: "❓",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-sm font-bold text-slate-100">Di manakah database sepatutnya berada dalam typical self-hosting architecture?</p>
+                        <div class="space-y-2 font-mono" id="quiz1-options">
+                            <button onclick="checkQuiz(1, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">A. Public Internet (Expose Port 5432)</button>
+                            <button onclick="checkQuiz(1, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">B. Internal isolated network (Private Only)</button>
+                            <button onclick="checkQuiz(1, 'C')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">C. Browser Client Side</button>
+                        </div>
+                        <div id="quiz1-feedback" class="p-3 rounded-lg font-mono text-xs hidden"></div>
+                    </div>
+                `
+            },
+            // SLIDE 77
+            {
+                title: "QUIZ 2: Tujuan Docker Volume",
+                subtitle: "Uji Kefahaman Docker Data Storage",
+                tag: "Kuiz Interaktif",
+                icon: "❓",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-sm font-bold text-slate-100">Apakah tujuan utama Docker Volume dalam bekas database?</p>
+                        <div class="space-y-2 font-mono" id="quiz2-options">
+                            <button onclick="checkQuiz(2, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">A. Menambah kelajuan CPU server</button>
+                            <button onclick="checkQuiz(2, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">B. Storage data secara kekal (Persistent storage)</button>
+                            <button onclick="checkQuiz(2, 'C')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">C. Menguruskan domain DNS</button>
+                        </div>
+                        <div id="quiz2-feedback" class="p-3 rounded-lg font-mono text-xs hidden"></div>
+                    </div>
+                `
+            },
+            // SLIDE 78
+            {
+                title: "QUIZ 3: Replication vs Backup",
+                subtitle: "Adakah Replication Memadai Sebagai Backup?",
+                tag: "Kuiz Interaktif",
+                icon: "❓",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-sm font-bold text-slate-100">Adakah Database Replication sama dan boleh menggantikan Backup?</p>
+                        <div class="space-y-2 font-mono" id="quiz3-options">
+                            <button onclick="checkQuiz(3, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">A. Ya, 100% Sama</button>
+                            <button onclick="checkQuiz(3, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">B. Tidak, Replication untuk Availability, Backup untuk Recovery masa lalu</button>
+                        </div>
+                        <div id="quiz3-feedback" class="p-3 rounded-lg font-mono text-xs hidden"></div>
+                    </div>
+                `
+            },
+            // SLIDE 79
+            {
+                title: "QUIZ 4: Container Removal & Volume",
+                subtitle: "Apa Berlaku Kepada Data Jika Container Dipadam?",
+                tag: "Kuiz Interaktif",
+                icon: "❓",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <p class="text-sm font-bold text-slate-100">Jika database container terpadam tetapi Named Volume masih ada, apakah yang berlaku?</p>
+                        <div class="space-y-2 font-mono" id="quiz4-options">
+                            <button onclick="checkQuiz(4, 'A')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">A. Data hilang sepenuhnya</button>
+                            <button onclick="checkQuiz(4, 'B')" class="w-full p-3 bg-slate-900 hover:bg-slate-800 text-left rounded-lg border border-slate-800">B. Data kekal selamat dalam Volume dan boleh di-mount ke Container baharu</button>
+                        </div>
+                        <div id="quiz4-feedback" class="p-3 rounded-lg font-mono text-xs hidden"></div>
+                    </div>
+                `
+            },
+            // SLIDE 80
+            {
+                title: "FINAL CHALLENGE: Design Scenario",
+                subtitle: "Tugasan Seni Bina Database Self-Hosting Raspberry Pi",
+                tag: "Cabaran Akhir",
+                icon: "🏆",
+                html: `
+                    <div class="space-y-4 text-xs">
+                        <div class="p-4 bg-slate-900 rounded-xl border border-amber-500/30 space-y-2">
+                            <h3 class="text-sm font-bold text-amber-300">📋 Senario Tugasan:</h3>
+                            <p class="text-slate-300">
+                                Syarikat anda mahu meletakkan Web App + PostgreSQL di Raspberry Pi 4 menggunakan Docker Compose, Caddy Reverse Proxy, dan Cloudflare Tunnel domain <code class="mono text-teal-300">app.example.com</code>.
+                            </p>
+                        </div>
+                        <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-teal-300">
+                            Internet ➔ Cloudflare ➔ Tunnel ➔ Caddy ➔ App Container ➔ PostgreSQL DB ➔ Persistent Volume ➔ Offsite S3 Backup
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 81
+            {
+                title: "Complete Self-Hosting Stack Blueprint",
+                subtitle: "Cetak Biru Seni Bina Infrastruktur Terlengkap",
+                tag: "Cetak Biru Stack",
+                icon: "🗺️",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-[11px] space-y-2 text-center">
+                        <div class="p-2 bg-cfOrange/20 border border-cfOrange text-cfOrange rounded">☁️ Cloudflare Edge (WAF + DNS)</div>
+                        <div class="text-slate-600">↓ Tunnel Connection</div>
+                        <div class="p-2 bg-blue-900/40 border border-blue-500 text-blue-300 rounded">🔀 Caddy Reverse Proxy</div>
+                        <div class="text-slate-600">↓ Internal Docker Network</div>
+                        <div class="p-2 bg-indigo-900/40 border border-indigo-500 text-indigo-300 rounded">🚀 Web Application Container</div>
+                        <div class="text-slate-600">↓ Private DB Network</div>
+                        <div class="p-2 bg-teal-950 border border-teal-500 text-teal-300 rounded">🗄️ PostgreSQL Container</div>
+                        <div class="text-slate-600">↓ Mount</div>
+                        <div class="p-2 bg-storeGreen/20 border border-storeGreen text-storeGreen rounded">💾 Docker Volume (Data Files) ➔ 💿 Automated S3 Backup</div>
+                    </div>
+                `
+            },
+            // SLIDE 82
+            {
+                title: "Kitaran Hayat Data (Data Lifecycle)",
+                subtitle: "Alur Perjalanan Data Dari Mula Cipta Hingga Dipulihkan",
+                tag: "Falsafah Data",
+                icon: "🔄",
+                html: `
+                    <div class="p-6 bg-slate-950 rounded-2xl border border-slate-800 font-mono text-xs flex flex-wrap justify-center items-center gap-2 text-slate-300">
+                        <span class="px-3 py-1 bg-slate-900 rounded border border-slate-800">CREATE</span> ➔
+                        <span class="px-3 py-1 bg-slate-900 rounded border border-slate-800">STORE</span> ➔
+                        <span class="px-3 py-1 bg-slate-900 rounded border border-slate-800">USE</span> ➔
+                        <span class="px-3 py-1 bg-purple-950 text-purple-300 rounded border border-purple-800">BACKUP</span> ➔
+                        <span class="px-3 py-1 bg-slate-900 rounded border border-slate-800">UPDATE</span> ➔
+                        <span class="px-3 py-1 bg-slate-900 rounded border border-slate-800">MIGRATE</span> ➔
+                        <span class="px-3 py-1 bg-teal-950 text-teal-300 rounded border border-teal-800">RECOVER</span>
+                    </div>
+                `
+            },
+            // SLIDE 83
+            {
+                title: "Model Mental Database",
+                subtitle: "Ringkasan Minda 7 Pertanyaan Infrastruktur",
+                tag: "Ringkasan Minda",
+                icon: "🧠",
+                html: `
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-teal-400 font-bold">DATABASE:</span> What data?</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-blue-400 font-bold">APP:</span> How data used?</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-purple-400 font-bold">NETWORK:</span> Who can connect?</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-storeGreen font-bold">VOLUME:</span> Where stored?</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-amber-400 font-bold">BACKUP:</span> How recovered?</div>
+                        <div class="p-3 bg-slate-900 rounded-lg border border-slate-800"><span class="text-red-400 font-bold">MONITORING:</span> Is DB healthy?</div>
+                    </div>
+                `
+            },
+            // SLIDE 84
+            {
+                title: "Hubungan Dengan Topik Sebelumnya",
+                subtitle: "Bagaimana Semua Modul Pembelajaran Anda Saling Melengkapi",
+                tag: "Sintesis Modul",
+                icon: "🧩",
+                html: `
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">Networking Deep Dive ➔ IP, Port, Firewall</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">Reverse Proxy & Web Arch ➔ HTTPS, Domain Routing</div>
+                        <div class="p-3 bg-slate-900 rounded border border-slate-800">Docker Deep Dive ➔ Containers, Bridge Net, Volumes</div>
+                        <div class="p-3 bg-teal-950 border border-teal-500/40 rounded text-teal-300 font-bold">Database ➔ Persistent Data, Backup & Recovery</div>
+                    </div>
+                `
+            },
+            // SLIDE 85
+            {
+                title: "Topik Seterusnya",
+                subtitle: "Pratonton Modul Akan Datang",
+                tag: "Akan Datang",
+                icon: "🔮",
+                html: `
+                    <div class="p-8 bg-slate-950 rounded-2xl border border-slate-800 text-center space-y-4">
+                        <span class="badge bg-monYellow/20 text-monYellow text-sm">MODUL SETERUSNYA</span>
+                        <h2 class="text-2xl font-bold text-slate-100">Monitoring & Observability</h2>
+                        <p class="text-sm text-slate-400 max-w-lg mx-auto">
+                            "Bagaimana Tahu Server & Database Anda Sihat Sebelum User Mengadu"
+                        </p>
+                        <div class="flex flex-wrap justify-center gap-2 font-mono text-xs text-slate-300">
+                            <span>Prometheus</span> • <span>Grafana</span> • <span>Logs</span> • <span>Alerts</span> • <span>Metrics</span>
+                        </div>
+                    </div>
+                `
+            },
+            // SLIDE 86
+            {
+                title: "PENUTUP",
+                subtitle: "Prinsip Utama Self-Hosting Yang Matang",
+                tag: "Penutup",
+                icon: "🏁",
+                html: `
+                    <div class="text-center max-w-3xl mx-auto space-y-6 py-6">
+                        <h1 class="text-3xl sm:text-5xl font-extrabold text-slate-100 tracking-tight leading-tight">
+                            "Applications Can Be Rebuilt.<br>Data Must Be Recovered."
+                        </h1>
+                        <p class="text-base sm:text-lg text-teal-400">
+                            Self-hosting yang matang bukan sekadar menjalankan database — tetapi memastikan data boleh dipercayai, dilindungi, dan dipulihkan.
+                        </p>
+                        <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 font-mono text-xs text-slate-400">
+                            Terima kasih kerana ikuti modul "Database for Self-Hosting"!
+                        </div>
+                    </div>
+                `
+            }
+        ];
+
+        let currentSlideIndex = 0;
+
+        function renderSlide(index) {
+            if (index < 0) index = 0;
+            if (index >= slidesData.length) index = slidesData.length - 1;
+            currentSlideIndex = index;
+
+            const slide = slidesData[index];
+            const container = document.getElementById('slide-container');
+
+            // Trigger animation
+            container.classList.remove('slide-enter');
+            void container.offsetWidth; // trigger reflow
+            container.classList.add('slide-enter');
+
+            container.innerHTML = `
+                <div class="glass-panel p-6 sm:p-8 rounded-3xl space-y-6 shadow-2xl relative overflow-hidden border border-slate-800">
+                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${slide.icon || '🗄️'}</span>
+                            <div>
+                                <span class="badge bg-teal-500/10 text-teal-400 border border-teal-500/30 mb-1">${slide.tag || 'Database Modul'}</span>
+                                <h2 class="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">${slide.title}</h2>
+                            </div>
+                        </div>
+                        <span class="font-mono text-xs text-slate-500 hidden sm:block">#SLIDE-${index + 1}</span>
+                    </div>
+                    ${slide.subtitle ? `<p class="text-xs sm:text-sm text-slate-400 font-medium -mt-3">${slide.subtitle}</p>` : ''}
+                    <div class="pt-2">
+                        ${slide.html}
+                    </div>
+                </div>
+            `;
+
+            // Update Header & Progress
+            document.getElementById('current-slide-num').innerText = index + 1;
+            document.getElementById('total-slides-num').innerText = slidesData.length;
+            const progressPercent = ((index + 1) / slidesData.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // Scroll drawer active item into view if open
+            highlightDrawerItem(index);
+        }
+
+        function nextSlide() {
+            if (currentSlideIndex < slidesData.length - 1) {
+                renderSlide(currentSlideIndex + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlideIndex > 0) {
+                renderSlide(currentSlideIndex - 1);
+            }
+        }
+
+        function goToFirstSlide() {
+            renderSlide(0);
+        }
+
+        function goToLastSlide() {
+            renderSlide(slidesData.length - 1);
+        }
+
+        // Keyboard Navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                goToFirstSlide();
+            } else if (e.key === 'End') {
+                goToLastSlide();
+            }
+        });
+
+        function toggleIndexDrawer() {
+            const drawer = document.getElementById('index-drawer');
+            drawer.classList.toggle('hidden');
+            if (!drawer.classList.contains('hidden')) {
+                buildIndexList();
+            }
+        }
+
+        function buildIndexList() {
+            const list = document.getElementById('index-list');
+            list.innerHTML = '';
+            slidesData.forEach((s, idx) => {
+                const item = document.createElement('button');
+                item.onclick = () => {
+                    renderSlide(idx);
+                    toggleIndexDrawer();
+                };
+                item.className = `w-full text-left p-2.5 rounded-lg text-xs font-mono transition flex items-center justify-between border ${idx === currentSlideIndex ? 'bg-teal-950/60 border-teal-500/50 text-teal-300 font-bold' : 'bg-slate-950/40 border-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`;
+                item.id = `drawer-item-${idx}`;
+                item.innerHTML = `
+                    <span class="truncate pr-2">${idx + 1}. ${s.title}</span>
+                    <span class="text-[10px] opacity-60 shrink-0">${s.icon || ''}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function filterSlides() {
+            const query = document.getElementById('index-search').value.toLowerCase();
+            slidesData.forEach((s, idx) => {
+                const item = document.getElementById(`drawer-item-${idx}`);
+                if (item) {
+                    if (s.title.toLowerCase().includes(query) || (s.subtitle && s.subtitle.toLowerCase().includes(query))) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        function highlightDrawerItem(idx) {
+            const item = document.getElementById(`drawer-item-${idx}`);
+            if (item) {
+                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+
+        // Helper: Copy code button
+        function copyCode(btn) {
+            const codeBlock = btn.nextElementSibling;
+            if (codeBlock) {
+                const text = codeBlock.innerText;
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                const orig = btn.innerText;
+                btn.innerText = "Copied!";
+                btn.classList.add('bg-teal-600', 'text-white');
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.classList.remove('bg-teal-600', 'text-white');
+                }, 2000);
+            }
+        }
+
+        // Interactive Lab 72: Architecture Explorer
+        function showArchInfo(node) {
+            const box = document.getElementById('arch-info-box');
+            const infos = {
+                cf: "<strong>☁️ Cloudflare:</strong> Public Edge Layer. Menguruskan DDoS protection, WAF, SSL/TLS termination, dan DNS routing.",
+                rp: "<strong>🔀 Reverse Proxy (Caddy/Nginx):</strong> Menerima trafik dari Cloudflare Tunnel & menghantar ke Web App Container yang betul.",
+                app: "<strong>🚀 Web Application:</strong> Menjalankan logik perniagaan (Node/Python). Tidak menyimpan data secara langsung.",
+                db: "<strong>🗄️ Database (PostgreSQL):</strong> Menyimpan data terstruktur secara berasingan dalam rangkaian Docker private.",
+                vol: "<strong>💾 Docker Volume:</strong> Menyimpan fail data binary PostgreSQL secara kekal di storage fizikal host.",
+                bak: "<strong>💿 Automated Backup:</strong> Membuat snapshot / dump SQL secara berjadual ke Object Storage Offsite (S3/R2)."
+            };
+            box.innerHTML = infos[node] || "Pilih komponen di atas.";
+        }
+
+        // Interactive Lab 73: Connection String Generator
+        function updateConnStr() {
+            const host = document.getElementById('conn-host').value || 'db';
+            const port = document.getElementById('conn-port').value || '5432';
+            const db = document.getElementById('conn-db').value || 'appdb';
+            const user = document.getElementById('conn-user').value || 'appuser';
+            const output = document.getElementById('conn-output');
+            if (output) {
+                output.innerText = `postgresql://${user}:SECRET_PASSWORD@${host}:${port}/${db}`;
+            }
+        }
+
+        // Interactive Lab 74: Backup Simulator
+        function simDataLoss() {
+            const db = document.getElementById('sim-db-status');
+            const log = document.getElementById('sim-log');
+            if (db && log) {
+                db.innerText = "❌ CRASH / DATA LOST";
+                db.className = "text-base font-bold text-red-500";
+                log.innerText = "⚠️ AMARAN: Database corrupt atau fail terpadam! Memerlukan Restore Drill!";
+            }
+        }
+
+        function simRestore() {
+            const db = document.getElementById('sim-db-status');
+            const log = document.getElementById('sim-log');
+            if (db && log) {
+                db.innerText = "✅ ONLINE (Restored)";
+                db.className = "text-base font-bold text-storeGreen";
+                log.innerText = "🎉 SUCCESS: Data berjaya dipulihkan sepenuhnya dari Backup snapshot!";
+            }
+        }
+
+        // Interactive Lab 75: RPO Calculator
+        function calcRPO() {
+            const rpo = document.getElementById('rpo-select').value;
+            const rto = document.getElementById('rto-select').value;
+            const advice = document.getElementById('rpo-advice');
+            if (advice) {
+                if (rpo == "0") {
+                    advice.innerText = "Strategi: Memerlukan Replication Streaming + High Availability Cluster.";
+                } else if (rpo == "1") {
+                    advice.innerText = "Strategi: Memerlukan Hourly WAL Archiving (Continuous Archiving).";
+                } else {
+                    advice.innerText = "Strategi: Sesuai menggunakan pg_dump harian ke Object Storage S3 (Standard).";
+                }
+            }
+        }
+
+        // Interactive Quiz Logic
+        function checkQuiz(quizId, option) {
+            const answers = { 1: 'B', 2: 'B', 3: 'B', 4: 'B' };
+            const explanations = {
+                1: "✅ TEPAT! Database MESTI diletakkan dalam rangkaian dalaman (Private internal network) dan HANYA dicapai oleh App Container.",
+                2: "✅ TEPAT! Docker Volume bertujuan menyimpan data secara kekal (persistent storage) di luar lifecycle container.",
+                3: "✅ TEPAT! Replication hanya untuk availability/redundancy live. Backup diperlukan untuk memulihkan data lampau.",
+                4: "✅ TEPAT! Walaupun container dipadam, data dalam Volume kekal wujud dan boleh di-mount semula."
+            };
+            const feedback = document.getElementById(`quiz${quizId}-feedback`);
+            if (feedback) {
+                feedback.classList.remove('hidden', 'bg-red-950/60', 'text-red-300', 'bg-teal-950/60', 'text-teal-300', 'border-red-500/40', 'border-teal-500/40');
+                if (option === answers[quizId]) {
+                    feedback.classList.add('bg-teal-950/60', 'text-teal-300', 'border', 'border-teal-500/40');
+                    feedback.innerText = explanations[quizId];
+                } else {
+                    feedback.classList.add('bg-red-950/60', 'text-red-300', 'border', 'border-red-500/40');
+                    feedback.innerText = "❌ Kurang tepat. Sila cuba lagi!";
+                }
+            }
+        }
+
+        window.onload = function() {
+            renderSlide(0);
+        };
+    </script>
+</body>
+</html>

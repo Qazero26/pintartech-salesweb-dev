@@ -1,0 +1,2303 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking Deep Dive — Fahami Network Sebelum Anda Debug Server</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        net: { DEFAULT: '#3b82f6', light: '#60a5fa', dark: '#1d4ed8' },      // Blue: Network
+                        inet: { DEFAULT: '#a855f7', light: '#c084fc', dark: '#7e22ce' },     // Purple: Internet
+                        fw: { DEFAULT: '#f43f5e', light: '#fb7185', dark: '#be123c' },       // Red/Rose: Firewall
+                        srv: { DEFAULT: '#10b981', light: '#34d399', dark: '#047857' },      // Green: Server
+                        doc: { DEFAULT: '#06b6d4', light: '#38bdf8', dark: '#0e7490' },      // Cyan: Docker
+                        cf: { DEFAULT: '#f97316', light: '#fb923c', dark: '#c2410c' },       // Orange: Cloudflare
+                        db: { DEFAULT: '#14b8a6', light: '#2dd4bf', dark: '#0f766e' },       // Teal: Database
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #070a12;
+            color: #f1f5f9;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .glass-card-sm {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px) scale(0.99);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        pre, code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glow-net { box-shadow: 0 0 25px rgba(59, 130, 246, 0.25); }
+        .glow-inet { box-shadow: 0 0 25px rgba(168, 85, 247, 0.25); }
+        .glow-fw { box-shadow: 0 0 25px rgba(244, 63, 94, 0.25); }
+        .glow-srv { box-shadow: 0 0 25px rgba(16, 185, 129, 0.25); }
+        .glow-cf { box-shadow: 0 0 25px rgba(249, 115, 22, 0.25); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between select-none overflow-hidden antialiased">
+
+    <header class="h-14 border-b border-slate-800/80 px-4 md:px-8 flex items-center justify-between bg-slate-950/80 backdrop-blur z-30">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-lg shadow-blue-500/20">
+                📡
+            </div>
+            <div>
+                <h1 class="text-xs md:text-sm font-bold text-slate-100 tracking-wide">NETWORKING DEEP DIVE</h1>
+                <p class="text-[10px] text-slate-400 hidden sm:block">Fahami Network Sebelum Anda Debug Server</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Slide Counter Button -->
+            <button onclick="toggleOverviewModal()" title="Lihat Senarai Slide" class="flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 transition">
+                <span>SLIDE</span>
+                <span id="slide-indicator" class="text-blue-400 font-bold">1 / 64</span>
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+
+            <!-- Fullscreen Button -->
+            <button onclick="toggleFullScreen()" class="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition hidden md:block" title="Fullscreen">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden flex items-center justify-center p-3 md:p-6">
+        
+        <!-- Background Grid Effect -->
+        <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-25 pointer-events-none"></div>
+
+        <!-- SLIDE 1: TAJUK -->
+        <section class="slide active w-full max-w-5xl h-full flex-col justify-between items-center text-center py-6" id="slide-1">
+            <div class="flex-1 flex flex-col items-center justify-center space-y-6">
+                <span class="px-3.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 tracking-wider uppercase">
+                    INFRASTRUCTURE & ADVANCED NETWORKING
+                </span>
+                
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
+                    Networking Deep Dive
+                </h1>
+                
+                <p class="text-lg md:text-2xl text-blue-400 font-medium max-w-2xl">
+                    "Fahami Network Sebelum Anda Debug Server"
+                </p>
+
+                <!-- Visual flow -->
+                <div class="w-full max-w-3xl my-6 p-6 glass-card rounded-2xl flex items-center justify-around relative overflow-hidden glow-net">
+                    <div class="flex flex-col items-center z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-blue-900/40 border border-blue-500/40 flex items-center justify-center text-3xl mb-2">💻</div>
+                        <span class="text-xs font-mono font-bold text-blue-300">Laptop</span>
+                    </div>
+
+                    <div class="text-slate-500 text-xl font-mono z-10">➔</div>
+
+                    <div class="flex flex-col items-center z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-amber-900/40 border border-amber-500/40 flex items-center justify-center text-3xl mb-2">🛜</div>
+                        <span class="text-xs font-mono font-bold text-amber-300">Router</span>
+                    </div>
+
+                    <div class="text-slate-500 text-xl font-mono z-10">➔</div>
+
+                    <div class="flex flex-col items-center z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-purple-900/40 border border-purple-500/40 flex items-center justify-center text-3xl mb-2">🌐</div>
+                        <span class="text-xs font-mono font-bold text-purple-300">Internet</span>
+                    </div>
+
+                    <div class="text-slate-500 text-xl font-mono z-10">➔</div>
+
+                    <div class="flex flex-col items-center z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-emerald-900/40 border border-emerald-500/40 flex items-center justify-center text-3xl mb-2">🖥️</div>
+                        <span class="text-xs font-mono font-bold text-emerald-300">Server</span>
+                    </div>
+                </div>
+
+                <div class="inline-block px-5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 text-sm md:text-base font-medium">
+                    💡 "Server yang baik memerlukan network yang difahami."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: KENAPA NETWORKING PENTING? -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-2">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">ASAS ARCHITECTURE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Kenapa Networking Penting?</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-sm md:text-base text-slate-300">
+                    Application anda <strong>tidak pernah bercakap secara terus</strong> dengan Internet. Data perlu melalui susunan 5 lapisan (Network Stack):
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                    <div class="p-4 glass-card rounded-xl border-t-4 border-t-purple-500 text-center">
+                        <span class="text-xs font-mono text-purple-400 font-bold block mb-1">LAYER 5</span>
+                        <strong class="text-sm text-white block">Application</strong>
+                        <span class="text-[11px] text-slate-400">HTTP, SSH, DNS</span>
+                    </div>
+                    <div class="p-4 glass-card rounded-xl border-t-4 border-t-emerald-500 text-center">
+                        <span class="text-xs font-mono text-emerald-400 font-bold block mb-1">LAYER 4</span>
+                        <strong class="text-sm text-white block">Transport</strong>
+                        <span class="text-[11px] text-slate-400">TCP, UDP, Ports</span>
+                    </div>
+                    <div class="p-4 glass-card rounded-xl border-t-4 border-t-blue-500 text-center">
+                        <span class="text-xs font-mono text-blue-400 font-bold block mb-1">LAYER 3</span>
+                        <strong class="text-sm text-white block">Network</strong>
+                        <span class="text-[11px] text-slate-400">IP, Routing, Subnet</span>
+                    </div>
+                    <div class="p-4 glass-card rounded-xl border-t-4 border-t-amber-500 text-center">
+                        <span class="text-xs font-mono text-amber-400 font-bold block mb-1">LAYER 2</span>
+                        <strong class="text-sm text-white block">Link</strong>
+                        <span class="text-[11px] text-slate-400">MAC Address, ARP</span>
+                    </div>
+                    <div class="p-4 glass-card rounded-xl border-t-4 border-t-slate-500 text-center">
+                        <span class="text-xs font-mono text-slate-400 font-bold block mb-1">LAYER 1</span>
+                        <strong class="text-sm text-white block">Physical</strong>
+                        <span class="text-[11px] text-slate-400">Cable, Wi-Fi, Signal</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-blue-900/20 border border-blue-500/30 rounded-xl text-xs md:text-sm text-blue-300">
+                    🔍 <strong>Poin Kunci:</strong> Peranan utama <strong>Network Layer (IP)</strong> ialah menentukan <em>ke mana data perlu pergi</em> dan <em>jalan mana yang perlu dilalui</em>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: NETWORKING MENTAL MODEL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-3">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">MENTAL MODEL</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Networking Mental Model</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <!-- Flow Diagram -->
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 space-y-3">
+                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs font-mono text-center">
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-purple-500/40 text-purple-300 font-bold">Browser</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-emerald-500/40 text-emerald-300 font-bold">TCP 443</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-blue-500/40 text-blue-300 font-bold">192.168.1.20</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-amber-500/40 text-amber-300 font-bold">MAC Address</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-700 text-slate-300 font-bold">Wi-Fi</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-amber-500/40 text-amber-300 font-bold">Router</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-purple-500/40 text-purple-300 font-bold">Internet</div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300 leading-relaxed">
+                    Apabila anda menaip URL, aplikasi browser membalut data menjadi paket. Setiap peringkat menambah tajuk (header) baharu bermula dari <strong>Port (Transport) ➔ IP (Network) ➔ MAC (Link) ➔ Wi-Fi (Physical)</strong>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: IP ADDRESS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-4">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">IDENTITI RANGKAIAN</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa itu IP Address?</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-sm text-slate-300">
+                    <strong>IP Address (Internet Protocol Address)</strong> ialah alamat logik unik yang diberikan kepada setiap peranti yang disambungkan ke rangkaian.
+                </p>
+
+                <!-- Visual 192.168.1.50 breakdown -->
+                <div class="glass-card p-6 rounded-2xl max-w-2xl mx-auto w-full text-center glow-net">
+                    <span class="text-xs font-mono text-slate-400 block mb-2">Contoh Format IPv4 (Dotted-Decimal):</span>
+                    <div class="flex items-center justify-center space-x-2 text-3xl md:text-5xl font-mono font-bold">
+                        <span class="text-blue-400">192</span><span class="text-slate-600">.</span>
+                        <span class="text-blue-400">168</span><span class="text-slate-600">.</span>
+                        <span class="text-blue-400">1</span><span class="text-slate-600">.</span>
+                        <span class="text-emerald-400">50</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300">
+                    Alamat ini membolehkan penghala (router) dan pelayan (server) tahu <strong>siapa penghantar</strong> dan <strong>ke mana penerima</strong> sesuatu data.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: IPv4 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-5">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">STRUCTURE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Anatomi IPv4 (32-Bit Address)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-card p-5 rounded-2xl border-l-4 border-l-blue-500">
+                        <h3 class="text-base font-bold text-white mb-2">Decimal Representation</h3>
+                        <div class="bg-slate-950 p-3 rounded-xl font-mono text-xl text-blue-400 tracking-wider">
+                            192 . 168 . 1 . 50
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">4 Octet (Nombor 0 hingga 255 bagi setiap bahagian).</p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-l-4 border-l-emerald-500">
+                        <h3 class="text-base font-bold text-white mb-2">Binary Representation (32 Bits)</h3>
+                        <div class="bg-slate-950 p-3 rounded-xl font-mono text-xs text-emerald-400 leading-relaxed">
+                            11000000 . 10101000 . 00000001 . 00110010
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">8 bits + 8 bits + 8 bits + 8 bits = 32 bits jumlahnya.</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                    💡 Komputer dan router memproses alamat ini sebagai nombor biner 0 dan 1, manakala manusia membacanya dalam bentuk nombor perpuluhan (decimal).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: PRIVATE IP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">RANGKAIAN TEMPATAN</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Private IPv4 Ranges</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-sm text-slate-300">
+                    RFC 1918 menetapkan 3 julat alamat khas yang <strong>hanya boleh digunakan dalam LAN tempatan</strong> dan tidak di-route di Internet awam:
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+                    <div class="glass-card p-4 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold block text-sm">Class A</span>
+                        <div class="text-white font-bold my-1">10.0.0.0/8</div>
+                        <span class="text-slate-400 text-[11px]">10.0.0.0 – 10.255.255.255</span>
+                        <span class="text-[10px] text-slate-500 block mt-2">(Biasa di Enterprise / AWS VPC)</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold block text-sm">Class B</span>
+                        <div class="text-white font-bold my-1">172.16.0.0/12</div>
+                        <span class="text-slate-400 text-[11px]">172.16.0.0 – 172.31.255.255</span>
+                        <span class="text-[10px] text-slate-500 block mt-2">(Biasa di Docker Containers)</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold block text-sm">Class C</span>
+                        <div class="text-white font-bold my-1">192.168.0.0/16</div>
+                        <span class="text-slate-400 text-[11px]">192.168.0.0 – 192.168.255.255</span>
+                        <span class="text-[10px] text-slate-500 block mt-2">(Biasa di Router Rumah / Offis)</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400">
+                    Contoh kegunaan: Laptop (<code>192.168.1.10</code>), Raspberry Pi (<code>192.168.1.50</code>), Router (<code>192.168.1.1</code>).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: PUBLIC IP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-7">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-inet font-semibold uppercase tracking-widest">GLOBAL IDENTITY</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Public IP Address</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <!-- Architecture diagram -->
+                <div class="glass-card p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 border border-purple-500/30">
+                    <div class="text-center">
+                        <div class="text-3xl">💻📱</div>
+                        <span class="text-xs font-bold text-blue-400">Home LAN</span>
+                        <span class="text-[10px] text-slate-400 block">192.168.1.x</span>
+                    </div>
+
+                    <span class="text-slate-500">➔</span>
+
+                    <div class="text-center p-3 bg-slate-950 rounded-xl border border-amber-500/40">
+                        <div class="text-2xl">📡</div>
+                        <span class="text-xs font-bold text-amber-300">Router (WAN)</span>
+                        <span class="text-[11px] font-mono text-emerald-400 block mt-1">203.0.113.10</span>
+                    </div>
+
+                    <span class="text-slate-500">➔</span>
+
+                    <div class="text-center">
+                        <div class="text-3xl">🌐</div>
+                        <span class="text-xs font-bold text-purple-400">Public Internet</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs md:text-sm text-amber-300">
+                    ⚠️ <strong>Nota Penting:</strong> Public IP bukannya dimiliki oleh setiap laptop di rumah anda. Biasanya router anda memegang <strong>SATU Public IP</strong> yang dibekalkan oleh ISP, dan melakukan terjemahan (NAT).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: PRIVATE VS PUBLIC -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-8">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">COMPARISON</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Private vs Public IP</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-blue-500">
+                        <h3 class="text-base font-bold text-blue-400 uppercase font-mono">PRIVATE IP</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>Digunakan dalam local network (LAN) sahaja.</li>
+                            <li>Percuma & boleh dipakai berulang di mana-mana rumah.</li>
+                            <li>Tidak boleh di-route secara terus di Internet.</li>
+                            <li>Contoh: <code>192.168.1.10</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-purple-500">
+                        <h3 class="text-base font-bold text-purple-400 uppercase font-mono">PUBLIC IP</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>Unik secara global di seluruh dunia.</li>
+                            <li>Diberikan oleh ISP / Cloud Provider.</li>
+                            <li>Boleh dicapai (routable) di Internet awam.</li>
+                            <li>Contoh Dokumentasi: <code>203.0.113.10</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    <em>(Nota: IPv4 <code>203.0.113.0/24</code> diguna sebagai blok alamat dokumentasi rasmi RFC 5737).</em>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: SUBNET -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-9">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">SUBNETTING</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa itu Subnet?</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-4">
+                <p class="text-xs md:text-sm text-slate-300">
+                    Subnet menentukan: <strong>"Network mana peranti ini berada?"</strong>
+                </p>
+
+                <!-- Subnet Interactive Visualizer Demo -->
+                <div class="glass-card p-5 rounded-2xl border border-blue-500/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono text-blue-400 font-bold">INTERACTIVE DEMO: Subnet 192.168.1.0/24</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">CIDR: /24</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block">Network Address:</span>
+                            <strong class="text-blue-400 text-sm">192.168.1.0</strong>
+                        </div>
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block">Usable Host Range:</span>
+                            <strong class="text-emerald-400 text-sm">192.168.1.1 – .254</strong>
+                        </div>
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 text-[10px] block">Broadcast Address:</span>
+                            <strong class="text-amber-400 text-sm">192.168.1.255</strong>
+                        </div>
+                    </div>
+
+                    <!-- Mini Checker -->
+                    <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2">
+                        <span class="text-xs text-slate-300">Uji IP:</span>
+                        <div class="flex space-x-2">
+                            <button onclick="checkSubnetMatch('192.168.1.50')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs font-mono text-slate-200">192.168.1.50</button>
+                            <button onclick="checkSubnetMatch('192.168.2.10')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs font-mono text-slate-200">192.168.2.10</button>
+                        </div>
+                    </div>
+                    <div id="subnet-check-result" class="text-xs font-mono text-center p-2 rounded bg-slate-950 text-slate-400 hidden"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: CIDR -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-10">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">PREFIX LENGTH</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">CIDR — /24, /16, /8?</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    <strong>CIDR (Classless Inter-Domain Routing)</strong> menggunakan tatatanda <code>/24</code> untuk menunjukkan berapa bit dikhaskan untuk <strong>Network Portion</strong>.
+                </p>
+
+                <!-- Bit breakdown visual -->
+                <div class="glass-card p-6 rounded-2xl max-w-3xl mx-auto w-full space-y-4 border border-blue-500/30">
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <span class="text-blue-400 font-bold">192.168.1.0 /24</span>
+                        <span class="text-slate-400">Total 32 Bits</span>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-2 text-center font-mono text-xs">
+                        <div class="p-3 bg-blue-900/40 border border-blue-500 rounded-lg">
+                            <span class="text-blue-300 font-bold block">8 Bits</span>
+                            <span class="text-[10px] text-slate-400">11111111</span>
+                        </div>
+                        <div class="p-3 bg-blue-900/40 border border-blue-500 rounded-lg">
+                            <span class="text-blue-300 font-bold block">8 Bits</span>
+                            <span class="text-[10px] text-slate-400">11111111</span>
+                        </div>
+                        <div class="p-3 bg-blue-900/40 border border-blue-500 rounded-lg">
+                            <span class="text-blue-300 font-bold block">8 Bits</span>
+                            <span class="text-[10px] text-slate-400">11111111</span>
+                        </div>
+                        <div class="p-3 bg-emerald-900/40 border border-emerald-500 rounded-lg">
+                            <span class="text-emerald-300 font-bold block">8 Bits (Host)</span>
+                            <span class="text-[10px] text-slate-400">00000000</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between text-xs font-mono text-slate-400">
+                        <span>← Network Portion (24 Bits) →</span>
+                        <span>← Host (8 Bits) →</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11: SUBNET MASK -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-11">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">MASKING</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Subnet Mask</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    Subnet Mask ialah cara tradisional menulis prefix length CIDR dalam format 4 octet:
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+                    <div class="glass-card p-5 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold text-sm block">/24</span>
+                        <div class="text-white text-base font-bold my-2">255.255.255.0</div>
+                        <span class="text-[11px] text-slate-400">254 Usable Hosts</span>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold text-sm block">/16</span>
+                        <div class="text-white text-base font-bold my-2">255.255.0.0</div>
+                        <span class="text-[11px] text-slate-400">65,534 Usable Hosts</span>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold text-sm block">/8</span>
+                        <div class="text-white text-base font-bold my-2">255.0.0.0</div>
+                        <span class="text-[11px] text-slate-400">16,777,214 Hosts</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                    💡 CIDR (contoh: <code>/24</code>) ialah singkatan moden untuk memudahkan penulisan Subnet Mask.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 12: NETWORK ADDRESS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-12">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">ADDRESS ROLES</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Komponen Alamat Subnet</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="text-center font-mono text-lg text-white">
+                        Contoh IP: <span class="text-blue-400 font-bold">192.168.1.50/24</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <span class="text-blue-400 font-mono font-bold block mb-1">NETWORK ADDRESS</span>
+                            <span class="text-white font-mono font-bold">192.168.1.0</span>
+                            <p class="text-[11px] text-slate-400 mt-2">Identiti bagi seluruh subnet (tidak boleh diguna oleh host).</p>
+                        </div>
+
+                        <div class="bg-slate-950 p-4 rounded-xl border border-emerald-500/30">
+                            <span class="text-emerald-400 font-mono font-bold block mb-1">HOST ADDRESSES</span>
+                            <span class="text-white font-mono font-bold">192.168.1.1 – .254</span>
+                            <p class="text-[11px] text-slate-400 mt-2">Alamat yang boleh diberikan kepada PC, Pi, Server, Router.</p>
+                        </div>
+
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <span class="text-amber-400 font-mono font-bold block mb-1">BROADCAST ADDRESS</span>
+                            <span class="text-white font-mono font-bold">192.168.1.255</span>
+                            <p class="text-[11px] text-slate-400 mt-2">Digunakan untuk menghantar mesej ke semua device dalam subnet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 13: DEFAULT GATEWAY -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-13">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">PINTU KELUAR</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Default Gateway</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <!-- Visual flow -->
+                <div class="glass-card p-6 rounded-2xl flex flex-col md:flex-row items-center justify-around gap-4 text-center">
+                    <div>
+                        <div class="text-2xl">💻</div>
+                        <span class="text-xs font-bold text-white">Laptop</span>
+                        <span class="text-[10px] font-mono text-blue-400 block">192.168.1.10</span>
+                    </div>
+
+                    <span class="text-slate-500">➔ Destinasi Luar Subnet ➔</span>
+
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/40 rounded-xl">
+                        <div class="text-2xl">🚪</div>
+                        <span class="text-xs font-bold text-amber-300">Default Gateway</span>
+                        <span class="text-[10px] font-mono text-amber-400 block mt-1">192.168.1.1</span>
+                    </div>
+
+                    <span class="text-slate-500">➔</span>
+
+                    <div>
+                        <div class="text-2xl">🌐</div>
+                        <span class="text-xs font-bold text-purple-400">Internet / Server</span>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300 leading-relaxed">
+                    💡 <strong>Soalan Utama:</strong> Jika peranti mahu bercakap dengan destinasi di luar subnet tempatannya, ke mana packet mesti dihantar?<br>
+                    <strong>Jawapan:</strong> Mesti dihantar kepada <strong>Default Gateway</strong> (biasanya IP router anda).
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14: ROUTING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-14">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">PATH DECISION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Konsep Routing</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <p class="text-sm text-slate-200">
+                        <strong>Routing = Memilih ke mana paket data perlu dihantar seterusnya.</strong>
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <span class="text-blue-400 font-bold block mb-1">Local Route</span>
+                            <div class="text-white font-bold">192.168.1.0/24</div>
+                            <span class="text-[11px] text-slate-400 block mt-2">Hantar terus secara terus dalam LAN (Layer 2).</span>
+                        </div>
+
+                        <div class="bg-slate-950 p-4 rounded-xl border border-amber-500/30">
+                            <span class="text-amber-400 font-bold block mb-1">Default Route</span>
+                            <div class="text-white font-bold">0.0.0.0/0</div>
+                            <span class="text-[11px] text-slate-400 block mt-2">Hantar ke Default Gateway untuk mana-mana alamat luaran.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15: ROUTING TABLE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-15">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">LINUX KERNEL</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Routing Table (`ip route`)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <!-- Command Box -->
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-xs md:text-sm text-slate-200 shadow-xl overflow-x-auto relative">
+                    <div class="flex items-center justify-between text-slate-500 pb-2 mb-2 border-b border-slate-800">
+                        <span>Terminal Output: Linux Kernel Routing Table</span>
+                        <button onclick="copyCode(this, 'ip route')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">Copy</button>
+                    </div>
+                    <div>$ <span class="text-emerald-400 font-bold">ip route</span></div>
+                    <div class="text-blue-400">default via 192.168.1.1 dev eth0 proto dhcp metric 100</div>
+                    <div class="text-slate-300">192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.50</div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="glass-card p-4 rounded-xl">
+                        <strong class="text-blue-400 font-mono block mb-1">192.168.1.0/24 dev eth0</strong>
+                        <span class="text-slate-300">Segala peranti dalam subnet tempatan boleh dicapai terus melalui interface <code>eth0</code>.</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl">
+                        <strong class="text-amber-400 font-mono block mb-1">default via 192.168.1.1</strong>
+                        <span class="text-slate-300">Segala destinasi luar dihantar ke Gateway <code>192.168.1.1</code>.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 16: LONGEST PREFIX MATCH -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-16">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">ROUTING ALGORITHM</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Longest Prefix Match</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    Apabila router menerima packet, ia memilih route yang <strong>paling spesifik (prefix length terbesar)</strong>:
+                </p>
+
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 max-w-3xl mx-auto w-full space-y-3">
+                    <div class="text-center font-mono text-xs text-slate-400">
+                        Destinasi Packet: <span class="text-emerald-400 font-bold text-sm">10.1.2.50</span>
+                    </div>
+
+                    <div class="space-y-2 font-mono text-xs">
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-50">
+                            <span>10.0.0.0/8</span>
+                            <span class="text-slate-500">Match (8 bits)</span>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-75">
+                            <span>10.1.0.0/16</span>
+                            <span class="text-slate-400">Match (16 bits)</span>
+                        </div>
+                        <div class="p-3 bg-blue-900/40 rounded-xl border border-blue-500 flex justify-between items-center text-blue-300 font-bold glow-net">
+                            <span>10.1.2.0/24</span>
+                            <span>✅ CHOSEN (Paling Spesifik: 24 bits)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17: DHCP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-17">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">AUTO CONFIGURATION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">DHCP (Proses DORA)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    <strong>DHCP (Dynamic Host Configuration Protocol)</strong> memberikan konfigurasi IP secara automatik kepada peranti melalui 4 langkah (DORA):
+                </p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs font-mono">
+                    <div class="glass-card p-4 rounded-xl border-t-4 border-t-blue-500">
+                        <span class="text-blue-400 font-bold block mb-1">1. DISCOVER</span>
+                        <span class="text-slate-300 text-[11px]">Client broadcast: "Ada DHCP Server tak?"</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-t-4 border-t-purple-500">
+                        <span class="text-purple-400 font-bold block mb-1">2. OFFER</span>
+                        <span class="text-slate-300 text-[11px]">Server tawar: "Guna IP 192.168.1.50 ini."</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-t-4 border-t-amber-500">
+                        <span class="text-amber-400 font-bold block mb-1">3. REQUEST</span>
+                        <span class="text-slate-300 text-[11px]">Client minta: "Saya nak IP 192.168.1.50 itu."</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border-t-4 border-t-emerald-500">
+                        <span class="text-emerald-400 font-bold block mb-1">4. ACK</span>
+                        <span class="text-slate-300 text-[11px]">Server sahkan: "OK! IP disahkan milik anda."</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18: DHCP DALAM HOME NETWORK -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-18">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">HOME NETWORK SETUP</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">DHCP & DHCP Reservation</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl flex flex-col md:flex-row items-center justify-around gap-4 border border-blue-500/30">
+                    <div class="text-center p-3 bg-amber-500/10 border border-amber-500/40 rounded-xl">
+                        <div class="text-2xl">📡</div>
+                        <span class="text-xs font-bold text-amber-300">Router (DHCP Server)</span>
+                    </div>
+
+                    <span class="text-slate-500">➔ Agih IP ➔</span>
+
+                    <div class="grid grid-cols-3 gap-3 text-center text-xs font-mono">
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                            <span class="text-slate-300 block">Laptop</span>
+                            <span class="text-blue-400">192.168.1.10</span>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                            <span class="text-slate-300 block">Phone</span>
+                            <span class="text-blue-400">192.168.1.11</span>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-emerald-500/40">
+                            <span class="text-emerald-300 font-bold block">Raspberry Pi</span>
+                            <span class="text-emerald-400">192.168.1.50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300">
+                    💡 <strong>DHCP Reservation:</strong> Tetapan pada router untuk mengikat MAC Address peranti (seperti Raspberry Pi) supaya ia sentiasa mendapat IP yang sama setiap kali reboot.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 19: MAC ADDRESS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-19">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-amber-400 font-semibold uppercase tracking-widest">LAYER 2 IDENTITY</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">MAC Address (Link-Layer)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-2xl border-l-4 border-l-blue-500">
+                        <h3 class="text-base font-bold text-blue-400 mb-2">IP Address (Layer 3)</h3>
+                        <div class="bg-slate-950 p-3 rounded-xl font-mono text-lg text-white mb-2">192.168.1.50</div>
+                        <p class="text-xs text-slate-300">Alamat logik yang boleh bertukar mengikut lokasi network.</p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-l-4 border-l-amber-500">
+                        <h3 class="text-base font-bold text-amber-400 mb-2">MAC Address (Layer 2)</h3>
+                        <div class="bg-slate-950 p-3 rounded-xl font-mono text-lg text-amber-300 mb-2">AA:BB:CC:DD:EE:FF</div>
+                        <p class="text-xs text-slate-300">Alamat fizikal kekal yang tertanam pada kad rangkaian (NIC hardware).</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                    Dalam satu LAN tempatan, peranti berkomunikasi secara terus menggunakan <strong>MAC Address</strong>, bukan IP!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 20: ARP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-20">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-amber-400 font-semibold uppercase tracking-widest">LAYER 2 TO LAYER 3</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">ARP (Address Resolution Protocol)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="text-xs font-mono text-slate-400 text-center">Bagaimana Device Cari MAC Address Berdasarkan IP?</div>
+
+                <div class="glass-card p-6 rounded-2xl border border-amber-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-blue-500/30 text-xs font-mono">
+                        <span class="text-blue-400">Laptop:</span>
+                        <span class="text-slate-300">"Siapa ada IP 192.168.1.50? Sila beri MAC anda!" (Broadcast)</span>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-emerald-500/30 text-xs font-mono">
+                        <span class="text-emerald-400">Raspberry Pi:</span>
+                        <span class="text-slate-300">"Saya! IP 192.168.1.50 ada pada MAC AA:BB:CC:DD:EE:FF."</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    IPv4 memerlukan ARP untuk menterjemahkan IP destinasi kepada MAC Address tempatan.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 21: ARP TABLE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-21">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-amber-400 font-semibold uppercase tracking-widest">NEIGHBOR TABLE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">ARP Cache (`ip neigh`)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-xs md:text-sm text-slate-200 shadow-xl overflow-x-auto relative">
+                    <div class="flex items-center justify-between text-slate-500 pb-2 mb-2 border-b border-slate-800">
+                        <span>Terminal Output: Neighbor Table</span>
+                        <button onclick="copyCode(this, 'ip neigh')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">Copy</button>
+                    </div>
+                    <div>$ <span class="text-emerald-400 font-bold">ip neigh</span></div>
+                    <div class="text-blue-400">192.168.1.1 dev eth0 lladdr aa:bb:cc:11:22:33 REACHABLE</div>
+                    <div class="text-amber-400">192.168.1.50 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE</div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300">
+                    💡 Peranti anda menyimpan maklumat petaan <strong>IP ↔ MAC</strong> dalam ARP Cache supaya ia tidak perlu membuat carian ARP untuk setiap packet.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 22: DNS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-22">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-purple-400 font-semibold uppercase tracking-widest">NAME RESOLUTION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">DNS — Beyond Domain to IP</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    DNS bukan sekadar menukar nama domain kepada IP. Ia adalah pangkalan data teragih yang memegang pelbagai jenis rekod rangkaian.
+                </p>
+
+                <div class="glass-card p-6 rounded-2xl border border-purple-500/30 max-w-3xl mx-auto w-full text-center">
+                    <div class="flex items-center justify-center space-x-3 text-lg font-mono mb-3">
+                        <span class="text-purple-400 font-bold">app.domainbos.com</span>
+                        <span>➔ DNS ➔</span>
+                        <span class="text-emerald-400 font-bold">203.0.113.10 / Target</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 23: DNS RECORDS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-23">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-purple-400 font-semibold uppercase tracking-widest">RESOURCE RECORDS</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Jenis-Jenis Rekod DNS Utama</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono text-xs">
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">A Record</strong>
+                        <span class="text-slate-300">Peta Domain ➔ IPv4</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">example.com ➔ 203.0.113.10</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">AAAA Record</strong>
+                        <span class="text-slate-300">Peta Domain ➔ IPv6</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">example.com ➔ 2001:db8::1</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">CNAME Record</strong>
+                        <span class="text-slate-300">Alias Hostname</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">app ➔ tunnel.cloudflare.com</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">MX Record</strong>
+                        <span class="text-slate-300">Mail Exchange</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">Haluan server e-mel</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">TXT Record</strong>
+                        <span class="text-slate-300">Teks / Verification</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">SPF, DKIM, SSL Verification</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <strong class="text-purple-400 text-sm block">NS Record</strong>
+                        <span class="text-slate-300">Name Server</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">Server DNS berkuasa (Cloudflare)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 24: DNS RESOLUTION -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-24">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-purple-400 font-semibold uppercase tracking-widest">RESOLUTION FLOW</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Hierarki DNS Resolution</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="glass-card p-6 rounded-2xl border border-purple-500/30 max-w-3xl mx-auto w-full">
+                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs font-mono text-center">
+                        <div class="p-2 bg-slate-950 rounded border border-blue-500/40 text-blue-300">Browser</div>
+                        <span>➔</span>
+                        <div class="p-2 bg-slate-950 rounded border border-purple-500/40 text-purple-300">Resolver (1.1.1.1)</div>
+                        <span>➔</span>
+                        <div class="p-2 bg-slate-950 rounded border border-slate-700 text-slate-300">Root (.)</div>
+                        <span>➔</span>
+                        <div class="p-2 bg-slate-950 rounded border border-slate-700 text-slate-300">TLD (.com)</div>
+                        <span>➔</span>
+                        <div class="p-2 bg-slate-950 rounded border border-emerald-500/40 text-emerald-300">Authoritative</div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    Proses ini berlaku dalam hitungan milisaat dan di-cache pada setiap peringkat untuk kelajuan pantas.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 25: TCP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-25">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-srv font-semibold uppercase tracking-widest">TRANSPORT PROTOCOL</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">TCP (Transmission Control Protocol)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30">
+                    <h3 class="text-lg font-bold text-emerald-400 mb-3">Ciri-Ciri Utama TCP:</h3>
+                    <ul class="text-xs md:text-sm text-slate-300 space-y-2 list-disc list-inside">
+                        <li><strong>Connection-oriented:</strong> Mesti bina sambungan sebelum hantar data.</li>
+                        <li><strong>Reliability:</strong> Packet yang hilang akan di-retransmit semula.</li>
+                        <li><strong>Ordering:</strong> Data disusun semula mengikut urutan asal.</li>
+                        <li><strong>Flow Control:</strong> Menyesuaikan kelajuan penghantaran mengikut penerima.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    Sesuai untuk perkhidmatan yang perlukan ketepatan 100% seperti HTTPS, SSH, Web Server, E-mel.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 26: TCP THREE-WAY HANDSHAKE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-26">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-srv font-semibold uppercase tracking-widest">ESTABLISHING CONNECTION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">TCP 3-Way Handshake Interactive</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-4">
+                <!-- Interactive Handshake Visualizer -->
+                <div class="glass-card p-5 rounded-2xl border border-emerald-500/30 max-w-2xl mx-auto w-full space-y-4">
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <span class="text-blue-400 font-bold">Client</span>
+                        <span id="handshake-status" class="text-amber-400 font-bold">Status: Disconnected</span>
+                        <span class="text-emerald-400 font-bold">Server</span>
+                    </div>
+
+                    <div class="space-y-2 text-xs font-mono">
+                        <div id="step-syn" class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition">
+                            <span class="text-blue-400">Client ➔ Server</span>
+                            <strong class="text-white">SYN (Synchronize)</strong>
+                            <span class="text-slate-400 text-[10px]">"Bolehkah kita connect?"</span>
+                        </div>
+
+                        <div id="step-synack" class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition">
+                            <span class="text-emerald-400">Server ➔ Client</span>
+                            <strong class="text-white">SYN-ACK</strong>
+                            <span class="text-slate-400 text-[10px]">"Boleh! Saya setuju."</span>
+                        </div>
+
+                        <div id="step-ack" class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition">
+                            <span class="text-blue-400">Client ➔ Server</span>
+                            <strong class="text-white">ACK (Acknowledge)</strong>
+                            <span class="text-slate-400 text-[10px]">"OK! Sambungan terbina."</span>
+                        </div>
+                    </div>
+
+                    <button onclick="triggerHandshakeAnim()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold font-mono transition">
+                        ▶ Run Handshake Animation
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 27: UDP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-27">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-doc font-semibold uppercase tracking-widest">TRANSPORT PROTOCOL</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">UDP (User Datagram Protocol)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30">
+                    <h3 class="text-lg font-bold text-cyan-400 mb-3">Ciri-Ciri Utama UDP:</h3>
+                    <ul class="text-xs md:text-sm text-slate-300 space-y-2 list-disc list-inside">
+                        <li><strong>Connectionless:</strong> Tiada handshake awal, data terus dihantar.</li>
+                        <li><strong>Low Overhead:</strong> Header sangat kecil dan pantas.</li>
+                        <li><strong>No Delivery Guarantee:</strong> Jika paket hilang, ia tidak di-retransmit.</li>
+                        <li><strong>Digunakan oleh:</strong> DNS, DHCP, Video Streaming, Gaming, HTTP/3 (QUIC).</li>
+                    </ul>
+                </div>
+
+                <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs md:text-sm text-amber-300">
+                    ⚠️ <strong>Ingat:</strong> UDP bukan "tidak selamat" atau "buruk". Ia direka khusus untuk aplikasi yang mementingkan <em>kelajuan masa nyata (real-time speed)</em>.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 28: TCP VS UDP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-28">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-srv font-semibold uppercase tracking-widest">COMPARISON MATRIX</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">TCP vs UDP</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-emerald-500">
+                        <h3 class="text-base font-bold text-emerald-400 font-mono">TCP</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>Connection-oriented (Handshake)</li>
+                            <li>Reliable (Jaminan data sampai)</li>
+                            <li>Ordered (Susunan terjamin)</li>
+                            <li>Higher overhead</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-cyan-500">
+                        <h3 class="text-base font-bold text-cyan-400 font-mono">UDP</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>Connectionless (Tiada handshake)</li>
+                            <li>No Delivery Guarantee</li>
+                            <li>No Ordering Guarantee</li>
+                            <li>Lower Protocol Overhead</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300 font-medium">
+                    💡 Pilih protocol berdasarkan keperluan aplikasi anda!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 29: PORT -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-29">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-doc font-semibold uppercase tracking-widest">SERVICE ENDPOINT</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Port — Perkhidmatan Aplikasi</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 max-w-2xl mx-auto w-full text-center">
+                    <div class="font-mono text-2xl text-white mb-2">
+                        192.168.1.50<span class="text-cyan-400 font-bold">:8080</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-4 text-xs">
+                        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                            <span class="text-blue-400 font-bold block">IP (192.168.1.50)</span>
+                            <span class="text-slate-400">Memilih Peranti Host</span>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded-xl border border-cyan-500/40">
+                            <span class="text-cyan-400 font-bold block">Port (8080)</span>
+                            <span class="text-slate-400">Memilih Perkhidmatan Aplikasi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 30: WELL-KNOWN PORTS -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-30">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-doc font-semibold uppercase tracking-widest">STANDARD ENDPOINTS</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Port Standard Biasa</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                    <div class="glass-card p-4 rounded-xl border border-cyan-500/30">
+                        <span class="text-cyan-400 font-bold text-base block">22</span>
+                        <span class="text-white font-bold block">SSH</span>
+                        <span class="text-slate-400 text-[10px]">Remote Terminal</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-cyan-500/30">
+                        <span class="text-cyan-400 font-bold text-base block">53</span>
+                        <span class="text-white font-bold block">DNS</span>
+                        <span class="text-slate-400 text-[10px]">Domain Resolution</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-cyan-500/30">
+                        <span class="text-cyan-400 font-bold text-base block">80</span>
+                        <span class="text-white font-bold block">HTTP</span>
+                        <span class="text-slate-400 text-[10px]">Web unencrypted</span>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-cyan-500/30">
+                        <span class="text-cyan-400 font-bold text-base block">443</span>
+                        <span class="text-white font-bold block">HTTPS</span>
+                        <span class="text-slate-400 text-[10px]">Web Encrypted</span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    ⚠️ Port hanyalah nombor konvensyen aplikasi. Jangan anggap menukar nombor port sebagai satu-satunya sekatan keselamatan!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 31: SOCKET -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-31">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-doc font-semibold uppercase tracking-widest">COMMUNICATION ENDPOINT</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa itu Socket?</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 max-w-2xl mx-auto w-full text-center">
+                    <span class="text-xs font-mono text-slate-400 block mb-2">Formula Socket Kombinasi:</span>
+                    <div class="p-4 bg-slate-950 rounded-xl font-mono text-lg text-emerald-400 border border-slate-800">
+                        [Protocol] + [IP Address] + [Port Number]
+                    </div>
+                    <div class="text-xs font-mono text-slate-300 mt-3">
+                        Contoh: <strong class="text-white">TCP &nbsp; 192.168.1.50 : 443</strong>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300">
+                    Socket ialah titik hujung (endpoint) sebenar dalam sistem pengendalian (OS) yang digunakan oleh aplikasi untuk menghantar dan menerima aliran data.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 32: NAT -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-32">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">TRANSLATION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">NAT (Network Address Translation)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <!-- Visual -->
+                <div class="glass-card p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 border border-blue-500/30 text-center">
+                    <div>
+                        <span class="text-xs font-mono text-blue-400">Private IP</span>
+                        <div class="font-mono text-sm font-bold text-white">192.168.1.10</div>
+                    </div>
+
+                    <span class="text-slate-500">➔</span>
+
+                    <div class="p-3 bg-blue-600/20 border border-blue-500 rounded-xl">
+                        <span class="text-xs font-bold text-blue-300">⚙️ Router NAT</span>
+                    </div>
+
+                    <span class="text-slate-500">➔</span>
+
+                    <div>
+                        <span class="text-xs font-mono text-emerald-400">Public IP</span>
+                        <div class="font-mono text-sm font-bold text-emerald-400">203.0.113.10</div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs md:text-sm text-slate-300">
+                    Router menukar <strong>Source Private IP</strong> menjadi <strong>Public IP Router</strong> semasa packet keluar ke Internet awam.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 33: NAT TABLE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-33">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">MAPPING TABLE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Bagaimana Router Tahu Response Milik Siapa?</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="glass-card p-5 rounded-2xl border border-blue-500/30 max-w-3xl mx-auto w-full space-y-3">
+                    <span class="text-xs font-mono text-blue-400 font-bold block">Jadual Pemetaan NAT Router (PAT / NAT Table):</span>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-200 space-y-2">
+                        <div class="flex justify-between border-b border-slate-800 pb-1 text-slate-400">
+                            <span>Internal Socket</span>
+                            <span>Mapped Public Socket</span>
+                        </div>
+                        <div class="flex justify-between text-blue-300">
+                            <span>192.168.1.10:51500</span>
+                            <span>203.0.113.10:62001</span>
+                        </div>
+                        <div class="flex justify-between text-purple-300">
+                            <span>192.168.1.20:51500</span>
+                            <span>203.0.113.10:62002</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                    Router menggunakan <strong>nombor port luaran sementara (ephemeral port)</strong> untuk membezakan peranti asal di rumah anda!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 34: PORT FORWARDING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-34">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">INBOUND TRAFFIC</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Port Forwarding (Inbound NAT)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 text-center space-y-4">
+                    <div class="flex flex-col md:flex-row items-center justify-around gap-2 text-xs font-mono">
+                        <div>
+                            <span class="text-slate-400 block">Internet Request</span>
+                            <strong class="text-emerald-400">203.0.113.10:8080</strong>
+                        </div>
+
+                        <span>➔</span>
+
+                        <div class="p-3 bg-blue-600/20 rounded-xl border border-blue-500">
+                            <span class="text-blue-300 font-bold block">Port Forwarding Rule</span>
+                            <span class="text-[10px] text-slate-300 block">Forward :8080 ➔ 192.168.1.50:8080</span>
+                        </div>
+
+                        <span>➔</span>
+
+                        <div>
+                            <span class="text-slate-400 block">Local Server</span>
+                            <strong class="text-blue-400">192.168.1.50:8080</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+                    ⚠️ Port Forwarding ialah tetapan khas <strong>Inbound NAT</strong>. Ia berbeza daripada fungsi NAT asas yang biasanya hanya untuk Outbound traffic.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 35: FIREWALL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-35">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-fw font-semibold uppercase tracking-widest">TRAFFIC FILTERING</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Firewall — Tapis Lalu Lintas</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    Firewall menapis lalu lintas rangkaian berdasarkan kriteria peraturan yang ditetapkan:
+                </p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono text-xs">
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">Source IP</strong>
+                        <span class="text-slate-400 text-[11px]">Dari mana packet datang</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">Destination IP</strong>
+                        <span class="text-slate-400 text-[11px]">Ke mana packet hendak pergi</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">Protocol</strong>
+                        <span class="text-slate-400 text-[11px]">TCP, UDP, ICMP</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">Port Number</strong>
+                        <span class="text-slate-400 text-[11px]">Port 22, 80, 443, 8080</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">Interface</strong>
+                        <span class="text-slate-400 text-[11px]">eth0, wlan0, tun0</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30">
+                        <strong class="text-rose-400 block">State</strong>
+                        <span class="text-slate-400 text-[11px]">NEW, ESTABLISHED</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 36: STATEFUL FIREWALL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-36">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-fw font-semibold uppercase tracking-widest">STATEFUL INSPECTION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Stateful Firewall</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="text-xs font-mono text-slate-300 leading-relaxed">
+                        Stateful Firewall mengingati status sambungan keluar (Outbound Connection).
+                    </div>
+
+                    <div class="space-y-2 text-xs font-mono">
+                        <div class="p-3 bg-slate-950 rounded-xl border border-emerald-500/30 flex justify-between">
+                            <span class="text-emerald-400">1. Client ➔ Outbound to Web</span>
+                            <span class="text-slate-400">Allowed & Tracked</span>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded-xl border border-emerald-500/30 flex justify-between">
+                            <span class="text-emerald-400">2. Server ➔ Inbound Response</span>
+                            <span class="text-emerald-300 font-bold">✅ Auto Allowed (ESTABLISHED)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    Anda tidak perlu buka port inbound untuk menerima balasan jawapan daripada web yang anda layari!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 37: VLAN -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-37">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">SEGMENTATION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">VLAN (Virtual LAN)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    <strong>VLAN:</strong> Memisahkan satu physical switch kepada beberapa rangkaian logik bebas di Layer 2.
+                </p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs font-mono">
+                    <div class="glass-card p-4 rounded-xl border border-blue-500/30">
+                        <span class="text-blue-400 font-bold block">VLAN 10</span>
+                        <span class="text-white">Management</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-emerald-500/30">
+                        <span class="text-emerald-400 font-bold block">VLAN 20</span>
+                        <span class="text-white">Servers</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                        <span class="text-purple-400 font-bold block">VLAN 30</span>
+                        <span class="text-white">Clients</span>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-amber-500/30">
+                        <span class="text-amber-400 font-bold block">VLAN 40</span>
+                        <span class="text-white">IoT Devices</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 38: NETWORK SEGMENTATION -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-38">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-fw font-semibold uppercase tracking-widest">SECURITY DESIGN</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Network Segmentation</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full">
+                    <h3 class="text-base font-bold text-rose-400 mb-3">Tujuan Segmentasi Rangkaian:</h3>
+                    <ul class="text-xs md:text-sm text-slate-300 space-y-2 list-disc list-inside">
+                        <li><strong>Pengasingan (Isolation):</strong> Jika peranti IoT dijangkiti malware, ia tidak boleh menyerang Server tempatan anda.</li>
+                        <li><strong>Reduce Attack Surface:</strong> Mengecilkan skop capaian pihak luar.</li>
+                        <li><strong>Easy Management:</strong> Memudahkan kawalan polisi firewall mengikut zon.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 39: VLAN VS SUBNET -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-39">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">DISTINCTION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">VLAN vs Subnet</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-amber-500">
+                        <h3 class="text-base font-bold text-amber-400 font-mono">VLAN (Layer 2)</h3>
+                        <p class="text-xs text-slate-300 mt-2">Segmen pengasingan logik pada peringkat Ethernet switch / hardware.</p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-blue-500">
+                        <h3 class="text-base font-bold text-blue-400 font-mono">SUBNET (Layer 3)</h3>
+                        <p class="text-xs text-slate-300 mt-2">Segmen pengelompokan alamat IP dalam protokol IP.</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300 font-mono">
+                    Biasanya 1 VLAN dipetakan kepada 1 Subnet.<br>
+                    Contoh: <strong>VLAN 20 ↔ Subnet 192.168.20.0/24</strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 40: INTER-VLAN ROUTING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-40">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">CROSS-VLAN COMMUNICATION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Inter-VLAN Routing & Firewall Policy</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <!-- Visual flow -->
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 space-y-4">
+                    <div class="flex flex-col md:flex-row items-center justify-around gap-2 text-xs font-mono text-center">
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-purple-500/40 text-purple-300">
+                            User VLAN (192.168.10.0/24)
+                        </div>
+
+                        <span>➔ Router / L3 Switch ➔</span>
+
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-emerald-500/40 text-emerald-300">
+                            Server VLAN (192.168.20.0/24)
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono space-y-1">
+                        <div class="text-emerald-400">✓ User ➔ Server : Port 443 (HTTPS) ALLOWED</div>
+                        <div class="text-rose-400">✗ User ➔ Server : Port 22 (SSH) BLOCKED</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 41: NETWORK SECURITY MODEL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-41">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-fw font-semibold uppercase tracking-widest">DEFENSE IN DEPTH</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Model Keselamatan Berlapis</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full">
+                    <div class="flex flex-col space-y-2 text-center text-xs font-mono">
+                        <div class="p-2 bg-purple-900/30 rounded border border-purple-500/30 text-purple-300">🌐 Internet</div>
+                        <div>↓</div>
+                        <div class="p-2 bg-rose-900/30 rounded border border-rose-500/30 text-rose-300">🔥 Router Firewall</div>
+                        <div>↓</div>
+                        <div class="p-2 bg-blue-900/30 rounded border border-blue-500/30 text-blue-300">🔀 VLAN Segmentation</div>
+                        <div>↓</div>
+                        <div class="p-2 bg-emerald-900/30 rounded border border-emerald-500/30 text-emerald-300">🖥️ Host Firewall (UFW)</div>
+                        <div>↓</div>
+                        <div class="p-2 bg-cyan-900/30 rounded border border-cyan-500/30 text-cyan-300">🐳 App / Container</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 42: IPv6 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-42">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">NEXT-GEN PROTOCOL</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Asas IPv6 (128-Bit Address)</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <p class="text-xs md:text-sm text-slate-300">
+                    IPv6 dicipta untuk mengatasi kekurangan alamat IPv4 dengan saiz <strong>128-bit address space</strong>.
+                </p>
+
+                <div class="glass-card p-6 rounded-2xl max-w-2xl mx-auto w-full text-center border border-blue-500/30 space-y-3">
+                    <span class="text-xs font-mono text-slate-400 block">Contoh Format Hexadecimal IPv6:</span>
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-sm md:text-base text-blue-400 border border-slate-800">
+                        2001:0db8:85a3:0000:0000:8a2e:0370:7334
+                    </div>
+                    <span class="text-xs font-mono text-emerald-400 block">Format Ringkas (Compressed):</span>
+                    <div class="p-2 bg-slate-950 rounded-xl font-mono text-sm text-emerald-300 border border-slate-800">
+                        2001:db8::1
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                    <em>(Nota: IPv6 <code>2001:db8::/32</code> digunakan khas untuk tujuan dokumentasi).</em>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 43: IPv4 VS IPv6 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-43">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">COMPARISON</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">IPv4 vs IPv6</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-blue-500">
+                        <h3 class="text-base font-bold text-blue-400 font-mono">IPv4</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>32-bit (4.3 Bilion alamat)</li>
+                            <li>Dotted decimal (192.168.1.50)</li>
+                            <li>Memerlukan NAT untuk penjimatan IP</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-2xl border-t-4 border-t-purple-500">
+                        <h3 class="text-base font-bold text-purple-400 font-mono">IPv6</h3>
+                        <ul class="text-xs text-slate-300 mt-3 space-y-2 list-disc list-inside">
+                            <li>128-bit (Alamat tanpa had)</li>
+                            <li>Hexadecimal (2001:db8::1)</li>
+                            <li>Setiap peranti mendapat Public IP terus (Tiada NAT)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 44: DUAL STACK -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-44">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-net font-semibold uppercase tracking-widest">TRANSITION</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Dual Stack Architecture</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-blue-500/30 max-w-2xl mx-auto w-full text-center space-y-3">
+                    <h3 class="text-base font-bold text-white">Menjalankan IPv4 + IPv6 Serentak</h3>
+                    <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+                        <div class="bg-slate-950 p-3 rounded-xl border border-blue-500/40">
+                            <span class="text-blue-400 block font-bold">IPv4 Address</span>
+                            <span class="text-slate-200">192.168.1.50</span>
+                        </div>
+                        <div class="bg-slate-950 p-3 rounded-xl border border-purple-500/40">
+                            <span class="text-purple-400 block font-bold">IPv6 Address</span>
+                            <span class="text-slate-200">2001:db8::50</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 45: TROUBLESHOOTING MODEL -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-45">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">DEBUGGING METHODOLOGY</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Network Troubleshooting Model</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-slate-500">1. Physical</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-amber-500">2. Link (MAC)</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-blue-500">3. IP Address</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-blue-500">4. Routing</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-purple-500">5. DNS</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-emerald-500">6. Port</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-rose-500">7. Firewall</div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-cyan-500">8. Application</div>
+                </div>
+
+                <div class="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                    💡 Sentiasa mula troubleshooting dari <strong>bawah ke atas (Bottom-Up approach)</strong>!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 46: COMMAND CHEAT SHEET -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-46">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-emerald-400 font-semibold uppercase tracking-widest">LINUX CLI</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Linux Networking Command Cheat Sheet</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-2 text-xs font-mono">
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">ip addr</code>
+                    <span class="text-slate-400">Semak IP address & network interface</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">ip route</code>
+                    <span class="text-slate-400">Semak jadual routing & default gateway</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">ip neigh</code>
+                    <span class="text-slate-400">Semak jadual ARP (IP ↔ MAC neighbor)</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">ss -tulpn</code>
+                    <span class="text-slate-400">Semak port yang sedang listening</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">ping 192.168.1.50</code>
+                    <span class="text-slate-400">Uji kebolehcapaian Layer 3 IP</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">curl -v http://...</code>
+                    <span class="text-slate-400">Uji tindak balas HTTP Application</span>
+                </div>
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <code class="text-emerald-400">dig app.example.com</code>
+                    <span class="text-slate-400">Uji carian DNS resolution</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 47: COMMAND TO QUESTION -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-47">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-emerald-400 font-semibold uppercase tracking-widest">MENTAL SHIFT</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Tukar Command Kepada Soalan</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-emerald-500">
+                        <strong class="text-emerald-400 block">ip addr</strong>
+                        <span class="text-slate-300">"Apakah IP address peranti saya?"</span>
+                    </div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-emerald-500">
+                        <strong class="text-emerald-400 block">ip route</strong>
+                        <span class="text-slate-300">"Ke mana laluan traffic saya keluar?"</span>
+                    </div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-emerald-500">
+                        <strong class="text-emerald-400 block">ss -tulpn</strong>
+                        <span class="text-slate-300">"Aplikasi mana yang pegang port ini?"</span>
+                    </div>
+                    <div class="p-3 glass-card rounded-xl border-l-4 border-l-emerald-500">
+                        <strong class="text-emerald-400 block">curl</strong>
+                        <span class="text-slate-300">"Adakah aplikasi web ini membalas?"</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 48: REAL SCENARIO 1 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-48">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">REAL SCENARIO 1</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">X Boleh Access Raspberry Pi (Port 8080)</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-3">
+                <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono">
+                    <span class="text-rose-400 font-bold block">Masalah:</span>
+                    Laptop (192.168.1.10) cuba buka http://192.168.1.50:8080 tetapi GAGAL.
+                </div>
+
+                <div class="glass-card p-4 rounded-xl space-y-2 text-xs font-mono">
+                    <span class="text-blue-400 font-bold block">Langkah Troubleshooting Berperingkat:</span>
+                    <div>1. <code>ping 192.168.1.50</code> ➔ Adakah IP boleh dicapai?</div>
+                    <div>2. <code>ss -tulpn | grep 8080</code> ➔ Adakah Python/App betul listening di port 8080?</div>
+                    <div>3. <code>curl localhost:8080</code> (dari Pi) ➔ Adakah app berjalan secara tempatan?</div>
+                    <div>4. <code>sudo ufw status</code> ➔ Adakah Firewall menyekat port 8080?</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 49: REAL SCENARIO 2 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-49">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">REAL SCENARIO 2</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ping Berjaya Tetapi Web Gagal</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-slate-200">
+                        <span class="text-emerald-400 font-bold">ping 192.168.1.50 ➔ OK! (Layer 3 Sihat)</span><br>
+                        <span class="text-rose-400 font-bold">curl http://192.168.1.50:8080 ➔ Connection Refused!</span>
+                    </div>
+
+                    <p class="text-xs text-slate-300">
+                        Sebab utama:
+                    </p>
+                    <ul class="text-xs text-slate-400 space-y-1 list-disc list-inside">
+                        <li>Aplikasi down / crashed.</li>
+                        <li>Aplikasi tersalah bind IP (cth: bind ke <code>127.0.0.1</code> bukannya <code>0.0.0.0</code>).</li>
+                        <li>Firewall menyekat port 8080.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center text-xs text-amber-300">
+                    💡 <strong>Prinsip Kunci:</strong> <em>Network reachability (ping) TIDAK SAMA dengan Application availability!</em>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 50: REAL SCENARIO 3 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-50">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">REAL SCENARIO 3</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">IP Berubah Selepas Reboot</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full space-y-3">
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-slate-200">
+                        Sebelum Reboot: <span class="text-blue-400">192.168.1.50</span><br>
+                        Selepas Reboot: <span class="text-rose-400">192.168.1.87</span> (Sebab lease DHCP tamat)
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 bg-slate-950 rounded-xl border border-emerald-500/40">
+                            <strong class="text-emerald-400 font-bold block mb-1">Solusi 1: DHCP Reservation</strong>
+                            <span class="text-slate-400">Tetapkan pada Router (Disyorkan).</span>
+                        </div>
+                        <div class="p-3 bg-slate-950 rounded-xl border border-blue-500/40">
+                            <strong class="text-blue-400 font-bold block mb-1">Solusi 2: Static IP</strong>
+                            <span class="text-slate-400">Tetapkan terus pada OS Raspberry Pi.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 51: REAL SCENARIO 4 -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-51">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">REAL SCENARIO 4</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">DNS Resolve Berjaya Tetapi Website Gagal</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-rose-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-slate-200">
+                        <span class="text-emerald-400">dig app.example.com ➔ 203.0.113.10 (DNS OK!)</span><br>
+                        <span class="text-rose-400">Website ➔ 502 Bad Gateway / Connection Timeout</span>
+                    </div>
+
+                    <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300">
+                        💡 <strong>Pengajaran:</strong> Kejayaan DNS resolution hanya membuktikan buku telefon (DNS) berfungsi. Ia tidak menjamin server atau tunnel di belakangnya aktif!
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 52: HOME SERVER NETWORK DESIGN -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-52">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-srv font-semibold uppercase tracking-widest">ARCHITECTURE DESIGN</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Network Design untuk Home Server</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 space-y-3">
+                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs font-mono text-center">
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-purple-500/40 text-purple-300">Internet</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-amber-500/40 text-amber-300">Router / Firewall</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-blue-500/40 text-blue-300">Server Subnet</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-emerald-500/40 text-emerald-300">Raspberry Pi</div>
+                        <span>➔</span>
+                        <div class="p-2.5 bg-slate-950 rounded-lg border border-cyan-500/40 text-cyan-300">Docker Apps</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 53: DOCKER NETWORKING -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-53">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-doc font-semibold uppercase tracking-widest">CONTAINER NETWORKING</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Networking untuk Docker</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 max-w-3xl mx-auto w-full space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <span class="text-blue-400 font-bold block mb-1">HOST IP</span>
+                            <span class="text-white">192.168.1.50</span>
+                        </div>
+                        <div class="bg-slate-950 p-4 rounded-xl border border-cyan-500/40">
+                            <span class="text-cyan-400 font-bold block mb-1">CONTAINER IP</span>
+                            <span class="text-white">172.17.0.2</span>
+                        </div>
+                        <div class="bg-slate-950 p-4 rounded-xl border border-emerald-500/40">
+                            <span class="text-emerald-400 font-bold block mb-1">PORT PUBLISH (-p)</span>
+                            <span class="text-white">8080:80</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center text-xs text-slate-300">
+                        Docker membina Virtual Bridge Network sendiri. Menyiarkan port <code>-p 8080:80</code> memetakan Port Host 8080 ke Port Container 80.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 54: CLOUDFLARE TUNNEL ARCHITECTURE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-54">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-cf font-semibold uppercase tracking-widest">ZERO TRUST ARCHITECTURE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Networking untuk Cloudflare Tunnel</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-orange-500/30 text-center space-y-4 glow-cf">
+                    <div class="flex flex-col md:flex-row items-center justify-around gap-2 text-xs font-mono">
+                        <div>
+                            <span class="text-slate-400 block">User</span>
+                            <span class="text-purple-400 font-bold">app.example.com</span>
+                        </div>
+
+                        <span>➔</span>
+
+                        <div class="p-3 bg-orange-600/20 border border-orange-500 rounded-xl">
+                            <span class="text-orange-300 font-bold block">Cloudflare Edge</span>
+                        </div>
+
+                        <span>➔ Outbound ➔</span>
+
+                        <div>
+                            <span class="text-slate-400 block">cloudflared agent</span>
+                            <span class="text-emerald-400 font-bold">Raspberry Pi</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300">
+                        🔒 <strong>Faedah Utama:</strong> Tiada inbound port pada router rumah yang perlu dibuka!
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 55: COMMON MISTAKES -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-55">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-rose-400 font-semibold uppercase tracking-widest">PITFALLS</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">8 Kesilapan Biasa Networking</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Keliru antara IP dan Port</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Keliru Private IP dengan Public IP</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap Ping berjaya = Web mesti OK</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap DNS itu Internet</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap Firewall hanya sekat port</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap VLAN sama dengan Subnet</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap UDP sentiasa lebih laju</div>
+                <div class="p-3 glass-card rounded-xl border border-rose-500/30 text-rose-300">❌ Anggap Public IP router automatik buka device</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 56: DESIGN PRINCIPLES -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-56">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">BEST PRACTICES</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Prinsip Rekabentuk Rangkaian</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono text-center">
+                    <div class="p-4 glass-card rounded-xl border border-blue-500/30">1. Simplicity</div>
+                    <div class="p-4 glass-card rounded-xl border border-blue-500/30">2. Least Exposure</div>
+                    <div class="p-4 glass-card rounded-xl border border-blue-500/30">3. Segmentation</div>
+                    <div class="p-4 glass-card rounded-xl border border-blue-500/30">4. Observability</div>
+                </div>
+
+                <div class="p-4 bg-blue-600/20 border border-blue-500/40 rounded-xl text-center text-sm font-medium text-blue-200">
+                    "Network yang bagus bukannya network yang paling kompleks, tetapi network yang paling mudah difahami dan di-debug."
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 57: FINAL MASTER NETWORK MAP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-57">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-cyan-400 font-semibold uppercase tracking-widest">MASTER ARCHITECTURE</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Final Master Network Map</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 flex flex-col items-center justify-center">
+                <div class="w-full max-w-2xl bg-slate-950 p-5 rounded-2xl border border-cyan-500/40 font-mono text-xs text-center space-y-2 shadow-2xl">
+                    <div class="p-2 bg-purple-900/40 rounded border border-purple-500/40 text-purple-300 font-bold">PUBLIC INTERNET</div>
+                    <div>↓</div>
+                    <div class="p-2 bg-amber-900/40 rounded border border-amber-500/40 text-amber-300 font-bold">ROUTER / NAT / FIREWALL</div>
+                    <div>↓</div>
+                    <div class="grid grid-cols-3 gap-2 text-[10px]">
+                        <div class="p-2 bg-blue-900/30 rounded border border-blue-500/30 text-blue-300">CLIENT VLAN</div>
+                        <div class="p-2 bg-emerald-900/30 rounded border border-emerald-500/30 text-emerald-300">SERVER VLAN</div>
+                        <div class="p-2 bg-rose-900/30 rounded border border-rose-500/30 text-rose-300">IoT VLAN</div>
+                    </div>
+                    <div>↓</div>
+                    <div class="p-2 bg-emerald-900/40 rounded border border-emerald-500/40 text-emerald-300 font-bold">RASPBERRY PI (192.168.1.50)</div>
+                    <div>↓</div>
+                    <div class="p-2 bg-cyan-900/40 rounded border border-cyan-500/40 text-cyan-300 font-bold">DOCKER CONTAINER NETWORK</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 58: NETWORKING CHEAT SHEET SUMMARY -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-58">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-emerald-400 font-semibold uppercase tracking-widest">CONCEPT SUMMARY</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Ringkasan Konsep Utama</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-blue-400 block">IP:</strong> Siapa?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-cyan-400 block">Port:</strong> Service mana?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-purple-400 block">DNS:</strong> Nama ke IP mana?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-amber-400 block">MAC:</strong> Interface mana di LAN?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-blue-400 block">Gateway:</strong> Pintu ke network lain?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-emerald-400 block">Routing:</strong> Jalan mana?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-blue-400 block">NAT:</strong> Terjemah IP awam?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-rose-400 block">Firewall:</strong> Traffic mana dibenar?</div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800"><strong class="text-purple-400 block">VLAN:</strong> Segmen berasingan?</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 59: INTERACTIVE QUIZ -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-59">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-yellow-400 font-semibold uppercase tracking-widest">UJI KEFAHAMAN</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Interactive Networking Quiz</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-4">
+                <!-- Q1 -->
+                <div class="glass-card p-4 rounded-xl space-y-2">
+                    <p class="text-xs md:text-sm font-bold text-white">1. Dalam 192.168.1.50:8080, apakah peranan 8080?</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="checkQuiz(this, false, 'Salah. IP ialah 192.168.1.50.')" class="p-2 bg-slate-950 border border-slate-800 rounded text-left">A. IP Address</button>
+                        <button onclick="checkQuiz(this, true, 'BETUL! 8080 ialah Port Number perkhidmatan.')" class="p-2 bg-slate-950 border border-slate-800 rounded text-left">B. Port Number</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-2 rounded text-xs"></div>
+                </div>
+
+                <!-- Q2 -->
+                <div class="glass-card p-4 rounded-xl space-y-2">
+                    <p class="text-xs md:text-sm font-bold text-white">2. Dalam 192.168.1.0/24, apakah maksud /24?</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="checkQuiz(this, false, 'Salah.')" class="p-2 bg-slate-950 border border-slate-800 rounded text-left">A. Port Number</button>
+                        <button onclick="checkQuiz(this, true, 'BETUL! /24 ialah CIDR Prefix Length (24 bits network).')" class="p-2 bg-slate-950 border border-slate-800 rounded text-left">B. Prefix Length (CIDR)</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-2 rounded text-xs"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 60: FINAL CHALLENGE -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-60">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-yellow-400 font-semibold uppercase tracking-widest">CABARAN AKHIR</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Troubleshooting Challenge</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2 space-y-4">
+                <div class="glass-card p-4 rounded-xl space-y-3">
+                    <p class="text-xs md:text-sm font-bold text-white">
+                        Senario: Raspberry Pi (192.168.1.50) menjalankan app port 8080. User x boleh access. Langkah mana paling professional?
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <button onclick="checkQuiz(this, false, 'Jangan terus restart/reinstall tanpa tahu lapisan mana yang rosak!')" class="p-2.5 bg-slate-950 border border-slate-800 rounded text-left">A. Reinstall OS Raspberry Pi terus</button>
+                        <button onclick="checkQuiz(this, true, 'BETUL! Semak berperingkat: IP ➔ Reachability ➔ Port ➔ Firewall ➔ App.')" class="p-2.5 bg-slate-950 border border-slate-800 rounded text-left">C. Check: IP ➔ Gateway ➔ Ping ➔ Port ➔ Firewall ➔ App</button>
+                    </div>
+                    <div class="quiz-feedback hidden p-2 rounded text-xs"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 61: SUMMARY -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-61">
+            <div class="mb-2">
+                <span class="text-xs font-mono text-blue-400 font-semibold uppercase tracking-widest">REKAPITULASI</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Apa Yang Kita Dah Belajar?</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2 my-2">
+                <div class="flex flex-wrap gap-2 text-xs font-mono justify-center">
+                    <span class="px-2.5 py-1 bg-blue-900/40 border border-blue-500 rounded">IP Address</span> ➔
+                    <span class="px-2.5 py-1 bg-blue-900/40 border border-blue-500 rounded">Subnet & CIDR</span> ➔
+                    <span class="px-2.5 py-1 bg-blue-900/40 border border-blue-500 rounded">Gateway</span> ➔
+                    <span class="px-2.5 py-1 bg-amber-900/40 border border-amber-500 rounded">ARP</span> ➔
+                    <span class="px-2.5 py-1 bg-purple-900/40 border border-purple-500 rounded">DNS</span> ➔
+                    <span class="px-2.5 py-1 bg-emerald-900/40 border border-emerald-500 rounded">TCP/UDP</span> ➔
+                    <span class="px-2.5 py-1 bg-cyan-900/40 border border-cyan-500 rounded">Ports</span> ➔
+                    <span class="px-2.5 py-1 bg-rose-900/40 border border-rose-500 rounded">Firewall</span> ➔
+                    <span class="px-2.5 py-1 bg-emerald-900/40 border border-emerald-500 rounded">Troubleshooting</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 62: SELF-HOSTING CONNECTION -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-62">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-srv font-semibold uppercase tracking-widest">KAPASITI SELF-HOSTING</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Connection to Self-Hosting</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 text-center space-y-3">
+                    <p class="text-sm md:text-base text-slate-200">
+                        "Networking ialah <strong>tulang belakang utama</strong> bagi dunia Self-Hosting dan System Administration."
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 63: NEXT TOPIC PREVIEW -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-63">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-purple-400 font-semibold uppercase tracking-widest">TOPIK SETERUSNYA</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-white">Reverse Proxy & Web Architecture</h2>
+            </div>
+
+            <div class="flex-1 flex flex-col justify-center space-y-6">
+                <div class="glass-card p-6 rounded-2xl border border-purple-500/30 max-w-3xl mx-auto w-full space-y-3">
+                    <span class="text-xs font-mono text-purple-400 font-bold block">Preview Modul Akan Datang:</span>
+                    <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                        <li>Nginx & Caddy Setup</li>
+                        <li>Hostname Routing (Multiple Apps pada 1 Server)</li>
+                        <li>TLS Termination & SSL Automation</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 64: PENUTUP -->
+        <section class="slide w-full max-w-5xl h-full flex-col justify-between py-6" id="slide-64">
+            <div class="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                <span class="px-3.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    TAMAT MODUL
+                </span>
+
+                <h1 class="text-3xl md:text-5xl font-extrabold text-white">
+                    "Know The Network.<br>Then Debug The Server."
+                </h1>
+
+                <p class="text-sm md:text-lg text-slate-400 max-w-xl">
+                    "Kalau anda faham jalan laluan packet, jauh lebih mudah untuk mengenal pasti kenapa sesuatu connection gagal!"
+                </p>
+
+                <div class="p-6 glass-card rounded-2xl border border-emerald-500/30 glow-srv">
+                    <span class="text-xs font-mono text-emerald-400 font-bold">Terima Kasih — Selamat Debugging!</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="h-16 border-t border-slate-800/80 px-4 md:px-8 flex items-center justify-between bg-slate-950/90 backdrop-blur z-30 relative">
+        <!-- Progress Bar -->
+        <div class="absolute top-0 left-0 h-1 bg-slate-800 w-full">
+            <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 w-[1.56%] transition-all duration-300"></div>
+        </div>
+
+        <div class="text-xs text-slate-500 font-mono hidden sm:block">
+            Guna Keypad <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300">→</kbd> untuk tukar slide
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end">
+            <button onclick="prevSlide()" id="btn-prev" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs md:text-sm font-semibold flex items-center space-x-2 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span>Sebelumnya</span>
+            </button>
+
+            <button onclick="nextSlide()" id="btn-next" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs md:text-sm font-semibold flex items-center space-x-2 transition shadow-lg shadow-blue-500/20">
+                <span>Seterusnya</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    </footer>
+
+    <div id="overview-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex-col p-6 overflow-hidden">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white">Senarai Semua Slide (64 Slide)</h3>
+            <button onclick="toggleOverviewModal()" class="p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5" id="overview-grid">
+            <!-- Populated dynamically via JS -->
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_SLIDES = 64;
+        let currentSlide = 1;
+
+        const slideTitles = [
+            "Tajuk Utama", "Kenapa Networking Penting?", "Mental Model", "Apa itu IP Address?", "Anatomi IPv4",
+            "Private IP Ranges", "Public IP Address", "Private vs Public", "Subnetting Demo", "CIDR Notation",
+            "Subnet Mask", "Komponen Subnet", "Default Gateway", "Konsep Routing", "Routing Table",
+            "Longest Prefix Match", "DHCP (DORA)", "DHCP Home Network", "MAC Address", "ARP Protocol",
+            "ARP Cache", "DNS Overview", "Jenis Rekod DNS", "DNS Resolution", "TCP Protocol",
+            "TCP 3-Way Handshake", "UDP Protocol", "TCP vs UDP", "Port Number", "Port Standard",
+            "Apa itu Socket?", "NAT (Translation)", "Jadual Pemetaan NAT", "Port Forwarding", "Firewall Filtering",
+            "Stateful Firewall", "VLAN (Virtual LAN)", "Network Segmentation", "VLAN vs Subnet", "Inter-VLAN Routing",
+            "Model Security", "Asas IPv6", "IPv4 vs IPv6", "Dual Stack", "Troubleshooting Model",
+            "Command Cheat Sheet", "Tukar Command ➔ Soalan", "Real Scenario 1", "Real Scenario 2", "Real Scenario 3",
+            "Real Scenario 4", "Home Server Design", "Docker Networking", "Cloudflare Tunnel", "8 Kesilapan Biasa",
+            "Prinsip Rekabentuk", "Final Master Map", "Ringkasan Konsep", "Interactive Quiz", "Troubleshooting Challenge",
+            "Rekapitulasi", "Self-Hosting Link", "Next Topic Preview", "Penutup"
+        ];
+
+        function showSlide(slideNumber) {
+            if (slideNumber < 1) slideNumber = 1;
+            if (slideNumber > TOTAL_SLIDES) slideNumber = TOTAL_SLIDES;
+
+            const currentElem = document.querySelector('.slide.active');
+            if (currentElem) currentElem.classList.remove('active');
+
+            currentSlide = slideNumber;
+            const targetElem = document.getElementById(`slide-${currentSlide}`);
+            if (targetElem) targetElem.classList.add('active');
+
+            document.getElementById('slide-indicator').innerText = `${currentSlide} / ${TOTAL_SLIDES}`;
+            document.getElementById('progress-bar').style.width = `${(currentSlide / TOTAL_SLIDES) * 100}%`;
+            document.getElementById('btn-prev').disabled = (currentSlide === 1);
+
+            if (currentSlide === TOTAL_SLIDES) {
+                document.getElementById('btn-next').innerText = "Tamat ↺";
+            } else {
+                document.getElementById('btn-next').innerHTML = `<span>Seterusnya</span> <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
+            }
+        }
+
+        function nextSlide() {
+            showSlide(currentSlide >= TOTAL_SLIDES ? 1 : currentSlide + 1);
+        }
+
+        function prevSlide() {
+            showSlide(currentSlide - 1);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+            else if (e.key === 'Home') showSlide(1);
+            else if (e.key === 'End') showSlide(TOTAL_SLIDES);
+            else if (e.key === 'Escape') {
+                const modal = document.getElementById('overview-modal');
+                if (!modal.classList.contains('hidden')) toggleOverviewModal();
+            }
+        });
+
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function populateOverviewGrid() {
+            const grid = document.getElementById('overview-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= TOTAL_SLIDES; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-2 rounded-lg border text-left transition ${i === currentSlide ? 'bg-blue-600/30 border-blue-500 text-blue-300' : 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-400'}`;
+                btn.onclick = () => {
+                    showSlide(i);
+                    toggleOverviewModal();
+                };
+                btn.innerHTML = `<div class="text-[9px] font-mono text-slate-500 font-bold">SLIDE ${i}</div><div class="text-[11px] font-semibold truncate mt-0.5">${slideTitles[i - 1]}</div>`;
+                grid.appendChild(btn);
+            }
+        }
+
+        // Subnet Interactive Helper
+        function checkSubnetMatch(ip) {
+            const res = document.getElementById('subnet-check-result');
+            res.classList.remove('hidden');
+            if (ip.startsWith('192.168.1.')) {
+                res.className = "text-xs font-mono text-center p-2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30";
+                res.innerHTML = `✓ ${ip} tergolong dalam Subnet 192.168.1.0/24 (Same Subnet)`;
+            } else {
+                res.className = "text-xs font-mono text-center p-2 rounded bg-rose-950 text-rose-300 border border-rose-500/30";
+                res.innerHTML = `✗ ${ip} berada di Subnet berbeza (Different Subnet - Memerlukan Router)`;
+            }
+        }
+
+        // TCP Handshake Anim Helper
+        function triggerHandshakeAnim() {
+            const syn = document.getElementById('step-syn');
+            const synack = document.getElementById('step-synack');
+            const ack = document.getElementById('step-ack');
+            const status = document.getElementById('handshake-status');
+
+            syn.className = "p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition";
+            synack.className = "p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition";
+            ack.className = "p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center opacity-40 transition";
+            status.innerText = "Status: Connecting...";
+            status.className = "text-amber-400 font-bold";
+
+            setTimeout(() => {
+                syn.className = "p-3 bg-blue-900/30 rounded-xl border border-blue-500 flex justify-between items-center opacity-100 transition";
+            }, 300);
+
+            setTimeout(() => {
+                synack.className = "p-3 bg-purple-900/30 rounded-xl border border-purple-500 flex justify-between items-center opacity-100 transition";
+            }, 900);
+
+            setTimeout(() => {
+                ack.className = "p-3 bg-emerald-900/30 rounded-xl border border-emerald-500 flex justify-between items-center opacity-100 transition";
+                status.innerText = "Status: ESTABLISHED";
+                status.className = "text-emerald-400 font-bold";
+            }, 1500);
+        }
+
+        // Copy Code Helper
+        function copyCode(btn, codeText) {
+            const temp = document.createElement('textarea');
+            temp.value = codeText;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            btn.innerText = "Copied!";
+            setTimeout(() => btn.innerText = "Copy", 1500);
+        }
+
+        // Quiz Helper
+        function checkQuiz(btn, isCorrect, exp) {
+            const card = btn.closest('.glass-card');
+            const fb = card.querySelector('.quiz-feedback');
+            card.querySelectorAll('button').forEach(b => b.classList.remove('border-emerald-500', 'border-rose-500', 'bg-emerald-950', 'bg-rose-950'));
+            
+            fb.classList.remove('hidden');
+            if (isCorrect) {
+                btn.classList.add('border-emerald-500', 'bg-emerald-950');
+                fb.className = "quiz-feedback mt-2 p-2 rounded text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                fb.innerHTML = `✅ ${exp}`;
+            } else {
+                btn.classList.add('border-rose-500', 'bg-rose-950');
+                fb.className = "quiz-feedback mt-2 p-2 rounded text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30";
+                fb.innerHTML = `❌ ${exp}`;
+            }
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+            else if (document.exitFullscreen) document.exitFullscreen();
+        }
+
+        // Touch Swipe Support
+        let touchStartX = 0, touchEndX = 0;
+        document.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchEndX < touchStartX - 50) nextSlide();
+            if (touchEndX > touchStartX + 50) prevSlide();
+        });
+
+        window.onload = () => {
+            showSlide(1);
+            populateOverviewGrid();
+        };
+    </script>
+</body>
+</html>

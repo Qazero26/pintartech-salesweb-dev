@@ -1,0 +1,2208 @@
+<!DOCTYPE html>
+<html lang="ms" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting & Debugging — Slide Deck</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0B0F17',
+                        cardbg: '#111827',
+                        cardborder: '#1F2937',
+                        accent: '#3B82F6',
+                        probRed: '#EF4444',
+                        investYellow: '#F59E0B',
+                        verifGreen: '#10B981',
+                        netBlue: '#0EA5E9',
+                        appPurple: '#8B5CF6',
+                        dbTeal: '#14B8A6'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0F17;
+            color: #F3F4F6;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .code-font {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        /* Slide Transitions */
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Custom Scrollbar */
+        .slide::-webkit-scrollbar {
+            width: 6px;
+        }
+        .slide::-webkit-scrollbar-track {
+            background: #0B0F17;
+        }
+        .slide::-webkit-scrollbar-thumb {
+            background: #1F2937;
+            border-radius: 4px;
+        }
+        .slide::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+
+        /* Glassmorphic cards */
+        .glass-card {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card-hover {
+            transition: all 0.2s ease-in-out;
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Progress Bar */
+        #progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
+
+        /* Command Box Style */
+        .terminal-box {
+            background-color: #030712;
+            border: 1px solid #1F2937;
+            border-left: 4px solid #3B82F6;
+        }
+
+        /* Decision Tree Connector */
+        .tree-node {
+            position: relative;
+        }
+
+        /* Pulse animations */
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-subtle {
+            animation: subtle-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
+
+    <header class="h-14 border-b border-gray-800/80 px-4 md:px-8 flex items-center justify-between bg-darkbg/90 z-20 backdrop-blur-md">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold">
+                <i class="fa-solid fa-terminal text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-semibold tracking-wide text-gray-200">Troubleshooting & Debugging</h1>
+                <p class="text-xs text-gray-500 hidden sm:block">Bila Server Tak Boleh Access — Cari Punca, Bukan Main Teka</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <!-- Slide Index Button -->
+            <button onclick="toggleOverviewModal()" class="px-3 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-gray-700 transition-colors flex items-center space-x-1.5">
+                <i class="fa-solid fa-grip"></i>
+                <span class="hidden md:inline">Senarai Slide</span>
+            </button>
+            
+            <!-- Slide Counter Display -->
+            <div class="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 text-xs font-mono text-blue-400 font-semibold flex items-center space-x-1">
+                <span id="current-slide-num">1</span>
+                <span class="text-gray-600">/</span>
+                <span id="total-slides-num">60</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Progress Indicator -->
+    <div class="w-full bg-gray-900 h-1 relative z-20">
+        <div id="progress-bar" class="bg-gradient-to-r from-blue-600 via-indigo-500 to-teal-400 h-1 w-0"></div>
+    </div>
+
+    <!-- MAIN SLIDE DECK CONTAINER -->
+    <main class="flex-1 relative overflow-hidden flex items-center justify-center p-4 md:p-8">
+
+
+        <!-- SLIDE 1: Title -->
+        <section class="slide active flex-col items-center justify-center text-center max-w-5xl mx-auto w-full py-6">
+            <div class="inline-flex items-center px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-mono mb-6 uppercase tracking-wider">
+                <i class="fa-solid fa-shield-halved mr-2"></i> Defensive Operations & Systems Diagnosis
+            </div>
+            
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white mb-4 leading-tight">
+                Troubleshooting & Debugging
+            </h1>
+            <p class="text-xl md:text-2xl text-blue-300 font-medium mb-8">
+                Bila Server Tak Boleh Access — Cari Punca, Bukan Main Teka
+            </p>
+
+            <div class="p-6 md:p-8 rounded-2xl bg-red-950/20 border border-red-500/30 max-w-2xl w-full mb-10 shadow-2xl">
+                <span class="text-xs uppercase font-mono tracking-widest text-red-400 font-bold block mb-2">Prinsip Utama System Administrator</span>
+                <p class="text-3xl md:text-5xl font-black text-red-400 tracking-tight">
+                    "Jangan teka.<br><span class="text-white">Cari bukti."</span>
+                </p>
+            </div>
+
+            <!-- Diagnostic Pipeline Visual -->
+            <div class="w-full max-w-4xl glass-card rounded-xl p-4 md:p-6 border border-gray-800">
+                <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 text-xs md:text-sm font-semibold">
+                    <div class="flex-1 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-center">
+                        <i class="fa-solid fa-triangle-exclamation block text-lg mb-1"></i>
+                        ❌ Website Down
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+                    <div class="flex-1 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-center">
+                        <i class="fa-solid fa-magnifying-glass block text-lg mb-1"></i>
+                        🔍 Investigate
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+                    <div class="flex-1 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 text-center">
+                        <i class="fa-solid fa-brain block text-lg mb-1"></i>
+                        🧠 Root Cause
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+                    <div class="flex-1 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-center">
+                        <i class="fa-solid fa-wrench block text-lg mb-1"></i>
+                        🛠️ Fix
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600 hidden md:block"></i>
+                    <div class="flex-1 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center">
+                        <i class="fa-solid fa-circle-check block text-lg mb-1"></i>
+                        ✅ Verify
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: Kenapa Troubleshooting Penting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">01 // Kesedaran Realiti Operations</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Kenapa Troubleshooting Penting?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="glass-card p-6 rounded-xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <div class="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mb-4 text-lg">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-100 mb-2">Server Sempurna Tidak Wujud</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">
+                            Dalam dunia realiti, apa-apa sistem yang berjalan akan mengalami gangguan. Sama ada Raspberry Pi di rumah atau server Cloud bertaraf enterprise, failure adalah pasti.
+                        </p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500 font-mono">
+                        Rule #1: Failure is not IF, but WHEN.
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">10 Punto Kegagalan Biasa:</h3>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-blue-400"><i class="fa-solid fa-network-wired mr-1"></i> Network</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-yellow-400"><i class="fa-solid fa-globe mr-1"></i> DNS</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-red-400"><i class="fa-solid fa-fire-burner mr-1"></i> Firewall</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-purple-400"><i class="fa-solid fa-code mr-1"></i> Application</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-indigo-400"><i class="fa-brands fa-docker mr-1"></i> Docker</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-teal-400"><i class="fa-solid fa-tunnel mr-1"></i> Tunnel</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-emerald-400"><i class="fa-solid fa-database mr-1"></i> Database</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-orange-400"><i class="fa-solid fa-hard-drive mr-1"></i> Disk Full</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-pink-400"><i class="fa-solid fa-wifi mr-1"></i> Internet ISP</span>
+                        <span class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300"><i class="fa-solid fa-gear mr-1"></i> Config Typo</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 rounded-xl bg-blue-950/30 border border-blue-500/30 text-center">
+                <p class="text-xl md:text-2xl font-bold text-blue-200">
+                    "Skill server bukan hanya membina. Skill server juga ialah membaiki."
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: Symptom vs Root Cause -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">02 // Konsep Asas Diagnosis</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Symptom vs Root Cause</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="glass-card p-6 rounded-xl border border-red-500/30 bg-red-950/10">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <span class="px-2.5 py-1 rounded text-xs font-bold bg-red-500/20 text-red-400 uppercase">Symptom (Gejala)</span>
+                        <span class="text-gray-400 text-xs">Apa yang user nampak</span>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gray-900 border border-gray-800 text-red-300 font-mono text-sm mb-4">
+                        <i class="fa-solid fa-circle-exclamation mr-2"></i> "Website tak boleh dibuka!" / 502 Bad Gateway
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        Symptom hanyalah isyarat luar. Merawat symptom tanpa mencari punca tidak akan menyelesaikan masalah.
+                    </p>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-emerald-500/30 bg-emerald-950/10">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <span class="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 uppercase">Root Cause (Punca Sebenar)</span>
+                        <span class="text-gray-400 text-xs">Apa yang berlaku di belakang</span>
+                    </div>
+                    <div class="space-y-1.5 text-xs font-mono">
+                        <div class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300 flex items-center justify-between">
+                            <span>• DNS Record salah IP</span>
+                            <span class="text-yellow-400">DNS Layer</span>
+                        </div>
+                        <div class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300 flex items-center justify-between">
+                            <span>• cloudflared process mati</span>
+                            <span class="text-teal-400">Tunnel Layer</span>
+                        </div>
+                        <div class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300 flex items-center justify-between">
+                            <span>• Docker container exited (OOM)</span>
+                            <span class="text-indigo-400">Container Layer</span>
+                        </div>
+                        <div class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300 flex items-center justify-between">
+                            <span>• Port 8080 terikat di 127.0.0.1 sahaja</span>
+                            <span class="text-purple-400">Network Binding</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl border border-gray-800 flex items-center justify-around text-center text-xs font-mono text-gray-300">
+                <div class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg">SYMPTOM (Gejala)</div>
+                <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                <div class="px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg">POSSIBLE CAUSES (Siasatan)</div>
+                <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                <div class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg">ROOT CAUSE (Punca Bukti)</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: Mental Model Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">03 // Framework Kerja</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Mental Model Troubleshooting</h2>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass-card p-4 rounded-xl border border-blue-500/30">
+                    <div class="text-blue-400 font-bold text-sm mb-1">1. OBSERVE</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Apa sebenarnya berlaku?</div>
+                    <p class="text-xs text-gray-300">Kumpul mesej error, HTTP status code, dan symptom terkini.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-indigo-500/30">
+                    <div class="text-indigo-400 font-bold text-sm mb-1">2. TEST</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Apa bukti yang dikumpul?</div>
+                    <p class="text-xs text-gray-300">Jalankan command spesifik (ping, curl, ss, status, logs).</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30">
+                    <div class="text-purple-400 font-bold text-sm mb-1">3. ISOLATE</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Layer mana bermasalah?</div>
+                    <p class="text-xs text-gray-300">Pasti kan sama ada masalah Local, Network, Tunnel, atau App.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-yellow-500/30">
+                    <div class="text-yellow-400 font-bold text-sm mb-1">4. FIX</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Betulkan punca secara terkawal</div>
+                    <p class="text-xs text-gray-300">Lakukan perubahan berfokus pada root cause yang ditemui.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-emerald-500/30">
+                    <div class="text-emerald-400 font-bold text-sm mb-1">5. VERIFY</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Pastikan pulih sepenuhnya</div>
+                    <p class="text-xs text-gray-300">Uji semula request dan pastikan tiada kesan sampingan.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-teal-500/30">
+                    <div class="text-teal-400 font-bold text-sm mb-1">6. DOCUMENT</div>
+                    <div class="text-xs font-mono text-gray-400 mb-2">Catat penyelesaian</div>
+                    <p class="text-xs text-gray-300">Tulis nota kejadian (Post-Mortem) supaya tidak berulang.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: Golden Rule -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-yellow-400 uppercase tracking-widest block mb-1">04 // Peraturan Emas</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Golden Rule Troubleshooting</h2>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-gradient-to-r from-yellow-950/40 via-amber-950/20 to-transparent border border-yellow-500/40 text-center mb-8">
+                <p class="text-3xl md:text-5xl font-extrabold text-yellow-400 tracking-tight">
+                    "Ubah SATU perkara pada satu masa."
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-red-500/30 bg-red-950/10">
+                    <h3 class="text-red-400 font-bold text-sm mb-3 flex items-center"><i class="fa-solid fa-xmark mr-2 text-lg"></i> Pendekatan Panik (CARA BURUK)</h3>
+                    <div class="space-y-2 text-xs font-mono text-red-300">
+                        <div class="p-2 rounded bg-gray-900/80 border border-red-900/50">❌ Tukar DNS + Restart router + Reinstall Docker + Tukar firewall secara serentak</div>
+                    </div>
+                    <p class="text-gray-400 text-xs mt-4">
+                        <strong>Kesan buruk:</strong> Anda tidak akan tahu perubahan mana yang menyelesaikan masalah atau menambah kerosakan baru!
+                    </p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-emerald-500/30 bg-emerald-950/10">
+                    <h3 class="text-emerald-400 font-bold text-sm mb-3 flex items-center"><i class="fa-solid fa-check mr-2 text-lg"></i> Pendekatan Berstruktur (CARA BAIK)</h3>
+                    <div class="space-y-1.5 text-xs font-mono text-emerald-300">
+                        <div class="p-2 rounded bg-gray-900/80 border border-emerald-900/50">1. Check DNS resolution</div>
+                        <div class="p-2 rounded bg-gray-900/80 border border-emerald-900/50">2. Check Local Network Reachability</div>
+                        <div class="p-2 rounded bg-gray-900/80 border border-emerald-900/50">3. Check Port & Service Binding</div>
+                        <div class="p-2 rounded bg-gray-900/80 border border-emerald-900/50">4. Check Container / Application Logs</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center text-sm text-gray-400 font-mono">
+                "Kalau ubah semuanya serentak, kita tak tahu apa yang sebenarnya menyelesaikan masalah."
+            </div>
+        </section>
+
+        <!-- SLIDE 6: Troubleshooting Layers -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">05 // Arsitektur Diagnosis</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Troubleshooting Layers (Stack 1-8)</h2>
+            </div>
+
+            <div class="space-y-2 max-w-3xl mx-auto w-full text-xs font-mono">
+                <div class="p-2.5 rounded-lg bg-red-950/40 border border-red-500/40 flex items-center justify-between text-red-300">
+                    <span><strong class="text-red-400">LAYER 8: DATABASE</strong> — MySQL / PostgreSQL / Redis Connection & Queries</span>
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-purple-950/40 border border-purple-500/40 flex items-center justify-between text-purple-300">
+                    <span><strong class="text-purple-400">LAYER 7: APPLICATION</strong> — Python Flask/FastAPI, Node.js Code Execution</span>
+                    <i class="fa-solid fa-code"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/40 flex items-center justify-between text-indigo-300">
+                    <span><strong class="text-indigo-400">LAYER 6: CONTAINER</strong> — Docker Daemon, Container State & Port Mapping</span>
+                    <i class="fa-brands fa-docker"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-teal-950/40 border border-teal-500/40 flex items-center justify-between text-teal-300">
+                    <span><strong class="text-teal-400">LAYER 5: SERVICE / TUNNEL</strong> — systemd, Nginx, cloudflared daemon status</span>
+                    <i class="fa-solid fa-gears"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-yellow-950/40 border border-yellow-500/40 flex items-center justify-between text-yellow-300">
+                    <span><strong class="text-yellow-400">LAYER 4: PORT & FIREWALL</strong> — ss, netstat, ufw, iptables, local listeners</span>
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-blue-950/40 border border-blue-500/40 flex items-center justify-between text-blue-300">
+                    <span><strong class="text-blue-400">LAYER 3: DNS & ROUTING</strong> — nslookup, dig, ip route, domain mapping</span>
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/40 flex items-center justify-between text-cyan-300">
+                    <span><strong class="text-cyan-400">LAYER 2: NETWORK</strong> — IP Address, Wi-Fi/Ethernet link, ping local gateway</span>
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <div class="p-2.5 rounded-lg bg-gray-900 border border-gray-700 flex items-center justify-between text-gray-300">
+                    <span><strong class="text-gray-400">LAYER 1: POWER / HARDWARE</strong> — Raspberry Pi Power LED, SD Card, Cable</span>
+                    <i class="fa-solid fa-plug"></i>
+                </div>
+            </div>
+            <p class="text-center text-xs text-gray-400 mt-3">💡 Selalu troubleshoot dari bawah (Layer 1) ke atas (Layer 8)!</p>
+        </section>
+
+        <!-- SLIDE 7: First Question -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">06 // Hardware & OS Baseline</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Soalan Pertama: "Server Hidup Ke Tidak?"</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-blue-400 font-bold">1. Uptime Check</span>
+                        <i class="fa-solid fa-clock text-blue-400"></i>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-2">
+                        uptime
+                    </div>
+                    <p class="text-xs text-gray-400">Memeriksa sama ada server baru shaja reboot atau terpadam secara tidak sengaja.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-purple-400 font-bold">2. Memory Check</span>
+                        <i class="fa-solid fa-memory text-purple-400"></i>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-2">
+                        free -h
+                    </div>
+                    <p class="text-xs text-gray-400">Memeriksa RAM yang tinggal dan sama ada Swap sedang digunakan secara berat.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-yellow-400 font-bold">3. Storage Check</span>
+                        <i class="fa-solid fa-hard-drive text-yellow-400"></i>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-2">
+                        df -h
+                    </div>
+                    <p class="text-xs text-gray-400">Memastikan mount disk utama (seperti <code>/</code>) tidak mencapai status 100% penuh.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-red-950/20 border border-red-500/30 text-center text-sm font-semibold text-red-300">
+                ⚠️ "Jangan troubleshoot application kalau server OS itu sendiri tidak dapat hidup atau tidak boleh di-SSH!"
+            </div>
+        </section>
+
+        <!-- SLIDE 8: Network Check -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">07 // Network Layer Diagnosis</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Network Check Command</h2>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="text-sm font-bold text-blue-400 code-font">ip addr</div>
+                        <p class="text-xs text-gray-400 mt-1">Menyenaraikan semua network interface (eth0, wlan0, docker0) serta status IP address.</p>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-gray-300 w-full md:w-80">
+                        inet 192.168.1.50/24 brd 192.168.1.255 scope global eth0
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="text-sm font-bold text-indigo-400 code-font">ip route</div>
+                        <p class="text-xs text-gray-400 mt-1">Memeriksa routing table dan memastikan default gateway (router IP) dikonfigurasi dengan betul.</p>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-gray-300 w-full md:w-80">
+                        default via 192.168.1.1 dev eth0 proto dhcp src 192.168.1.50
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="text-sm font-bold text-teal-400 code-font">hostname -I</div>
+                        <p class="text-xs text-gray-400 mt-1">Mendapatkan senarai ringkas IP address aktif tanpa output verbose.</p>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-gray-300 w-full md:w-80">
+                        192.168.1.50 172.17.0.1
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9: Ping -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">08 // Basic Reachability Test</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Ujian Ping (ICMP Probe)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass-card p-4 rounded-xl border border-gray-800 text-center">
+                    <span class="text-xs font-mono text-gray-400 uppercase">Test 1: Local Gateway</span>
+                    <div class="terminal-box p-3 rounded my-2 text-xs code-font text-green-400">
+                        ping 192.168.1.1
+                    </div>
+                    <p class="text-xs text-gray-400">Menguji sambungan kabel/Wi-Fi dari server ke Router tempatan.</p>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 text-center">
+                    <span class="text-xs font-mono text-gray-400 uppercase">Test 2: Target Local Server</span>
+                    <div class="terminal-box p-3 rounded my-2 text-xs code-font text-green-400">
+                        ping 192.168.1.50
+                    </div>
+                    <p class="text-xs text-gray-400">Menguji jawapan daripada IP Raspberry Pi / Home Server anda.</p>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 text-center">
+                    <span class="text-xs font-mono text-gray-400 uppercase">Test 3: Internal Hostname</span>
+                    <div class="terminal-box p-3 rounded my-2 text-xs code-font text-green-400">
+                        ping raspi.local
+                    </div>
+                    <p class="text-xs text-gray-400">Menguji mDNS / Local resolution dalam LAN tempatan.</p>
+                </div>
+            </div>
+
+            <div class="p-5 rounded-xl bg-yellow-950/20 border border-yellow-500/30">
+                <h3 class="text-sm font-bold text-yellow-400 flex items-center mb-2">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i> PENTING: Ping Failure Tidak Semestinya Sever Down!
+                </h3>
+                <p class="text-xs text-gray-300 leading-relaxed">
+                    Sesetengah Firewall atau Cloud Provider menyekat paket <strong>ICMP (Ping)</strong> atas sebab keselamatan. Server boleh jadi bertindak balas dengan sempurna pada port HTTP (80/443) walaupun ujian <code>ping</code> gagal atau <em>timed out</em>.
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 10: Internet Connectivity -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">09 // Outbound Reachability</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Memeriksa Sambungan Internet</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-blue-400 uppercase font-bold">Step 1: Test Direct IP Reachability</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        ping 1.1.1.1
+                    </div>
+                    <div class="space-y-2 text-xs text-gray-300">
+                        <p class="text-emerald-400">✅ Jika BERJAYA:</p>
+                        <p class="text-gray-400 pl-4">• Physical Network OK<br>• Gateway Routing OK<br>• Outbound Internet OK</p>
+                        <p class="text-red-400 font-bold mt-2">❌ Jika GAGAL:</p>
+                        <p class="text-gray-400 pl-4">• Masalah kabel/router ISP<br>• Default gateway route hilang</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-purple-400 uppercase font-bold">Step 2: Test Domain Resolution</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        ping cloudflare.com
+                    </div>
+                    <div class="space-y-2 text-xs text-gray-300">
+                        <p class="text-emerald-400">✅ Jika 1.1.1.1 OK tetapi domain GAGAL:</p>
+                        <p class="text-yellow-400 pl-4">• Sah! Ini adalah masalah <strong>DNS Resolver</strong> di server/router anda (cth: /etc/resolv.conf salah).</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SLIDE 11: DNS Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">10 // DNS Layer Probe</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">DNS Troubleshooting Tools</h2>
+            </div>
+
+            <p class="text-sm text-gray-300 mb-6">
+                Soalan utama yang perlu dijawab: <span class="text-blue-400 font-semibold font-mono">"Adakah domain resolve ke destinasi IP / hostname yang betul?"</span>
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold text-blue-400 code-font">nslookup</span>
+                        <button onclick="copyToClipboard('nslookup app.domainbos.com')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-3">
+                        nslookup app.domainbos.com
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Perkakasan diagnostik asas yang disokong secara lalai pada Windows, Linux, dan macOS untuk menyemak balasan A record atau CNAME.
+                    </p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold text-indigo-400 code-font">dig</span>
+                        <button onclick="copyToClipboard('dig app.domainbos.com +short')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-3">
+                        dig app.domainbos.com +short
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Alat Linux berkuasa tinggi yang memberikan maklumat terperinci seperti TTL (Time To Live), CNAME target, dan authoritative nameservers.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 12: DNS Flow -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">11 // Visual DNS Path</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Aliran Resolusi DNS</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs font-mono">
+                    <div class="p-3 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 text-center w-full">
+                        <i class="fa-solid fa-laptop block text-lg mb-1"></i> Browser Client
+                    </div>
+                    <i class="fa-solid fa-arrow-down md:fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-purple-950/40 border border-purple-500/30 text-purple-300 text-center w-full">
+                        <i class="fa-solid fa-magnifying-glass-location block text-lg mb-1"></i> DNS Resolver (1.1.1.1)
+                    </div>
+                    <i class="fa-solid fa-arrow-down md:fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-teal-950/40 border border-teal-500/30 text-teal-300 text-center w-full">
+                        <i class="fa-solid fa-server block text-lg mb-1"></i> Cloudflare DNS Record
+                    </div>
+                    <i class="fa-solid fa-arrow-down md:fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-center w-full">
+                        <i class="fa-solid fa-network-wired block text-lg mb-1"></i> Target IP / CNAME
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-5 rounded-xl bg-red-950/20 border border-red-500/30 text-center">
+                <h4 class="text-sm font-bold text-red-400 mb-1">❌ Apabila Rekod DNS Salah/Stale:</h4>
+                <p class="text-xs text-gray-300">
+                    Browser menghantar request ke IP lama atau IP acak. Server sebenar anda tidak pernah menerima sebarang trafik langsung!
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 13: Private IP vs Public Access -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">12 // Skop Capaian</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Private IP vs Public Access</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-6 rounded-xl border border-blue-500/30 bg-blue-950/10">
+                    <span class="px-2.5 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-400 uppercase font-mono">1. Local / Private LAN</span>
+                    <div class="text-lg font-bold text-white font-mono my-3">
+                        http://192.168.1.50:8080
+                    </div>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Hanya boleh diakses dari dalam rumah / Wi-Fi yang sama.</li>
+                        <li>Bypass seluruh infrastruktur Cloudflare, DNS awam & Tunnel.</li>
+                        <li><strong>Guna ini untuk mengesahkan app hidup!</strong></li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <span class="px-2.5 py-1 rounded text-xs font-bold bg-purple-500/20 text-purple-400 uppercase font-mono">2. Public Tunnel / Domain</span>
+                    <div class="text-lg font-bold text-white font-mono my-3">
+                        https://app.domainbos.com
+                    </div>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Boleh diakses dari seluruh dunia melalui internet.</li>
+                        <li>Melibatkan DNS, Cloudflare Edge, SSL Certificate, dan Tunnel Agent.</li>
+                        <li>Mempunyai banyak lapisan kebergantungan.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-yellow-950/30 border border-yellow-500/30 text-center font-mono text-xs text-yellow-300">
+                ⚠️ "Jangan troubleshoot public layer sebelum local service disahkan berjalan dengan betul."
+            </div>
+        </section>
+
+        <!-- SLIDE 14: Test Localhost Dahulu -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">13 // Peraturan Pengasingan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Uji Localhost Terlebih Dahulu</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-bold text-emerald-400 font-mono">Langkah Ujian Pertama Pada Server:</span>
+                    <button onclick="copyToClipboard('curl http://localhost:8080')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-4 rounded text-sm code-font text-green-400 mb-4">
+                    curl http://localhost:8080
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="p-3 rounded bg-red-950/20 border border-red-500/30 text-red-300">
+                        <strong class="block text-red-400 mb-1">Jika Ujian Ini Gagal (Connection Refused / Timeout):</strong>
+                        Punca pasti pada aplikasi local anda. Docker container crash, service terhenti, atau port terikat pada IP lain.
+                    </div>
+                    <div class="p-3 rounded bg-emerald-950/20 border border-emerald-500/30 text-emerald-300">
+                        <strong class="block text-emerald-400 mb-1">Jika Ujian Ini Berjaya (Return HTML / JSON):</strong>
+                        Aplikasi anda sihat! Masalah berada pada lapisan seterusnya (LAN IP binding, UFW firewall, atau Tunnel).
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15: Test Hierarchically -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">14 // Langkah Hirarki</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Ujian Mengikut Hirarki (Layer Elevation)</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="space-y-3 font-mono text-xs">
+                    <div class="flex items-center space-x-3 p-3 rounded bg-gray-900 border border-gray-800">
+                        <span class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">1</span>
+                        <span class="text-blue-400 font-bold">localhost</span>
+                        <span class="text-gray-400">→ curl http://127.0.0.1:8080</span>
+                    </div>
+                    <div class="text-center text-gray-600"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="flex items-center space-x-3 p-3 rounded bg-gray-900 border border-gray-800">
+                        <span class="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs">2</span>
+                        <span class="text-indigo-400 font-bold">LAN / Private IP</span>
+                        <span class="text-gray-400">→ curl http://192.168.1.50:8080</span>
+                    </div>
+                    <div class="text-center text-gray-600"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="flex items-center space-x-3 p-3 rounded bg-gray-900 border border-gray-800">
+                        <span class="w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-xs">3</span>
+                        <span class="text-teal-400 font-bold">Cloudflare Tunnel</span>
+                        <span class="text-gray-400">→ cloudflared status & connector logs</span>
+                    </div>
+                    <div class="text-center text-gray-600"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="flex items-center space-x-3 p-3 rounded bg-gray-900 border border-gray-800">
+                        <span class="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-xs">4</span>
+                        <span class="text-purple-400 font-bold">Domain & HTTPS</span>
+                        <span class="text-gray-400">→ https://app.domainbos.com</span>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 font-mono">
+                "Naik SATU layer pada satu masa. Jika localhost sudah gagal, jangan menyalahkan Cloudflare."
+            </p>
+        </section>
+
+        <!-- SLIDE 16: Port Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">15 // Port Diagnosis</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Port Troubleshooting (ss command)</h2>
+            </div>
+
+            <div class="glass-card p-5 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-blue-400 uppercase font-bold">Command Utama Port Listening:</span>
+                    <button onclick="copyToClipboard('sudo ss -tulpn')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-4">
+                    sudo ss -tulpn | grep 8080
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="p-4 rounded-lg bg-gray-900 border border-blue-500/30">
+                        <div class="text-blue-400 font-bold mb-1">0.0.0.0:8080</div>
+                        <p class="text-gray-300">Aplikasi mendengar (listen) pada <strong>SEMUA IPv4 Interfaces</strong>. Boleh diakses dari localhost & peranti lain dalam LAN.</p>
+                    </div>
+
+                    <div class="p-4 rounded-lg bg-gray-900 border border-yellow-500/30">
+                        <div class="text-yellow-400 font-bold mb-1">127.0.0.1:8080</div>
+                        <p class="text-gray-300">Aplikasi mendengar <strong>LOCALHOST SAHAJA</strong>. Peranti LAN lain akan mendapat <em>Connection Refused</em> jika cuba akses via IP 192.168.x.x.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17: Common Port Mistake -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">16 // Docker Port Mapping</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Kesilapan Port & Mapping Docker</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="text-xs font-mono text-indigo-400 mb-2 font-bold">Contoh Command Docker Run:</div>
+                <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-4">
+                    docker run -d -p 8080:5000 my-python-app
+                </div>
+
+                <!-- Visual Port Diagram -->
+                <div class="flex items-center justify-center space-x-2 md:space-x-6 text-xs font-mono my-4">
+                    <div class="p-3 rounded bg-blue-950/40 border border-blue-500/30 text-center">
+                        <span class="text-gray-400 block text-[10px]">HOST PORT</span>
+                        <span class="text-blue-400 font-bold text-lg">8080</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right-left text-gray-500"></i>
+                    <div class="p-3 rounded bg-purple-950/40 border border-purple-500/30 text-center">
+                        <span class="text-gray-400 block text-[10px]">CONTAINER PORT</span>
+                        <span class="text-purple-400 font-bold text-lg">5000</span>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded bg-red-950/20 border border-red-500/30 text-xs text-red-300">
+                    <strong>Kesilapan Biasa User:</strong> Cuba membuka <code>http://192.168.1.50:5000</code> dari browser luar. Yang sepatutnya dibuka ialah port <code>8080</code> (Host port)!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18: Firewall Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">17 // Sekatan Network</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Firewall Troubleshooting</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-blue-400 uppercase font-bold">Linux (UFW Firewall)</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        sudo ufw status verbose
+                    </div>
+                    <p class="text-xs text-gray-400 mb-3">Jika port tidak dibenarkan:</p>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-yellow-400">
+                        sudo ufw allow 8080/tcp
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-purple-400 uppercase font-bold">Windows Server / Host Firewall</span>
+                    <div class="p-3 rounded bg-gray-900 border border-gray-800 text-xs text-gray-300 space-y-2 mt-3">
+                        <p>• Semak Windows Defender Firewall Inbound Rules.</p>
+                        <p>• Pastikan Port 8080/443 tidak disekat oleh profil Public/Private network.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400">💡 Firewall hanyalah salah satu kemungkinan. Sekiranya localhost berfungsi tetapi LAN gagal, semak UFW!</p>
+        </section>
+
+        <!-- SLIDE 19: Service Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">18 // Linux Service Management</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Systemd Service Diagnosis</h2>
+            </div>
+
+            <div class="glass-card p-5 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-blue-400 font-bold uppercase">Semak Status Service (systemctl)</span>
+                    <button onclick="copyToClipboard('sudo systemctl status nginx')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-4">
+                    sudo systemctl status nginx
+                </div>
+
+                <div class="space-y-2 text-xs font-mono">
+                    <div class="p-2 rounded bg-emerald-950/30 border border-emerald-500/30 text-emerald-300">
+                        🟢 Active: active (running) — Service berjalan sempurna.
+                    </div>
+                    <div class="p-2 rounded bg-red-950/30 border border-red-500/30 text-red-300">
+                        🔴 Active: failed (result: exit-code) — Service crash atau ada error config.
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl border border-gray-800 flex justify-around text-center text-xs font-mono text-gray-400">
+                <span>systemctl status</span>
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>journalctl logs</span>
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>check config file</span>
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>restart service</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 20: Journalctl -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">19 // Log Systemd</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Menganalisis Log (journalctl)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-blue-400 uppercase font-bold">50 Line Log Terakhir</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        sudo journalctl -u nginx -n 50 --no-pager
+                    </div>
+                    <p class="text-xs text-gray-400">Melihat mesej ralat terkini secara terus tanpa membuka fail log besar.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-purple-400 uppercase font-bold">Follow Log Real-Time (-f)</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        sudo journalctl -u docker -f
+                    </div>
+                    <p class="text-xs text-gray-400">Memantau log semasa anda membuat pencetus request di browser.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-blue-950/30 border border-blue-500/30 text-center text-xs text-blue-200">
+                "Log memberitahu apa yang service cuba buat dan KENAPA ia gagal secara tepat."
+            </div>
+        </section>
+
+
+        <!-- SLIDE 21: Python Application -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">20 // Application Layer</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Troubleshooting Python Server</h2>
+            </div>
+
+            <div class="glass-card p-5 rounded-xl border border-gray-800 mb-6">
+                <h3 class="text-sm font-bold text-purple-400 mb-3 font-mono">Checklist Diagnostik Python Web Server:</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800">1. Adakah proses <code>python3</code> hidup?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800">2. Adakah port (8080/5000) listening?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800">3. Adakah host terikat pada <code>0.0.0.0</code>?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800">4. Adakah <code>requirements.txt</code> lengkap?</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl border border-gray-800">
+                <div class="text-xs font-mono text-gray-400 mb-2">Uji secara manual di terminal untuk melihat traceback:</div>
+                <div class="terminal-box p-3 rounded text-xs code-font text-green-400">
+                    python3 app.py
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 22: CURL -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">21 // Swiss Army Knife Tool</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">curl — Alat Diagnosis Yang Sangat Berguna</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-blue-400 uppercase font-bold">Check Response Output</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        curl http://localhost:8080
+                    </div>
+                    <p class="text-xs text-gray-400">Mendapatkan body tindak balas (HTML/JSON) langsung dari server.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-indigo-400 uppercase font-bold">Check HTTP Headers (-I)</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        curl -I http://localhost:8080
+                    </div>
+                    <p class="text-xs text-gray-400">Melihat Status Code, Content-Type, dan Server Header sahaja.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 text-center text-xs text-purple-200">
+                <code>curl</code> membantu membezakan sama ada masalah berpunca daripada <strong>Browser Cache/Cookies</strong> atau <strong>Server/Application</strong> sebenar.
+            </div>
+        </section>
+
+        <!-- SLIDE 23: HTTP Status Codes -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">22 // Diagnostic Clues</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">HTTP Status Codes Cheat Sheet</h2>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono mb-6">
+                <div class="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300">
+                    <div class="font-bold text-sm">200 OK</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Request berjaya. Server menjawab dengan baik.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-blue-950/40 border border-blue-500/40 text-blue-300">
+                    <div class="font-bold text-sm">301 / 302</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Redirect ke URL baru.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-yellow-950/40 border border-yellow-500/40 text-yellow-300">
+                    <div class="font-bold text-sm">400 Bad Request</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Syntax request client tidak difahami server.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-yellow-950/40 border border-yellow-500/40 text-yellow-300">
+                    <div class="font-bold text-sm">401 / 403</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Unauthorized / Forbidden (Gagal Auth / Permission).</div>
+                </div>
+                <div class="p-3 rounded-lg bg-orange-950/40 border border-orange-500/40 text-orange-300">
+                    <div class="font-bold text-sm">404 Not Found</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Server hidup, tetapi laluan (route/file) tak wujud.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-red-950/40 border border-red-500/40 text-red-300">
+                    <div class="font-bold text-sm">500 Internal Error</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Aplikasi crash atau ada bug dalam kod.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-red-950/40 border border-red-500/40 text-red-300">
+                    <div class="font-bold text-sm">502 Bad Gateway</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Proxy/Tunnel tak dapat hubungi upstream app.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-red-950/40 border border-red-500/40 text-red-300">
+                    <div class="font-bold text-sm">503 Unavailable</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Server terlalu sibuk atau sedang maintenance.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-red-950/40 border border-red-500/40 text-red-300">
+                    <div class="font-bold text-sm">504 Gateway Timeout</div>
+                    <div class="text-[11px] text-gray-400 mt-1">Upstream app mengambil masa terlalu lama.</div>
+                </div>
+            </div>
+
+            <p class="text-center text-xs font-mono text-gray-400">"HTTP status code ialah CLUE utama, bukannya penamat siasatan."</p>
+        </section>
+
+        <!-- SLIDE 24: 404 VS 500 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">23 // Perbandingan Ralat</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Perbezaan Kritik: 404 vs 500</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-6 rounded-xl border border-yellow-500/30 bg-yellow-950/10">
+                    <div class="text-yellow-400 font-bold text-xl mb-2 font-mono">404 NOT FOUND</div>
+                    <p class="text-xs text-gray-300 leading-relaxed mb-4">
+                        <strong>Maksud:</strong> Server web (Nginx/Flask) berfungsi dengan sempurna dan menerima HTTP request, tetapi fail atau path URL (cth: <code>/login.html</code>) tidak wujud.
+                    </p>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-xs font-mono text-gray-400">
+                        📍 Fokus: Semak URL path, routing file, atau static directory.
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-red-500/30 bg-red-950/10">
+                    <div class="text-red-400 font-bold text-xl mb-2 font-mono">500 INTERNAL ERROR</div>
+                    <p class="text-xs text-gray-300 leading-relaxed mb-4">
+                        <strong>Maksud:</strong> Request berjaya sampai ke aplikasi, tetapi kod aplikasi terhempas (crash/unhandled exception) semasa memproses data.
+                    </p>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-xs font-mono text-gray-400">
+                        📍 Fokus: Semak log traceback aplikasi (app log / stdout).
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 25: Docker Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">24 // Container Diagnosis</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Docker Troubleshooting Baseline</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-blue-400 font-bold uppercase">Container Running Sahaja</span>
+                        <button onclick="copyToClipboard('docker ps')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-2">
+                        docker ps
+                    </div>
+                    <p class="text-xs text-gray-400">Menunjukkan container yang SEDANG BERJALAN sahaja.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-indigo-400 font-bold uppercase">Semua Container (-a)</span>
+                        <button onclick="copyToClipboard('docker ps -a')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
+                    <div class="terminal-box p-3 rounded text-xs code-font text-green-400 mb-2">
+                        docker ps -a
+                    </div>
+                    <p class="text-xs text-gray-400">PENTING! Menunjukkan container yang terhenti (Exited) berserta Exit Code.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-gray-900 border border-gray-800 text-xs font-mono text-gray-300">
+                💡 Sekiranya container menunjukkan status <code>Exited (137)</code>, ini menandakan container dibunuh oleh Linux kerana kehabisan RAM (Out Of Memory)!
+            </div>
+        </section>
+
+        <!-- SLIDE 26: Docker Logs -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">25 // Container Output</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Docker Logs Inspection</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-blue-400 font-bold">Membaca Log Container:</span>
+                    <button onclick="copyToClipboard('docker logs --tail 100 <CONTAINER_NAME>')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-green-400 mb-4">
+                    docker logs --tail 100 &lt;CONTAINER_NAME&gt;
+                </div>
+
+                <div class="p-4 rounded bg-gray-900 border border-gray-800 space-y-2 text-xs font-mono text-gray-300">
+                    <div class="text-yellow-400 font-bold">Aliran Diagnostik Apabila Container Crash:</div>
+                    <div>1. <code>docker ps -a</code> → Cari nama/ID container yang Exited.</div>
+                    <div>2. <code>docker logs &lt;container&gt;</code> → Baca mesej ralat Python / Node / DB.</div>
+                    <div>3. Fix file config / kod → Rebuild / Restart container.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 27: Docker Exec -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">26 // Inside Container</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Docker Exec (Internal Inspection)</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-blue-400 font-bold">Masuk Ke Dalam Container Active:</span>
+                    <button onclick="copyToClipboard('docker exec -it <CONTAINER_NAME> sh')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-green-400 mb-4">
+                    docker exec -it &lt;CONTAINER_NAME&gt; sh
+                </div>
+                <p class="text-xs text-gray-400 leading-relaxed mb-4">
+                    Gunakan command ini untuk menyemak persekitaran dalaman container seperti lokasi fail, permission, atau ujian sambungan localhost di dalam container.
+                </p>
+
+                <div class="p-4 rounded bg-yellow-950/30 border border-yellow-500/30 text-xs text-yellow-300">
+                    ⚠️ <strong>AMARAN PENTING:</strong> Gunakan <code>docker exec</code> hanya untuk tujuan troubleshooting sahaja! Jangan mengubah suai kod atau fail di dalam container secara manual tanpa mengemas kini Dockerfile / Volume. Perubahan akan hilang apabila container di-restart!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 28: Container vs Host -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">27 // Pengasingan Isu</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Masalah Host vs Container</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 font-mono text-xs">
+                <div class="text-gray-400 mb-4">HIERARKI STRUKTUR:</div>
+                <div class="p-4 rounded bg-gray-900 border border-gray-800">
+                    🖥️ HOST SERVER (Ubuntu / Raspberry Pi OS)
+                    <div class="pl-6 pt-2 text-blue-400">
+                        └── 🐳 Docker Engine
+                        <div class="pl-6 pt-2 text-purple-400">
+                            └── 📦 Container (App Web)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-gray-900 border border-gray-800">
+                    <span class="font-bold text-blue-400 block mb-1">Masalah Peringkat Host:</span>
+                    <p class="text-gray-400">• Host storage 100% penuh.<br>• Host kehabisan RAM/CPU.<br>• UFW Firewall menyekat port host.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-gray-900 border border-gray-800">
+                    <span class="font-bold text-purple-400 block mb-1">Masalah Peringkat Container:</span>
+                    <p class="text-gray-400">• Kod aplikasi Python ada error.<br>• Environment variable <code>.env</code> hilang.<br>• Port binding terikat pada 127.0.0.1 dalam container.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 29: Docker Networking -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">28 // Rangkaian Container</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Aliran Docker Networking</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs font-mono">
+                    <div class="p-3 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 text-center w-full">
+                        🌐 Client Browser
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 text-center w-full">
+                        🖥️ Host Port (:8080)
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-purple-950/40 border border-purple-500/30 text-purple-300 text-center w-full">
+                        🐳 Docker Bridge
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-teal-950/40 border border-teal-500/30 text-teal-300 text-center w-full">
+                        📦 Container Port (:8080)
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-red-950/20 border border-red-500/30 text-xs text-red-300">
+                <strong>Point Ralat Terpenting:</strong> Jika aplikasi Python di dalam container di-bind ke <code>127.0.0.1</code> (bukan <code>0.0.0.0</code>), Docker Bridge tidak akan dapat meneruskan trafik dari Host Port ke Container!
+            </div>
+        </section>
+
+        <!-- SLIDE 30: Cloudflare Tunnel Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">29 // Reverse Proxy & Tunnel</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Cloudflare Tunnel Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="text-xs font-mono text-teal-400 font-bold mb-3">Aliran Sambungan Tunnel:</div>
+                <div class="flex flex-col md:flex-row items-center justify-between gap-2 text-xs font-mono mb-4">
+                    <span class="p-2 rounded bg-gray-900 border border-gray-800 text-gray-300">Browser</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="p-2 rounded bg-gray-900 border border-gray-800 text-blue-400">Cloudflare Edge</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="p-2 rounded bg-gray-900 border border-gray-800 text-teal-400">Tunnel Daemon</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="p-2 rounded bg-gray-900 border border-gray-800 text-green-400">Local Service</span>
+                </div>
+
+                <div class="p-4 rounded bg-gray-900 border border-gray-800 text-xs text-gray-300">
+                    <strong>Soalan Siasatan:</strong> "Layer mana yang terputus?"<br>
+                    • DNS tak resolve? → Masalah Cloudflare DNS.<br>
+                    • 502 Bad Gateway? → Tunnel tak dapat bercakap dengan Local Service.<br>
+                    • Tunnel Down? → Service <code>cloudflared</code> di server mati.
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SLIDE 31: Tunnel Status -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">30 // Zero Trust Dashboard</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Status Cloudflare Tunnel</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-emerald-500/30 bg-emerald-950/10 text-center">
+                    <div class="text-2xl mb-2">🟢</div>
+                    <div class="font-bold text-emerald-400 text-sm font-mono mb-1">Healthy</div>
+                    <p class="text-xs text-gray-400">Connector berhubung secara aktif ke Cloudflare edge servers.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-yellow-500/30 bg-yellow-950/10 text-center">
+                    <div class="text-2xl mb-2">🟡</div>
+                    <div class="font-bold text-yellow-400 text-sm font-mono mb-1">Degraded</div>
+                    <p class="text-xs text-gray-400">Sesetengah sambungan edge terputus atau mengalami latency tinggi.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-red-500/30 bg-red-950/10 text-center">
+                    <div class="text-2xl mb-2">🔴</div>
+                    <div class="font-bold text-red-400 text-sm font-mono mb-1">Down</div>
+                    <p class="text-xs text-gray-400">Process <code>cloudflared</code> terhenti atau kehilangan sambungan internet.</p>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400">💡 Jangan hanya bergantung pada emoji; periksa log fizikal daemon <code>cloudflared</code>!</p>
+        </section>
+
+        <!-- SLIDE 32: Cloudflared Logs -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">31 // Daemon Diagnostics</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Membaca Log Cloudflared</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-teal-400 font-bold">Semak Status Service Cloudflared:</span>
+                    <button onclick="copyToClipboard('sudo journalctl -u cloudflared -n 50 --no-pager')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-green-400 mb-4">
+                    sudo journalctl -u cloudflared -n 50 --no-pager
+                </div>
+
+                <div class="p-3 rounded bg-gray-900 border border-gray-800 text-xs font-mono text-gray-300">
+                    ℹ️ Nota: Nama service mungkin berbeza mengikut kaedah pemasangan (cth: <code>cloudflared.service</code> atau sistem container). Gunakan <code>systemctl list-units | grep cloudflare</code> jika nama tidak ditemui.
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 33: Tunnel vs Local Service -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">32 // Prinsip Pengesahan Origin</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Validate Origin Before Edge</h2>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-transparent border border-blue-500/40 text-center mb-8">
+                <p class="text-2xl md:text-4xl font-black text-blue-300 tracking-tight">
+                    "Sahkan Servis Tempatan Dahulu Sebelum Menyalahkan Tunnel"
+                </p>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="space-y-4 text-xs font-mono">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">1</span>
+                        <span class="text-gray-300">Jalankan <code>curl http://localhost:8080</code> di server.</span>
+                    </div>
+                    <div class="pl-9 text-red-400">❌ Jika GAGAL → Stop! Selesaikan masalah local service dahulu. Jangan sentuh Tunnel.</div>
+                    <div class="pl-9 text-emerald-400">✅ Jika BERJAYA → Local service OK. Sekarang teruskan troubleshoot Tunnel / Public Hostname.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 34: HTTPS Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">33 // SSL / TLS Layers</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">HTTPS & SSL Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="text-xs font-mono text-purple-400 font-bold mb-3">Checklist Diagnosis Sambungan HTTPS Gagal:</div>
+                <div class="space-y-2 text-xs font-mono">
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-gray-300">1. DNS Resolution → Adakah domain menghala ke Cloudflare / IP betul?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-gray-300">2. Cloudflare SSL Mode → Adakah ia ditetapkan ke Flexible / Full / Full (Strict)?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-gray-300">3. Tunnel Hostname Route → Adakah public hostname dipetakan ke URL local yang betul?</div>
+                    <div class="p-2.5 rounded bg-gray-900 border border-gray-800 text-gray-300">4. Certificate Match → Adakah nama domain sepadan dengan sijil TLS?</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 35: TLS / Certificate -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">34 // Sijil Keselamatan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">TLS / Certificate Warnings</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-red-500/30 bg-red-950/10">
+                    <span class="text-xs font-mono text-red-400 font-bold block mb-2">Symptom Biasa:</span>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Browser tunjuk: "Your connection is not private".</li>
+                        <li>SSL_ERROR_BAD_CERT_DOMAIN.</li>
+                        <li>Expired Certificate error.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-yellow-400 font-bold block mb-2">Kemungkinan Punca Sebenar:</span>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Domain name mismatch (akses via IP direct tetapi guna HTTPS).</li>
+                        <li>Self-signed certificate tidak di-trust oleh browser.</li>
+                        <li>Tarikah / Jam sistem Raspberry Pi terkeluar dari senarai (Clock drift).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 font-mono">"Jangan anggap semua TLS error datang dari certificate rosak. Semak jam server & DNS hostname!"</p>
+        </section>
+
+        <!-- SLIDE 36: Database Troubleshooting -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">35 // Storage & Data Layer</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Database Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-around text-center text-xs font-mono mb-6">
+                    <div class="p-3 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300">
+                        ✅ App Active
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <div class="p-3 rounded bg-red-950/40 border border-red-500/30 text-red-300">
+                        ❌ DB Connection Refused
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono">
+                    <div class="p-2 bg-gray-900 rounded border border-gray-800">1. DB Service Running?</div>
+                    <div class="p-2 bg-gray-900 rounded border border-gray-800">2. Correct Hostname/IP?</div>
+                    <div class="p-2 bg-gray-900 rounded border border-gray-800">3. Port (5432/3306) open?</div>
+                    <div class="p-2 bg-gray-900 rounded border border-gray-800">4. User/Pass correct?</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 37: Environment Variables -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">36 // Konfigurasi Aplikasi</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Environment Variables (.env) Errors</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="text-xs font-mono text-yellow-400 font-bold mb-3">Contoh Mesej .env Yang Selamat (Placeholder):</div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-gray-300 mb-4">
+                    DATABASE_HOST=&lt;DATABASE_HOST_IP&gt;<br>
+                    DATABASE_PORT=5432<br>
+                    DATABASE_USER=&lt;USERNAME&gt;<br>
+                    DATABASE_PASSWORD=&lt;PASSWORD&gt;
+                </div>
+
+                <div class="space-y-2 text-xs text-gray-300 font-mono">
+                    <p class="text-red-400"><strong>Kesilapan Biasa:</strong></p>
+                    <p>• Ejaan typo pada kunci nama variable (cth: <code>DB_PASS</code> vs <code>DATABASE_PASSWORD</code>).</p>
+                    <p>• Fail <code>.env</code> tidak dimuatkan ke dalam container (tertinggal dalam <code>docker-compose.yml</code>).</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 38: Disk Full -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">37 // Storan Tepu</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Disk Full Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-red-500/30 bg-red-950/10 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-red-400 font-bold">Semak Ruang Storan Disk:</span>
+                    <button onclick="copyToClipboard('df -h')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-3 rounded text-xs code-font text-red-400 mb-4">
+                    df -h /
+                </div>
+
+                <div class="text-xs text-gray-300 space-y-2">
+                    <p><strong>Kesan Apabila Disk 100% Full:</strong></p>
+                    <p class="text-red-300">• Database tidak dapat menulis transaksi data baru & terhempas (crash).</p>
+                    <p class="text-red-300">• Log systemd gagal ditulis.</p>
+                    <p class="text-red-300">• Docker container gagal dinyalakan.</p>
+                </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-gray-900 border border-gray-800 text-xs font-mono text-gray-400 text-center">
+                🧹 Pembersihan Selamat: <code>docker system prune -f</code> atau bersihkan log purba di <code>/var/log</code>.
+            </div>
+        </section>
+
+        <!-- SLIDE 39: Memory Problem -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">38 // Sumber Memori</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Memory (RAM) Issues & OOM</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-purple-400 font-bold uppercase">Semak Memori (free -h)</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        free -h
+                    </div>
+                    <p class="text-xs text-gray-400">Memeriksa jumlah RAM percuma, cached, dan Swap usage.</p>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-indigo-400 font-bold uppercase">Pemantauan Proses Interactive</span>
+                    <div class="terminal-box p-3 rounded my-3 text-xs code-font text-green-400">
+                        htop
+                    </div>
+                    <p class="text-xs text-gray-400">Menyusun proses mengikut penggunaan peratusan RAM tertinggi.</p>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs text-purple-200 text-center font-mono">
+                ℹ️ Usage RAM tinggi tidak semestinya bermaksud bug! Linux menggunakan RAM lebihan untuk buffer cache bagi mempercepatkan sistem IO.
+            </div>
+        </section>
+
+        <!-- SLIDE 40: CPU Problem -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">39 // Prestasi Pemprosesan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">CPU Spike & Load Average</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono text-yellow-400 font-bold">Semak Penggunaan CPU & Load:</span>
+                    <button onclick="copyToClipboard('top')" class="text-xs text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-green-400 mb-4">
+                    top
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
+                    <div class="p-3 rounded bg-gray-900 border border-gray-800">
+                        <strong class="text-yellow-400 block mb-1">Proses Mana?</strong>
+                        Adakah ia proses Python, Docker, atau build process?
+                    </div>
+                    <div class="p-3 rounded bg-gray-900 border border-gray-800">
+                        <strong class="text-yellow-400 block mb-1">Adakah Workload Berat?</strong>
+                        Adakah server sedang memproses kompresi video / data besar?
+                    </div>
+                    <div class="p-3 rounded bg-gray-900 border border-gray-800">
+                        <strong class="text-yellow-400 block mb-1">Adakah Stuck Loop?</strong>
+                        Adakah terdapat infinite loop dalam kod aplikasi?
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SLIDE 41: Network Latency -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">40 // Kelajuan Sambungan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Network Latency & Packet Loss</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-gray-800">
+                    <span class="text-xs font-mono text-blue-400 font-bold block mb-2">Punca Server Terlalu Lambat:</span>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>High Wi-Fi latency / packet loss pada Raspberry Pi.</li>
+                        <li>DNS Resolver mengambil masa lama untuk resolve hostname database.</li>
+                        <li>Database query lambat kerana kekurangan Index.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-blue-500/30 bg-blue-950/10 flex items-center justify-center p-6 text-center">
+                    <p class="text-lg font-bold text-blue-300">
+                        "Ping bagus (rendah) TIDAK bermaksud aplikasi web pasti laju!"
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 42: Root Cause Example -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">41 // Senario Kajian Kes</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Kajian Kes: "Website Lambat!"</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-5 rounded-xl border border-red-500/30 bg-red-950/10">
+                    <h3 class="text-xs font-mono text-red-400 font-bold mb-3">❌ Tindakan Panik (JANGAN):</h3>
+                    <div class="space-y-2 text-xs text-red-300 font-mono">
+                        <p>• Terus upgrade CPU/RAM server.</p>
+                        <p>• Restart server tanpa menyemak log.</p>
+                        <p>• Reinstall Docker dan OS.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl border border-emerald-500/30 bg-emerald-950/10">
+                    <h3 class="text-xs font-mono text-emerald-400 font-bold mb-3">✅ Tindakan Sistemis (BUAT):</h3>
+                    <div class="space-y-1.5 text-xs text-emerald-300 font-mono">
+                        <p>1. Check Network (ping / latency)</p>
+                        <p>2. Check CPU & RAM (top / free -h)</p>
+                        <p>3. Check Disk I/O (df -h)</p>
+                        <p>4. Check Application & DB Query Logs</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 43: Interactive Decision Tree -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">42 // Diagram Alir Keputusan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Troubleshooting Decision Tree</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 text-xs font-mono">
+                <div class="text-center font-bold text-red-400 p-2 bg-red-950/40 rounded border border-red-500/30 max-w-xs mx-auto mb-4">
+                    WEBSITE TAK BOLEH BUKA
+                </div>
+
+                <div class="flex justify-center mb-2"><i class="fa-solid fa-arrow-down text-gray-600"></i></div>
+
+                <div class="text-center font-bold text-blue-400 p-2 bg-blue-950/40 rounded border border-blue-500/30 max-w-md mx-auto mb-4">
+                    LOCALHOST BOLEH BUKA? (curl http://localhost:8080)
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 rounded bg-red-950/20 border border-red-500/30 text-center">
+                        <span class="text-red-400 font-bold block mb-1">❌ TIDAK</span>
+                        <p class="text-gray-300 text-[11px]">Siasat Local Application, Docker Container, & Port Binding!</p>
+                    </div>
+
+                    <div class="p-3 rounded bg-emerald-950/20 border border-emerald-500/30 text-center">
+                        <span class="text-emerald-400 font-bold block mb-1">✅ YA</span>
+                        <p class="text-gray-300 text-[11px]">Teruskan: Adakah LAN Private IP / Tunnel / DNS dapat diakses?</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 44: Troubleshooting Matrix -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">43 // Jadual Rujukan Pantas</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Troubleshooting Matrix</h2>
+            </div>
+
+            <div class="overflow-x-auto glass-card rounded-xl border border-gray-800">
+                <table class="w-full text-left border-collapse text-xs font-mono">
+                    <thead>
+                        <tr class="bg-gray-900 border-b border-gray-800 text-blue-400">
+                            <th class="p-3">Symptom</th>
+                            <th class="p-3">First Check</th>
+                            <th class="p-3">Next Check</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-300">
+                        <tr>
+                            <td class="p-3 text-red-400 font-bold">localhost fails</td>
+                            <td class="p-3">Application Process / Docker</td>
+                            <td class="p-3"><code>docker logs</code> / app console</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 text-yellow-400 font-bold">LAN fails</td>
+                            <td class="p-3">IP Address / Binding (0.0.0.0)</td>
+                            <td class="p-3"><code>sudo ufw status</code> firewall</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 text-teal-400 font-bold">Tunnel fails</td>
+                            <td class="p-3">Process <code>cloudflared</code></td>
+                            <td class="p-3">Cloudflare Zero Trust Dashboard</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 text-purple-400 font-bold">Domain fails</td>
+                            <td class="p-3"><code>nslookup</code> / <code>dig</code></td>
+                            <td class="p-3">Cloudflare DNS Record Route</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 text-orange-400 font-bold">502 Bad Gateway</td>
+                            <td class="p-3">Local Origin Service Port</td>
+                            <td class="p-3">Reverse Proxy / Tunnel config</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SLIDE 45: Real Scenario 1 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">44 // Practical Lab Case 1</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Scenario 1: Domain Tak Boleh Buka</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-3 text-xs font-mono">
+                <div class="p-3 bg-red-950/30 border border-red-500/30 rounded text-red-300">
+                    <strong>Gejala:</strong> Browser menunjuk mesej ralat apabila membuka <code>https://app.domainbos.com</code>.
+                </div>
+
+                <div class="space-y-2 text-gray-300">
+                    <div class="p-2 bg-gray-900 rounded">1. <code>nslookup app.domainbos.com</code> → Sahkan DNS resolve IP/CNAME.</div>
+                    <div class="p-2 bg-gray-900 rounded">2. Semak Cloudflare Dashboard → Adakah Tunnel Healthy?</div>
+                    <div class="p-2 bg-gray-900 rounded">3. <code>curl http://localhost:8080</code> di server → Adakah app origin menjawab?</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 46: Real Scenario 2 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">45 // Practical Lab Case 2</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Scenario 2: 502 Bad Gateway</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-3 text-xs font-mono">
+                <div class="p-3 bg-orange-950/30 border border-orange-500/30 rounded text-orange-300">
+                    <strong>Penerangan 502:</strong> Gateway/Tunnel gagal berkomunikasi dengan aplikasi upstream tempatan.
+                </div>
+
+                <div class="space-y-2 text-gray-300">
+                    <div class="p-2 bg-gray-900 rounded">1. <code>docker ps</code> → Adakah container target hidup?</div>
+                    <div class="p-2 bg-gray-900 rounded">2. <code>ss -tulpn | grep 8080</code> → Adakah host listening pada port betul?</div>
+                    <div class="p-2 bg-gray-900 rounded">3. Semak config Cloudflare Tunnel → Adakah port origin dipetakan tepat (cth: 8080)?</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 47: Real Scenario 3 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">46 // Practical Lab Case 3</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Scenario 3: Application Error 500</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-3 text-xs font-mono">
+                <div class="p-3 bg-red-950/30 border border-red-500/30 rounded text-red-300">
+                    <strong>Gejala:</strong> Browser memaparkan 500 Internal Server Error.
+                </div>
+
+                <div class="space-y-2 text-gray-300">
+                    <div class="p-2 bg-gray-900 rounded">1. Semak log aplikasi: <code>docker logs &lt;container&gt;</code></div>
+                    <div class="p-2 bg-gray-900 rounded">2. Cari Python Stack Trace (cth: KeyError, DatabaseConnectionError).</div>
+                    <div class="p-2 bg-gray-900 rounded">3. Semak fail <code>.env</code> & kebenaran akses database.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 48: Real Scenario 4 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">47 // Practical Lab Case 4</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Scenario 4: Server Tiba-Tiba Perlahan</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-3 text-xs font-mono">
+                <div class="p-3 bg-yellow-950/30 border border-yellow-500/30 rounded text-yellow-300">
+                    <strong>Gejala:</strong> Response time mengambil masa lebih 10 saat.
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-gray-300">
+                    <div class="p-2 bg-gray-900 rounded">1. <code>top</code> / <code>htop</code> (Semak CPU)</div>
+                    <div class="p-2 bg-gray-900 rounded">2. <code>free -h</code> (Semak RAM)</div>
+                    <div class="p-2 bg-gray-900 rounded">3. <code>df -h</code> (Semak Disk Full)</div>
+                    <div class="p-2 bg-gray-900 rounded">4. <code>docker stats</code> (Semak container resource)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 49: Real Scenario 5 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">48 // Practical Lab Case 5</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Scenario 5: Selepas Reboot Website Mati</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-3 text-xs font-mono">
+                <div class="p-3 bg-purple-950/30 border border-purple-500/30 rounded text-purple-300">
+                    <strong>Punca Biasa:</strong> Auto-restart policy tidak dikonfigurasi pada systemd / Docker!
+                </div>
+
+                <div class="space-y-2 text-gray-300">
+                    <div class="p-2 bg-gray-900 rounded">1. Semak Docker restart policy: <code>docker run --restart unless-stopped</code></div>
+                    <div class="p-2 bg-gray-900 rounded">2. Semak systemd service status: <code>sudo systemctl enable cloudflared</code></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 50: Don't Panic -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">49 // Psikologi Troubleshooting</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Jangan Panik!</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="flex flex-wrap justify-center gap-2 text-xs font-mono font-bold text-center">
+                    <span class="p-3 rounded bg-gray-900 border border-gray-700 text-red-400">1. STOP</span>
+                    <i class="fa-solid fa-arrow-right my-auto text-gray-600"></i>
+                    <span class="p-3 rounded bg-gray-900 border border-gray-700 text-yellow-400">2. OBSERVE</span>
+                    <i class="fa-solid fa-arrow-right my-auto text-gray-600"></i>
+                    <span class="p-3 rounded bg-gray-900 border border-gray-700 text-blue-400">3. COLLECT</span>
+                    <i class="fa-solid fa-arrow-right my-auto text-gray-600"></i>
+                    <span class="p-3 rounded bg-gray-900 border border-gray-700 text-purple-400">4. ISOLATE</span>
+                    <i class="fa-solid fa-arrow-right my-auto text-gray-600"></i>
+                    <span class="p-3 rounded bg-gray-900 border border-gray-700 text-emerald-400">5. FIX & VERIFY</span>
+                </div>
+            </div>
+
+            <p class="text-center text-sm font-semibold text-blue-300">
+                "Troubleshooting yang baik ialah eksperimen saintifik yang terkawal."
+            </p>
+        </section>
+
+
+        <!-- SLIDE 51: Change Management -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">50 // Kawalan Perubahan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Change Management</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <h3 class="text-xs font-mono text-yellow-400 font-bold mb-3">Sebelum Mengubah Suai Production:</h3>
+                <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4 font-mono">
+                    <li>Catat keadaan asal (Current State & Config Backup).</li>
+                    <li>Sediakan pelan pengunduran diri (Rollback Plan).</li>
+                    <li>Lakukan perubahan satu per satu dan uji serta-merta.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SLIDE 52: Rollback -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">51 // Strategi Pemulihan</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Pelan Rollback</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 text-xs font-mono">
+                <div class="flex items-center justify-around text-center mb-4">
+                    <span class="p-3 rounded bg-red-950/40 border border-red-500/30 text-red-300">NEW CONFIG ERROR</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="p-3 rounded bg-yellow-950/40 border border-yellow-500/30 text-yellow-300">EXECUTE ROLLBACK</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="p-3 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300">RESTORE STABLE STATE</span>
+                </div>
+
+                <p class="text-center text-gray-400">
+                    "Rollback bukan tanda kegagalan. Ia adalah sebahagian daripada reka bentuk operasi profesional."
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 53: Logging & Timestamps -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">52 // Analisis Masa Log</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Logging & Timestamps</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <div class="text-xs font-mono text-gray-400 mb-2">Contoh Baris Log:</div>
+                <div class="terminal-box p-4 rounded text-xs code-font text-red-400 mb-4">
+                    2026-08-17 10:31:22 [ERROR] [app.py:45] Database connection failed: Connection refused at 127.0.0.1:5432
+                </div>
+                <p class="text-xs text-gray-300">
+                    Jangan hanya membaca baris ralat! Semak peristiwa beberapa saat SEBELUM ralat berlaku untuk mengetahui punca cetusan.
+                </p>
+            </div>
+        </section>
+
+        <!-- SLIDE 54: Documentation -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">53 // Dokumentasi Insiden</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Dokumentasi Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 space-y-2 text-xs font-mono">
+                <div class="p-2 bg-gray-900 rounded"><strong>Problem:</strong> Website memaparkan 502 Bad Gateway.</div>
+                <div class="p-2 bg-gray-900 rounded"><strong>Cause:</strong> Docker container terhenti kerana kehabisan RAM.</div>
+                <div class="p-2 bg-gray-900 rounded"><strong>Fix:</strong> Container di-restart & memory limit dinaikkan.</div>
+                <div class="p-2 bg-gray-900 rounded"><strong>Verification:</strong> <code>curl</code> mengembalikan status 200 OK.</div>
+                <div class="p-2 bg-gray-900 rounded"><strong>Prevention:</strong> Tambah Docker container auto-restart policy.</div>
+            </div>
+        </section>
+
+        <!-- SLIDE 55: Post-Incident Review -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">54 // Kajian Pasca-Insiden</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Post-Incident Review (Blameless)</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6 text-xs text-gray-300 space-y-3">
+                <p>• Apa yang berlaku?</p>
+                <p>• Kenapa masalah ini tidak dikesan lebih awal?</p>
+                <p>• Bagaimana kita boleh mengelakkan masalah ini dari berulang?</p>
+                <div class="p-3 bg-blue-950/30 border border-blue-500/30 rounded text-blue-300 font-mono text-center mt-4">
+                    Fokus kepada penambahbaikan sistem, bukannya menyalahkan individu!
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 56: Master Troubleshooting Checklist -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">55 // Interactive Checklist</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Master Troubleshooting Checklist</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono mb-4">
+                <div class="glass-card p-3 rounded-xl border border-gray-800 space-y-1">
+                    <span class="font-bold text-blue-400 block mb-1">HARDWARE & NETWORK</span>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>Power & Boot</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>IP Address Valid</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>Ping Gateway</span></label>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-gray-800 space-y-1">
+                    <span class="font-bold text-purple-400 block mb-1">PORTS & SERVICES</span>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>ss -tulpn Check</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>UFW Firewall</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>systemctl status</span></label>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-gray-800 space-y-1">
+                    <span class="font-bold text-teal-400 block mb-1">CONTAINER & TUNNEL</span>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>docker ps -a</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>docker logs</span></label>
+                    <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" class="rounded bg-gray-900 border-gray-700"> <span>cloudflared status</span></label>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 57: Command Cheat Sheet -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">56 // Kad Perintah</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Command Cheat Sheet</h2>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">ip addr</span>
+                    <span class="text-gray-400">Semak IP Network</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">ss -tulpn</span>
+                    <span class="text-gray-400">Semak Listening Port</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">curl -I</span>
+                    <span class="text-gray-400">Semak HTTP Header</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">docker ps -a</span>
+                    <span class="text-gray-400">Semak Container</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">df -h</span>
+                    <span class="text-gray-400">Semak Ruang Disk</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">free -h</span>
+                    <span class="text-gray-400">Semak Memory RAM</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">journalctl -f</span>
+                    <span class="text-gray-400">Log Realtime</span>
+                </div>
+                <div class="glass-card p-3 rounded-lg border border-gray-800">
+                    <span class="text-blue-400 font-bold block mb-1">nslookup</span>
+                    <span class="text-gray-400">Semak DNS Domain</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 58: Troubleshooting Philosophy -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">57 // Falsafah Kerja</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Falsafah: "Start Simple"</h2>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-transparent border border-blue-500/40 text-center mb-6">
+                <p class="text-3xl md:text-5xl font-extrabold text-blue-300 tracking-tight">
+                    "Start Simple."
+                </p>
+                <p class="text-xs font-mono text-gray-400 mt-2">Semak dari bawah (Local/Physical) ke atas (Cloud/App).</p>
+            </div>
+        </section>
+
+        <!-- SLIDE 59: Final Challenge -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-4">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-1">58 // Ujian Kuiz Interaktif</span>
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Cabaran Akhir Troubleshooting</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-xl border border-gray-800 mb-6">
+                <p class="text-sm font-semibold text-gray-200 mb-4 font-mono">
+                    ❓ User berkata: "Website saya tak boleh dibuka dari telefon luar!" Apakah langkah pertama yang PATUT anda buat?
+                </p>
+
+                <div id="quiz-options" class="space-y-2 text-xs font-mono">
+                    <button onclick="checkAnswer(this, false)" class="w-full text-left p-3 rounded bg-gray-900 border border-gray-800 hover:border-gray-700">A. Reinstall server OS Raspberry Pi</button>
+                    <button onclick="checkAnswer(this, false)" class="w-full text-left p-3 rounded bg-gray-900 border border-gray-800 hover:border-gray-700">B. Tukar semua router firewall rules</button>
+                    <button onclick="checkAnswer(this, true)" class="w-full text-left p-3 rounded bg-gray-900 border border-gray-800 hover:border-gray-700">C. Semak curl localhost:8080 → LAN → service → tunnel → domain</button>
+                    <button onclick="checkAnswer(this, false)" class="w-full text-left p-3 rounded bg-gray-900 border border-gray-800 hover:border-gray-700">D. Padam fail DNS</button>
+                </div>
+
+                <div id="quiz-feedback" class="mt-4 p-3 rounded text-xs font-mono hidden"></div>
+            </div>
+        </section>
+
+        <!-- SLIDE 60: Penutup -->
+        <section class="slide flex-col justify-center items-center text-center max-w-5xl mx-auto w-full py-6">
+            <div class="mb-6">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-widest block mb-2">59 // Penutup</span>
+                <h2 class="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+                    "Server Administrator Bukan Orang Yang Tak Pernah Jumpa Error."
+                </h2>
+                <p class="text-lg md:text-xl text-blue-300 font-medium mt-3">
+                    Server Administrator ialah orang yang tahu cara mencari punca error.
+                </p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800 max-w-2xl w-full mb-8">
+                <div class="flex items-center justify-around text-xs font-mono text-gray-300">
+                    <span>Observe</span> → <span>Test</span> → <span>Isolate</span> → <span>Fix</span> → <span>Verify</span>
+                </div>
+            </div>
+
+            <p class="text-2xl font-black text-red-400 tracking-tight">
+                "Jangan main teka. Cari bukti."
+            </p>
+        </section>
+
+    </main>
+
+
+    <!-- NAVIGATION DOCK BOTTOM -->
+    <footer class="h-16 border-t border-gray-800/80 px-4 md:px-8 flex items-center justify-between bg-darkbg/90 z-20 backdrop-blur-md">
+        <!-- Prev Button -->
+        <button id="prev-btn" onclick="prevSlide()" class="px-4 py-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 active:scale-95 text-white text-xs font-semibold transition-all flex items-center space-x-2 border border-gray-700">
+            <i class="fa-solid fa-chevron-left"></i>
+            <span>Sebelumnya</span>
+        </button>
+
+        <!-- Shortcuts Legend -->
+        <div class="hidden md:flex items-center space-x-3 text-[11px] font-mono text-gray-500">
+            <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">←</kbd> / <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">→</kbd> Navigasi</span>
+            <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">Home</kbd> Mula</span>
+            <span><kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-300">End</kbd> Akhir</span>
+        </div>
+
+        <!-- Next Button -->
+        <button id="next-btn" onclick="nextSlide()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold transition-all flex items-center space-x-2 shadow-lg shadow-blue-600/20">
+            <span>Seterusnya</span>
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </footer>
+
+    <!-- OVERVIEW SLIDE MODAL -->
+    <div id="overview-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex-col p-6 overflow-y-auto">
+        <div class="flex items-center justify-between mb-6 max-w-6xl mx-auto w-full">
+            <h3 class="text-lg font-bold text-white flex items-center">
+                <i class="fa-solid fa-grip mr-2 text-blue-400"></i> Senarai Semua 60 Slide
+            </h3>
+            <button onclick="toggleOverviewModal()" class="text-gray-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        <div id="overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-w-6xl mx-auto w-full">
+            <!-- Dynamically populated via JS -->
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-20 right-6 bg-blue-600 text-white text-xs font-mono px-4 py-2.5 rounded-lg shadow-xl opacity-0 transition-opacity pointer-events-none z-50 flex items-center space-x-2">
+        <i class="fa-solid fa-check"></i>
+        <span id="toast-msg">Copied!</span>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        // Initialize display total slides
+        document.getElementById('total-slides-num').innerText = totalSlides;
+
+        function updateSlide() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // Update Slide Counter & Progress
+            document.getElementById('current-slide-num').innerText = currentSlide + 1;
+            const progressPct = ((currentSlide + 1) / totalSlides) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPct}%`;
+
+            // Enable/Disable buttons
+            document.getElementById('prev-btn').disabled = currentSlide === 0;
+            document.getElementById('next-btn').disabled = currentSlide === totalSlides - 1;
+
+            if (currentSlide === 0) {
+                document.getElementById('prev-btn').classList.add('opacity-40', 'cursor-not-allowed');
+            } else {
+                document.getElementById('prev-btn').classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        function goToSlide(index) {
+            if (index >= 0 && index < totalSlides) {
+                currentSlide = index;
+                updateSlide();
+                const modal = document.getElementById('overview-modal');
+                if (!modal.classList.contains('hidden')) {
+                    toggleOverviewModal();
+                }
+            }
+        }
+
+        /* Keyboard Controls */
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                goToSlide(0);
+            } else if (e.key === 'End') {
+                goToSlide(totalSlides - 1);
+            }
+        });
+
+        /* Overview Modal Generator */
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            const grid = document.getElementById('overview-grid');
+
+            if (modal.classList.contains('hidden')) {
+                // Populate grid if empty
+                if (grid.children.length === 0) {
+                    slides.forEach((slide, idx) => {
+                        const titleElem = slide.querySelector('h2') || slide.querySelector('h1');
+                        const titleText = titleElem ? titleElem.innerText.replace('\n', ' ') : `Slide ${idx + 1}`;
+                        
+                        const item = document.createElement('button');
+                        item.className = `p-3 text-left rounded-lg text-xs font-mono border transition-all ${idx === currentSlide ? 'bg-blue-600/30 border-blue-500 text-white' : 'bg-gray-900 border-gray-800 hover:border-gray-700 text-gray-400'}`;
+                        item.onclick = () => goToSlide(idx);
+                        item.innerHTML = `<span class="text-blue-400 font-bold block text-[10px]">#${idx + 1}</span><span class="line-clamp-2">${titleText}</span>`;
+                        grid.appendChild(item);
+                    });
+                }
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        /* Copy To Clipboard Helper */
+        function copyToClipboard(text) {
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast(`Copied: ${text}`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        /* Interactive Quiz Checker */
+        function checkAnswer(btn, isCorrect) {
+            const feedback = document.getElementById('quiz-feedback');
+            const options = document.querySelectorAll('#quiz-options button');
+            
+            options.forEach(opt => {
+                opt.classList.remove('border-emerald-500', 'border-red-500', 'bg-emerald-950/40', 'bg-red-950/40');
+            });
+
+            feedback.classList.remove('hidden', 'bg-emerald-950/40', 'border-emerald-500/40', 'text-emerald-300', 'bg-red-950/40', 'border-red-500/40', 'text-red-300');
+
+            if (isCorrect) {
+                btn.classList.add('border-emerald-500', 'bg-emerald-950/40');
+                feedback.classList.add('bg-emerald-950/40', 'border', 'border-emerald-500/40', 'text-emerald-300');
+                feedback.innerHTML = '<strong>✅ TEPAT SEKALI!</strong> Troubleshoot mengikut layer dari bawah ke atas (Localhost → LAN → Service → Tunnel → Domain).';
+            } else {
+                btn.classList.add('border-red-500', 'bg-red-950/40');
+                feedback.classList.add('bg-red-950/40', 'border', 'border-red-500/40', 'text-red-300');
+                feedback.innerHTML = '<strong>❌ KURANG TEPAT.</strong> Jangan buat andaian drastik atau tukar persekitaran secara terburu-buru. Uji localhost dahulu!';
+            }
+        }
+
+        // Initialize first slide view
+        updateSlide();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belajar Self-Hosting Server: Dari Localhost ke Port Forwarding</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#090d16',
+                            card: '#111827',
+                            cardBorder: '#1f2937',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#8b5cf6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #060911;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            height: 100%;
+            width: 100%;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .glass-card {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card-hover {
+            transition: all 0.2s ease;
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(6, 182, 212, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #0b0f19;
+            border: 1px solid #1e293b;
+        }
+
+        /* Custom scrollbar inside slides if content exceeds */
+        .slide-content {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #374151 transparent;
+        }
+        .slide-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .slide-content::-webkit-scrollbar-thumb {
+            background-color: #374151;
+            border-radius: 9999px;
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.25);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+        }
+        .glow-amber {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        }
+
+        /* Modal backdrop */
+        .modal-bg {
+            background: rgba(4, 7, 13, 0.85);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between relative overflow-hidden">
+
+    <!-- TOP BAR -->
+    <header class="h-14 px-6 border-b border-gray-800/80 flex items-center justify-between z-20 bg-brand-dark/90 backdrop-blur-md shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
+                <i class="fa-solid font-mono text-sm">#</i>
+            </div>
+            <span class="font-semibold text-sm tracking-wide text-gray-200 hidden sm:inline">Self-Hosting Server 101</span>
+            <span class="text-xs text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2.5 py-0.5 rounded-full font-medium">Asas Networking</span>
+        </div>
+
+        <!-- Slide Counter & Quick Actions -->
+        <div class="flex items-center gap-4">
+            <button id="overviewBtn" class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition flex items-center gap-2 border border-gray-700">
+                <i class="fa-solid fa-border-all text-xs"></i>
+                <span class="hidden md:inline">Semua Slide</span>
+            </button>
+            <div class="text-xs font-mono bg-gray-900 border border-gray-800 text-gray-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <span id="currentSlideNum" class="text-cyan-400 font-bold">1</span>
+                <span class="text-gray-600">/</span>
+                <span id="totalSlidesNum">25</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- TOP PROGRESS BAR -->
+    <div class="w-full bg-gray-900 h-1 relative z-20">
+        <div id="progressBar" class="bg-gradient-to-r from-cyan-500 via-emerald-400 to-indigo-500 h-full w-0 transition-all duration-300"></div>
+    </div>
+
+    <!-- SLIDE CONTAINER -->
+    <main class="flex-1 relative overflow-hidden p-4 sm:p-6 md:p-8 flex items-center justify-center">
+
+        <!-- SLIDE 1 -->
+        <section class="slide active flex-col justify-center items-center text-center max-w-5xl mx-auto my-auto slide-content py-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold mb-6">
+                <i class="fa-solid fa-graduation-cap"></i> Panduan Langkah Demi Langkah Panduan Beginner
+            </div>
+            <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight mb-6">
+                Belajar <span class="bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">Self-Hosting Server</span>
+            </h1>
+            <p class="text-lg sm:text-xl text-gray-300 max-w-2xl mb-8 font-normal leading-relaxed">
+                "Dari Localhost <i class="fa-solid fa-arrow-right text-xs text-cyan-400 mx-1"></i> Private IP <i class="fa-solid fa-arrow-right text-xs text-cyan-400 mx-1"></i> Public IP <i class="fa-solid fa-arrow-right text-xs text-cyan-400 mx-1"></i> Port Forwarding"
+            </p>
+
+            <div class="glass-card p-6 rounded-2xl max-w-2xl w-full border border-gray-800 text-left mb-8">
+                <h3 class="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-bullseye"></i> Misi Pembelajaran Hari Ini
+                </h3>
+                <p class="text-gray-300 text-sm leading-relaxed">
+                    Kita akan belajar bagaimana sebuah laman web yang dibuat dan dijalankan di dalam komputer sendiri (Windows) boleh bergerak daripada akses tempatan (*local*) sehingga boleh dibuka oleh sesiapa sahaja dari seluruh dunia menerusi Internet!
+                </p>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs text-gray-400">
+                <span class="px-3 py-1.5 rounded-md bg-gray-900 border border-gray-800 font-mono"><i class="fa-regular fa-keyboard text-cyan-400 mr-1"></i> Gunakan Anak Panah Keyboard [←] [→]</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 2 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Peta Perjalanan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Gambaran Besar (Roadmap)</h2>
+                <p class="text-gray-400 text-sm mt-1">Inilah 7 langkah asas yang akan kita tempuhi untuk faham self-hosting.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-auto">
+                <div class="glass-card p-4 rounded-xl border border-cyan-500/30 bg-cyan-950/10">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm mb-3">1</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Localhost</h4>
+                    <p class="text-xs text-gray-400">Server berjalan & hanya boleh dibuka di komputer sendiri.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-gray-800">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-cyan-400 flex items-center justify-center font-bold text-sm mb-3">2</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Private IP</h4>
+                    <p class="text-xs text-gray-400">Alamat peranti dalam rangkaian Wi-Fi rumah (LAN).</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-gray-800">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-rose-400 flex items-center justify-center font-bold text-sm mb-3">3</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Windows Firewall</h4>
+                    <p class="text-xs text-gray-400">Buka perisai keselamatan untuk benarkan trafik masuk.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-gray-800">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-amber-400 flex items-center justify-center font-bold text-sm mb-3">4</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Public IP</h4>
+                    <p class="text-xs text-gray-400">Alamat unik rumah anda yang dikenali oleh Internet.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-gray-800">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-purple-400 flex items-center justify-center font-bold text-sm mb-3">5</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Router</h4>
+                    <p class="text-xs text-gray-400">Penjaga pintu utama yang menyambung LAN & Internet.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-indigo-500/30 bg-indigo-950/10">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm mb-3">6</div>
+                    <h4 class="font-bold text-white text-sm mb-1">Port Forwarding</h4>
+                    <p class="text-xs text-gray-400">Hantar lalu lintas luar masuk terus ke server PC anda.</p>
+                </div>
+                <div class="glass-card sm:col-span-2 p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/20">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm mb-3">7</div>
+                    <h4 class="font-bold text-emerald-300 text-sm mb-1">Akses Internet Berjaya! 🎉</h4>
+                    <p class="text-xs text-gray-300">Website kini boleh dilawati dari mana-mana sahaja di seluruh dunia.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Konsep Asas #1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Web Server?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-semibold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-server text-cyan-400"></i> Program Yang Sentiasa Memerhati
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            Web server bukanlah kotak besi besar sahaja. Ia sebenarnya adalah <strong>sebuah program/perisian</strong> yang berjalan dan sentiasa "menunggu request" (permintaan) daripada pelayar web (browser).
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-semibold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-brands fa-python text-emerald-400"></i> Python Sebagai Server Latihan
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            Dalam latihan ini, kita menggunakan <strong>Python</strong>. Python sudah ada modul khas built-in untuk menghidangkan fail website (seperti <code class="bg-gray-800 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">index.html</code>) kepada browser tanpa memerlukan persediaan rumit.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Visual Diagram -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-3xl mb-4 shadow-lg shadow-cyan-500/10">
+                        <i class="fa-solid fa-laptop-code"></i>
+                    </div>
+                    <h4 class="font-bold text-white text-base">Komputer Windows Anda</h4>
+                    <div class="my-3 text-xs text-gray-500 font-mono">menjalankan</div>
+                    <div class="w-full bg-slate-900 p-4 rounded-xl border border-gray-800 flex items-center justify-around">
+                        <div class="text-center">
+                            <i class="fa-brands fa-python text-3xl text-emerald-400 mb-1"></i>
+                            <div class="text-xs font-semibold text-gray-200">Python Server</div>
+                        </div>
+                        <div class="h-8 w-px bg-gray-700"></div>
+                        <div class="text-center">
+                            <div class="text-xs font-mono text-amber-400 bg-amber-950/50 border border-amber-800/40 px-2 py-1 rounded">PORT 8080</div>
+                        </div>
+                        <div class="h-8 w-px bg-gray-700"></div>
+                        <div class="text-center">
+                            <i class="fa-regular fa-file-code text-2xl text-cyan-400 mb-1"></i>
+                            <div class="text-xs text-gray-300 font-mono">index.html</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Langkah Praktikal #1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Mulakan Python Server</h2>
+            </div>
+
+            <div class="space-y-6">
+                <p class="text-gray-300 text-sm sm:text-base">
+                    Buka Terminal atau Command Prompt (CMD) di Windows anda, pergi ke folder fail web anda, dan taip arahan berikut:
+                </p>
+
+                <!-- Command Code Box -->
+                <div class="code-block rounded-xl p-4 sm:p-5 text-gray-200 relative group">
+                    <div class="flex justify-between items-center text-xs text-gray-400 mb-2 border-b border-gray-800 pb-2">
+                        <span><i class="fa-solid fa-terminal mr-2 text-emerald-400"></i>Command Prompt / PowerShell</span>
+                        <button onclick="copyCode(this, 'python -m http.server 8080 --bind 0.0.0.0')" class="hover:text-cyan-400 transition text-xs flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i> <span>Salin</span>
+                        </button>
+                    </div>
+                    <pre class="text-sm sm:text-base text-emerald-400 font-mono overflow-x-auto py-2">python -m http.server 8080 --bind 0.0.0.0</pre>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-card p-4 rounded-xl border border-gray-800">
+                        <div class="text-amber-400 font-mono font-bold text-base mb-1">8080</div>
+                        <h4 class="text-white text-xs font-semibold mb-1">Nombor Port</h4>
+                        <p class="text-xs text-gray-400">Pintu khas yang dibuka pada komputer untuk trafik HTTP latihan ini.</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-gray-800">
+                        <div class="text-cyan-400 font-mono font-bold text-base mb-1">--bind 0.0.0.0</div>
+                        <h4 class="text-white text-xs font-semibold mb-1">Semua Interface</h4>
+                        <p class="text-xs text-gray-400">Mengarahkan server menerima sambungan dari mana-mana Kad Rangkaian (Wi-Fi/LAN).</p>
+                    </div>
+                    <div class="glass-card p-4 rounded-xl border border-gray-800">
+                        <div class="text-emerald-400 font-mono font-bold text-base mb-1">Latihan Sahaja</div>
+                        <h4 class="text-white text-xs font-semibold mb-1">Bukan Production</h4>
+                        <p class="text-xs text-gray-400">Server mudah ini sesuai untuk belajar & ujian tempatan sahaja.</p>
+                    </div>
+                </div>
+
+                <!-- Output Example -->
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 font-mono text-xs">
+                    <div class="text-gray-500 mb-1"># Output contoh yang akan kelihatan di terminal:</div>
+                    <div class="text-gray-300">Serving HTTP on 0.0.0.0 port 8080 (http://0.0.0.0:8080/) ...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Konsep Asas #2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Localhost?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-cyan-500/30 bg-cyan-950/10">
+                        <h3 class="text-lg font-bold text-cyan-400 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-house-user"></i> Analogi Mudah
+                        </h3>
+                        <p class="text-sm text-gray-200 leading-relaxed">
+                            <strong>"Localhost bermaksud komputer itu sendiri."</strong><br>
+                            Sama seperti perkataan <em>"Saya"</em> merujuk kepada diri anda sendiri, <code>localhost</code> ialah nama cermin bagi komputer tersebut.
+                        </p>
+                    </div>
+
+                    <div class="code-block p-4 rounded-xl">
+                        <div class="text-xs text-gray-400 mb-1">Alamat URL di pelayar web:</div>
+                        <div class="text-cyan-300 font-mono text-base sm:text-lg">http://localhost:8080</div>
+                        <div class="text-xs text-gray-500 mt-1">atau menggunakan IP Loopback: <span class="text-gray-300">http://127.0.0.1:8080</span></div>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10">
+                        <h4 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-1"><i class="fa-solid fa-triangle-exclamation"></i> PENTING UNTUK DIINGAT:</h4>
+                        <ul class="text-xs text-gray-300 space-y-1 list-disc pl-4">
+                            <li><code class="text-rose-300">localhost</code> <strong>BUKAN</strong> Internet.</li>
+                            <li><code class="text-rose-300">localhost</code> <strong>BUKAN</strong> Public IP.</li>
+                            <li>Ia HANYA boleh dipanggil dari dalam mesin yang sama!</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Visual Loop -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                    <h4 class="text-xs font-semibold text-gray-400 uppercase mb-4">Aliran Akses Localhost</h4>
+                    <div class="space-y-3 w-full max-w-xs">
+                        <div class="bg-gray-900 border border-gray-700 p-3 rounded-xl flex items-center justify-center gap-2 text-white text-sm">
+                            <i class="fa-solid fa-window-maximize text-cyan-400"></i> Browser (Chrome/Edge)
+                        </div>
+                        <div class="text-cyan-400 text-sm"><i class="fa-solid fa-arrow-down"></i> <span class="text-xs font-mono text-gray-400">panggil localhost:8080</span></div>
+                        <div class="bg-gray-900 border border-cyan-500/40 p-3 rounded-xl flex items-center justify-center gap-2 text-cyan-300 text-sm font-semibold">
+                            <i class="fa-solid fa-desktop text-cyan-400"></i> Komputer Windows Anda
+                        </div>
+                        <div class="text-emerald-400 text-sm"><i class="fa-solid fa-arrow-down"></i> <span class="text-xs font-mono text-gray-400">hantar ke program</span></div>
+                        <div class="bg-gray-900 border border-emerald-500/40 p-3 rounded-xl flex items-center justify-center gap-2 text-emerald-400 text-sm font-semibold">
+                            <i class="fa-brands fa-python"></i> Python Server (Port 8080)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Ujian Praktikal #1</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Ujian Localhost</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-white">Langkah-langkah Ujian:</h3>
+                    
+                    <ol class="space-y-3">
+                        <li class="flex items-start gap-3 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                            <span class="w-6 h-6 rounded-full bg-cyan-500 text-black font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                            <span class="text-sm text-gray-200">Pastikan Python server sedang dijalankan di Terminal.</span>
+                        </li>
+                        <li class="flex items-start gap-3 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                            <span class="w-6 h-6 rounded-full bg-cyan-500 text-black font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                            <span class="text-sm text-gray-200">Buka web browser di <strong>komputer Windows server</strong> tersebut.</span>
+                        </li>
+                        <li class="flex items-start gap-3 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                            <span class="w-6 h-6 rounded-full bg-cyan-500 text-black font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <span class="text-sm text-gray-200">Taip alamat URL: <code class="text-cyan-300 font-mono">http://localhost:8080</code></span>
+                        </li>
+                        <li class="flex items-start gap-3 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                            <span class="w-6 h-6 rounded-full bg-cyan-500 text-black font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">4</span>
+                            <span class="text-sm text-gray-200">Paparan fail / laman <code class="text-emerald-400 font-mono">index.html</code> kelihatan.</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/10 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-4 glow-emerald">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">Kesimpulan Ujian</h4>
+                    <p class="text-emerald-300 text-base font-semibold">
+                        "Server HIDUP dan berjaya dicapai dari dalam komputer sendiri!"
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Masalah Pertama</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Kenapa Localhost Tak Cukup?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm sm:text-base leading-relaxed">
+                        Bayangkan anda ambil telefon bimbit anda, buka browser, dan taip:
+                    </p>
+                    <div class="code-block p-3 rounded-xl text-center text-rose-400 font-mono text-base">
+                        http://localhost:8080
+                    </div>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        <strong>Apa yang berlaku?</strong> Telefon akan mencari web server <u>pada telefon itu sendiri</u>! Ia tidak akan menjumpai Python server di komputer Windows anda.
+                    </p>
+                    <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-400">
+                        Setiap peranti mentafsirkan perkataan <em>"localhost"</em> sebagai <strong>"dirinya sendiri"</strong>.
+                    </div>
+                </div>
+
+                <!-- Visual Comparison -->
+                <div class="space-y-4">
+                    <div class="glass-card p-4 rounded-xl border border-emerald-500/40 bg-gray-900/80 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                            <i class="fa-solid fa-desktop"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-xs text-gray-400 font-mono">Windows PC</div>
+                            <div class="text-sm font-bold text-white">localhost:8080 <i class="fa-solid fa-arrow-right text-xs text-emerald-400 mx-1"></i> Python Server</div>
+                        </div>
+                        <div class="text-emerald-400 font-bold text-xl"><i class="fa-solid fa-check"></i></div>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/40 bg-gray-900/80 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-xl shrink-0">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-xs text-gray-400 font-mono">Telefon Bimbit</div>
+                            <div class="text-sm font-bold text-white">localhost:8080 <i class="fa-solid fa-arrow-right text-xs text-rose-400 mx-1"></i> ❌ Tiada Server</div>
+                        </div>
+                        <div class="text-rose-400 font-bold text-xl"><i class="fa-solid fa-xmark"></i></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Konsep Asas #3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Private IP?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-network-wired text-cyan-400"></i> Alamat Dalam Rangkaian Rumah (LAN)
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <strong>Private IP</strong> ialah alamat unik yang diberikan oleh Wi-Fi Router kepada setiap peranti dalam rumah anda (PC, telefon, TV pintar, laptop).
+                        </p>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-gray-800">
+                        <div class="text-xs text-gray-400 mb-1">Contoh Format Private IP:</div>
+                        <div class="text-cyan-400 font-mono font-bold text-xl">192.168.1.50</div>
+                        <div class="text-xs text-gray-500 mt-1">(Boleh jadi 192.168.0.X atau 10.0.0.X bergantung pada router)</div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-magnifying-glass text-emerald-400"></i> Cara Semak Di Windows
+                        </h3>
+                        <p class="text-xs text-gray-400 mb-2">Buka CMD / PowerShell dan taip:</p>
+                        <div class="code-block p-3 rounded-lg text-emerald-400 font-mono text-sm mb-3">
+                            ipconfig
+                        </div>
+                        <p class="text-xs text-gray-300">
+                            Cari maklumat di bahagian <strong>IPv4 Address</strong>:
+                        </p>
+                        <div class="bg-gray-950 p-2.5 rounded-lg border border-gray-800 text-xs font-mono text-gray-300 mt-2">
+                            IPv4 Address. . . . . . . . . . . : <span class="text-cyan-400 font-bold">192.168.1.50</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 9 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Perbandingan Pintar</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Localhost vs Private IP</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <!-- Localhost Card -->
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 bg-cyan-950/10 flex flex-col justify-between">
+                    <div>
+                        <div class="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 font-mono text-xs font-bold mb-3">LOCALHOST</div>
+                        <h3 class="text-xl font-bold text-white mb-2">127.0.0.1 / localhost</h3>
+                        <p class="text-sm text-gray-300 mb-4">Merujuk terus kepada <strong>komputer itu sendiri sahaja</strong>.</p>
+                    </div>
+                    <div class="code-block p-3 rounded-xl text-xs text-cyan-300 font-mono">
+                        http://localhost:8080<br>
+                        <span class="text-gray-500">→ Dibuka dari Windows sendiri</span>
+                    </div>
+                </div>
+
+                <!-- Private IP Card -->
+                <div class="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-indigo-950/10 flex flex-col justify-between">
+                    <div>
+                        <div class="inline-block px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 font-mono text-xs font-bold mb-3">PRIVATE IP</div>
+                        <h3 class="text-xl font-bold text-white mb-2">192.168.1.50</h3>
+                        <p class="text-sm text-gray-300 mb-4">Merujuk kepada <strong>komputer dalam rangkaian rumah (Wi-Fi/LAN)</strong>.</p>
+                    </div>
+                    <div class="code-block p-3 rounded-xl text-xs text-indigo-300 font-mono">
+                        http://192.168.1.50:8080<br>
+                        <span class="text-gray-500">→ Boleh dipanggil dari telefon dalam Wi-Fi sama</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 10 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Langkah Praktikal #2</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Akses Dari Telefon Bimbit</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm sm:text-base leading-relaxed">
+                        Jika Telefon Bimbit dan Komputer Windows berada dalam <strong>Wi-Fi rumah yang sama</strong>, telefon kini boleh cuba mengakses server anda!
+                    </p>
+
+                    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+                        <div class="text-xs text-gray-400 mb-1">Buka Safari / Chrome di Telefon dan taip:</div>
+                        <div class="text-cyan-400 font-mono font-bold text-lg sm:text-xl">http://192.168.1.50:8080</div>
+                    </div>
+
+                    <div class="text-xs text-gray-400 bg-gray-950 p-3 rounded-lg border border-gray-800">
+                        * Gantikan <code class="text-cyan-300">192.168.1.50</code> dengan alamat Private IP komputer Windows anda yang didapati daripada <code class="text-gray-300">ipconfig</code>.
+                    </div>
+                </div>
+
+                <!-- Visual Connection -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 flex flex-col items-center">
+                    <div class="flex items-center justify-between w-full mb-4 px-4">
+                        <div class="text-center">
+                            <i class="fa-solid fa-mobile-screen-button text-3xl text-cyan-400 mb-1"></i>
+                            <div class="text-xs text-gray-300 font-semibold">Telefon</div>
+                        </div>
+                        <div class="text-center">
+                            <i class="fa-solid fa-wifi text-2xl text-amber-400 mb-1"></i>
+                            <div class="text-[10px] text-amber-300">Wi-Fi Router</div>
+                        </div>
+                        <div class="text-center">
+                            <i class="fa-solid fa-desktop text-3xl text-emerald-400 mb-1"></i>
+                            <div class="text-xs text-gray-300 font-semibold">Windows PC</div>
+                        </div>
+                    </div>
+                    <div class="w-full bg-slate-900/80 p-3 rounded-xl border border-gray-800 text-center text-xs text-gray-300 font-mono">
+                        Telefon <i class="fa-solid fa-arrow-right text-cyan-400"></i> Router <i class="fa-solid fa-arrow-right text-cyan-400"></i> 192.168.1.50:8080 <i class="fa-solid fa-arrow-right text-emerald-400"></i> Python
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 11 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Troubleshooting</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Kenapa Tak Boleh Akses?</h2>
+                <p class="text-gray-400 text-sm mt-1">Jika telefon keluar ralat "Connection Timed Out", semak senarai ini terlebih dahulu!</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-card p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 font-bold">1</div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm mb-1">Windows Firewall Block Port</h4>
+                        <p class="text-xs text-gray-300">Secara lalai, Windows menghalang sebarang sambungan luar yang cuba masuk ke port 8080.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-amber-400 flex items-center justify-center shrink-0 font-bold">2</div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm mb-1">Network Tidak Sama</h4>
+                        <p class="text-xs text-gray-400">Telefon guna Mobile Data 4G/5G atau tersambung pada Wi-Fi Jiran / Wi-Fi berbeza.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-amber-400 flex items-center justify-center shrink-0 font-bold">3</div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm mb-1">Python Server Terhenti</h4>
+                        <p class="text-xs text-gray-400">Terminal Python tertutup atau terbatal secara tidak sengaja.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 text-amber-400 flex items-center justify-center shrink-0 font-bold">4</div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm mb-1">AP Isolation Pada Router</h4>
+                        <p class="text-xs text-gray-400">Fungsi keselamatan router yang menghalang peranti Wi-Fi daripada berkomunikasi sesama sendiri.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 rounded-xl bg-gray-900 border border-gray-800 text-center text-xs text-gray-400">
+                💡 <strong class="text-gray-200">Pesanan Penting:</strong> Jangan terus membuat andaian masalah ini disebabkan oleh Port Forwarding. Selesaikan perisai Firewall terlebih dahulu!
+            </div>
+        </section>
+
+        <!-- SLIDE 12 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Keselamatan Windows</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Windows Firewall</h2>
+            </div>
+
+            <div class="space-y-4">
+                <p class="text-gray-300 text-sm">
+                    Windows Firewall berfungsi sebagai pengawal peribadi. Kita perlu beri kebenaran khas untuk benarkan trafik masuk menerusi <strong>TCP Port 8080</strong>.
+                </p>
+
+                <div class="space-y-2">
+                    <div class="text-xs text-cyan-400 font-semibold">Buka PowerShell (Run as Administrator) & Taip Arahan Ini:</div>
+                    <div class="code-block p-4 rounded-xl relative group">
+                        <button onclick="copyCode(this, 'New-NetFirewallRule -DisplayName \&quot;Python Test 8080\&quot; -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow')" class="absolute top-3 right-3 text-xs text-gray-400 hover:text-cyan-400 flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i> Salin
+                        </button>
+                        <pre class="text-xs sm:text-sm text-cyan-300 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed">New-NetFirewallRule -DisplayName "Python Test 8080" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow</pre>
+                    </div>
+                </div>
+
+                <!-- Explanation Breakdown -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="glass-card p-3 rounded-xl border border-gray-800">
+                        <span class="text-xs font-mono text-cyan-400 font-bold block mb-0.5">-Direction Inbound</span>
+                        <p class="text-[11px] text-gray-400">Kebenaran untuk trafik sambungan yang datang dari <strong>Luar Masuk Ke Dalam</strong> PC.</p>
+                    </div>
+                    <div class="glass-card p-3 rounded-xl border border-gray-800">
+                        <span class="text-xs font-mono text-emerald-400 font-bold block mb-0.5">-Protocol TCP</span>
+                        <p class="text-[11px] text-gray-400">Protokol komunikasi berasaskan web standar.</p>
+                    </div>
+                    <div class="glass-card p-3 rounded-xl border border-gray-800">
+                        <span class="text-xs font-mono text-amber-400 font-bold block mb-0.5">-LocalPort 8080</span>
+                        <p class="text-[11px] text-gray-400">Port spesifik tempat Python server kita sedang menunggu.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE GUI: FIREWALL MANUAL (VISUAL) -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Tetapan Manual (GUI)</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Windows Firewall (Cara Visual)</h2>
+                <p class="text-gray-400 text-sm mt-1">Jika anda lebih suka menggunakan menu Windows tanpa taip arahan Terminal:</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs mb-2">1</div>
+                        <h4 class="font-bold text-white text-xs mb-1">Cari Firewall</h4>
+                        <p class="text-[11px] text-gray-400">Taip <code class="text-cyan-300 font-mono">wf.msc</code> di Windows Search atau buka <em>Windows Defender Firewall with Advanced Security</em>.</p>
+                    </div>
+                    <div class="mt-2 text-cyan-400 text-xs"><i class="fa-solid fa-magnifying-glass"></i> Search</div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs mb-2">2</div>
+                        <h4 class="font-bold text-white text-xs mb-1">Inbound Rules</h4>
+                        <p class="text-[11px] text-gray-400">Klik <strong>Inbound Rules</strong> di sebelah kiri, kemudian tekan <strong>New Rule...</strong> di sebelah kanan.</p>
+                    </div>
+                    <div class="mt-2 text-cyan-400 text-xs"><i class="fa-solid fa-right-to-bracket"></i> Inbound</div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs mb-2">3</div>
+                        <h4 class="font-bold text-white text-xs mb-1">Pilih "Port"</h4>
+                        <p class="text-[11px] text-gray-400">Pilih jenis Rule <strong>Port</strong>, tekan Next. Pilih <strong>TCP</strong> & masukkan port <code class="text-amber-300 font-mono">8080</code>.</p>
+                    </div>
+                    <div class="mt-2 text-amber-400 text-xs"><i class="fa-solid fa-ethernet"></i> Port 8080</div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs mb-2">4</div>
+                        <h4 class="font-bold text-white text-xs mb-1">Allow Connection</h4>
+                        <p class="text-[11px] text-gray-400">Pilih <strong>Allow the connection</strong>, klik Next untuk semua profail (Domain, Private, Public).</p>
+                    </div>
+                    <div class="mt-2 text-emerald-400 text-xs"><i class="fa-solid fa-shield-halved"></i> Allow</div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/10 flex flex-col justify-between sm:col-span-2 lg:col-span-1">
+                    <div>
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs mb-2">5</div>
+                        <h4 class="font-bold text-emerald-300 text-xs mb-1">Simpan Rule</h4>
+                        <p class="text-[11px] text-gray-300">Beri nama (contoh: <code class="text-cyan-300 font-mono">Python 8080</code>) dan tekan <strong>Finish</strong>.</p>
+                    </div>
+                    <div class="mt-2 text-emerald-400 text-xs font-semibold"><i class="fa-solid fa-check-circle"></i> Selesai!</div>
+                </div>
+            </div>
+
+            <div class="mt-4 p-3 rounded-xl bg-gray-950 border border-gray-800 text-xs text-gray-400 flex items-center gap-3">
+                <i class="fa-solid fa-lightbulb text-amber-400 text-lg"></i>
+                <span><strong>Nota:</strong> Langkah GUI ini memberikan hasil yang <u>sama persis</u> dengan arahan PowerShell di slide sebelum ini. Bos boleh pilih mana-mana cara yang lebih selesa!</span>
+            </div>
+        </section>
+
+        <!-- SLIDE 13 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Ujian Praktikal #3</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Uji Semula Private IP</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-emerald-500/40 bg-emerald-950/10 text-center space-y-6">
+                <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto glow-emerald">
+                    <i class="fa-solid fa-wifi"></i>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-xl font-bold text-white">Cuba Semula Di Browser Telefon Bimbit:</h3>
+                    <div class="inline-block bg-gray-950 border border-emerald-500/50 px-6 py-2.5 rounded-xl text-emerald-400 font-mono text-lg font-bold">
+                        http://192.168.1.50:8080
+                    </div>
+                </div>
+
+                <div class="max-w-md mx-auto p-4 rounded-xl bg-gray-900/90 border border-gray-800 text-xs text-gray-300 space-y-2">
+                    <p class="text-emerald-300 font-bold">🎉 Jika paparan laman Python berjaya keluar di telefon:</p>
+                    <p>"Private Network Access BERJAYA! Telefon & Komputer kini boleh berkomunikasi dalam rangkaian rumah."</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 14 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Konsep Asas #4</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Public IP?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-globe text-amber-400"></i> Identiti Di Alam Internet
+                        </h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            <strong>Public IP</strong> ialah alamat IP tunggal yang diberikan oleh Penyedia Perkhidmatan Internet (ISP seperti TM Unifi, Maxis, Time) kepada router rumah anda.
+                        </p>
+                    </div>
+
+                    <!-- Analogy Box -->
+                    <div class="glass-card p-5 rounded-xl border border-amber-500/30 bg-amber-950/10 space-y-2">
+                        <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Analogi Mudah Bangunan:</h4>
+                        <div class="text-xs text-gray-200 leading-relaxed">
+                            🏢 <strong>Private IP</strong> = Nombor bilik/bilik tidur di dalam rumah (Contoh: Bilik 192.168.1.50)<br>
+                            📫 <strong>Public IP</strong> = Alamat Poskod luar rumah yang digunakan oleh Posmen (Contoh: 203.xxx.xxx.xxx)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-4">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Contoh Format Public IP</div>
+                    <div class="text-amber-400 font-mono font-bold text-2xl sm:text-3xl bg-gray-950 p-4 rounded-xl border border-amber-500/30">
+                        203.106.55.120
+                    </div>
+                    <p class="text-xs text-gray-500">
+                        (Semua peranti di dalam rumah anda berkongsi SATU Public IP yang sama apabila melayari internet)
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 15 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Perbandingan Utama</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Private IP vs Public IP</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <div class="glass-card p-6 rounded-2xl border border-cyan-500/30 bg-gray-900/60 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-house"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white">PRIVATE IP</h3>
+                            <span class="text-xs font-mono text-cyan-400">192.168.1.50</span>
+                        </div>
+                    </div>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Digunakan khas dalam rangkaian dalaman rumah (LAN).</li>
+                        <li>Diberikan secara automatik oleh Wi-Fi Router.</li>
+                        <li><strong>TIDAK Boleh</strong> dicapai secara terus dari Internet luar.</li>
+                        <li>Percuma dan boleh sama dengan jiran sebelah rumah.</li>
+                    </ul>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-amber-500/30 bg-gray-900/60 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-earth-americas"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white">PUBLIC IP</h3>
+                            <span class="text-xs font-mono text-amber-400">203.xxx.xxx.xxx</span>
+                        </div>
+                    </div>
+                    <ul class="text-xs text-gray-300 space-y-2 list-disc pl-4">
+                        <li>Digunakan untuk komunikasi dengan seluruh dunia / Internet.</li>
+                        <li>Diberikan oleh pembekal internet (ISP).</li>
+                        <li>Unik di seluruh dunia (tiada orang lain yang guna IP sama).</li>
+                        <li>Boleh dicapai oleh sesiapa sahaja di Internet.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 16 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Peranti Utama</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Peran Router (Wi-Fi Modem)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm sm:text-base leading-relaxed">
+                        <strong>Router</strong> adalah jambatan atau penjaga pintu (*gateway*) yang menghubungkan rangkaian dalaman rumah anda ke dunia luar (Internet).
+                    </p>
+                    <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-300 space-y-2">
+                        <div class="font-bold text-white">Router mempunyai 2 muka:</div>
+                        <div>1. Muka Luar (WAN) <i class="fa-solid fa-arrow-right text-amber-400 mx-1"></i> Memegang Public IP</div>
+                        <div>2. Muka Dalam (LAN) <i class="fa-solid fa-arrow-right text-cyan-400 mx-1"></i> Memegang Private IP</div>
+                    </div>
+                </div>
+
+                <!-- Router Visual -->
+                <div class="glass-card p-6 rounded-2xl border border-amber-500/30 bg-gray-950/80 flex flex-col items-center text-center space-y-4">
+                    <div class="text-xs font-mono text-amber-400">INTERNET LUAR</div>
+                    <i class="fa-solid fa-cloud text-3xl text-indigo-400"></i>
+                    <i class="fa-solid fa-arrow-down text-gray-500"></i>
+                    
+                    <div class="w-full bg-amber-950/40 border border-amber-500/50 p-4 rounded-xl">
+                        <i class="fa-solid fa-wifi text-3xl text-amber-400 mb-1"></i>
+                        <div class="font-bold text-white text-sm">ROUTER RUMAH</div>
+                        <div class="text-[10px] font-mono text-gray-400">Menyambung Public IP ↔ Private IP</div>
+                    </div>
+
+                    <i class="fa-solid fa-arrow-down text-gray-500"></i>
+                    <div class="flex justify-around w-full text-xs text-gray-300 font-mono">
+                        <span>📱 Telefon</span>
+                        <span>💻 Laptop</span>
+                        <span>🖥️ Windows Server</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 17 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-rose-400 tracking-wider">Kemuncak Masalah</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Masalah Yang Kita Ada</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Apabila seseorang dari Internet cuba membuka Public IP anda:
+                    </p>
+                    <div class="code-block p-3 rounded-xl text-center text-amber-400 font-mono text-base">
+                        http://PUBLIC-IP:8080
+                    </div>
+                    <p class="text-gray-300 text-sm leading-relaxed">
+                        Isyarat data berjaya sampai ke <strong>Router Rumah</strong> anda. TETAPI... Router keliru dan bertanya:
+                    </p>
+                    <div class="glass-card p-4 rounded-xl border border-rose-500/40 bg-rose-950/20 text-rose-300 font-semibold text-sm">
+                        "Request port 8080 ini patut aku hantarkan kepada peranti yang mana satu di dalam rumah?" 🤔
+                    </div>
+                </div>
+
+                <!-- Confused Router Visual -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 text-center space-y-3">
+                    <div class="text-xs text-indigo-400 font-mono">Pelawat Dari Internet</div>
+                    <i class="fa-solid fa-arrow-down text-indigo-400"></i>
+                    <div class="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl font-bold text-amber-400">
+                        ROUTER RUMAH
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-gray-500 pt-2">
+                        <div class="text-rose-400">❓ PC Windows (192.168.1.50)</div>
+                        <div class="text-gray-600">❓ Telefon</div>
+                        <div class="text-gray-600">❓ TV</div>
+                    </div>
+                    <p class="text-[11px] text-gray-400 pt-2 border-t border-gray-800">
+                        Tanpa arahan khas, Router akan <strong>membuang (drop)</strong> request tersebut demi keselamatan.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 18 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-indigo-400 tracking-wider">Solusi Utama</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa itu Port Forwarding?</h2>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass-card p-5 rounded-xl border border-indigo-500/40 bg-indigo-950/10">
+                    <h3 class="text-lg font-bold text-indigo-300 mb-2">Definisi Mudah:</h3>
+                    <p class="text-sm text-gray-200 leading-relaxed">
+                        <strong>Port Forwarding</strong> ialah arahan tetap yang ditulis di dalam tetapan Router: <br>
+                        <span class="text-cyan-300 font-mono">"Jika ada pelawat luar datang melalui Port 8080, terus hantar data itu ke Komputer Windows (192.168.1.50) pada Port 8080!"</span>
+                    </p>
+                </div>
+
+                <!-- Detailed Flowchart Diagram -->
+                <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/60 overflow-x-auto">
+                    <div class="flex items-center justify-between min-w-[600px] text-center font-mono text-xs gap-2">
+                        <div class="p-3 rounded-xl bg-slate-900 border border-indigo-500/40 text-indigo-300">
+                            <i class="fa-solid fa-globe text-lg mb-1 block"></i>
+                            PUBLIC IP<br><span class="text-[10px] text-gray-400">203.xxx.xxx.xxx:8080</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                        <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 text-amber-300">
+                            <i class="fa-solid fa-route text-lg mb-1 block"></i>
+                            ROUTER<br><span class="text-[10px] text-amber-400 font-bold">Port Forwarding</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                        <div class="p-3 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300">
+                            <i class="fa-solid fa-desktop text-lg mb-1 block"></i>
+                            WINDOWS<br><span class="text-[10px] text-gray-400">192.168.1.50:8080</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-gray-600"></i>
+                        <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-400">
+                            <i class="fa-brands fa-python text-lg mb-1 block"></i>
+                            PYTHON<br><span class="text-[10px] text-emerald-300">Web Server</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 19 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-indigo-400 tracking-wider">Konfigurasi Router</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Contoh Setting Port Forwarding</h2>
+                <p class="text-gray-400 text-sm mt-1">Buka Dashboard Admin Router anda (selalunya http://192.168.1.1) & isi borang ini:</p>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-gray-800 bg-gray-950/80 max-w-2xl mx-auto space-y-4 font-mono text-sm">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-800">
+                    <span class="text-gray-400">Protocol:</span>
+                    <span class="text-emerald-400 font-bold bg-emerald-950 px-2 py-1 rounded border border-emerald-800">TCP</span>
+                </div>
+                <div class="flex justify-between items-center pb-3 border-b border-gray-800">
+                    <span class="text-gray-400">External / WAN Port:</span>
+                    <span class="text-amber-400 font-bold">8080</span>
+                </div>
+                <div class="flex justify-between items-center pb-3 border-b border-gray-800">
+                    <span class="text-gray-400">Internal / LAN IP:</span>
+                    <span class="text-cyan-400 font-bold">192.168.1.50</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400">Internal / LAN Port:</span>
+                    <span class="text-amber-400 font-bold">8080</span>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+                ⚠️ <span class="text-gray-200">Peringatan:</span> Pastikan <code class="text-cyan-300">Internal IP</code> di atas digantikan dengan Private IP komputer anda yang sebenar.
+            </p>
+        </section>
+
+        <!-- SLIDE 20 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Soalan Lazim Beginner</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Kenapa Guna Port Yang Sama?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div class="space-y-4">
+                    <div class="glass-card p-5 rounded-xl border border-gray-800">
+                        <h3 class="font-bold text-white mb-2">External Port (8080) = Internal Port (8080)</h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">
+                            Adakah External Port & Internal Port wajib sama? <strong>Tidak semestinya!</strong>
+                        </p>
+                    </div>
+
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Router membenarkan anda memetakan port berbeza (contohnya External 80 → Internal 8080). Namun, untuk peringkat <strong>beginner</strong>, menggunakan nombor port yang sama (8080) memudahkan kita memahami aliran tanpa kekeliruan.
+                    </p>
+                </div>
+
+                <div class="code-block p-6 rounded-2xl text-center space-y-4 border border-cyan-500/30">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Laluan Permintaan Sambungan:</div>
+                    <div class="text-amber-400 font-mono text-lg font-bold">
+                        PUBLIC-IP : <span class="text-white border-b-2 border-amber-400">8080</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-down text-cyan-400"></i>
+                    <div class="text-cyan-400 font-mono text-lg font-bold">
+                        192.168.1.50 : <span class="text-white border-b-2 border-cyan-400">8080</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 21 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-amber-400 tracking-wider">Ujian Penentu</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Test Dari Luar (Mobile Data)</h2>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass-card p-5 rounded-xl border border-amber-500/40 bg-amber-950/10">
+                    <h3 class="text-base font-bold text-amber-300 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i> SYARAT UJIAN PENTING:
+                    </h3>
+                    <p class="text-sm text-gray-200">
+                        <strong>JANGAN guna Wi-Fi rumah</strong> semasa melakukan ujian Public IP ini! Matikan Wi-Fi telefon bimbit anda dan gunakan <strong>MOBILE DATA (4G/5G)</strong>.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-3">
+                        <h4 class="text-sm font-semibold text-white">Langkah Ujian:</h4>
+                        <ol class="text-xs text-gray-300 space-y-2 list-decimal pl-4">
+                            <li>Cari Public IP anda di Google (taip: <em>"what is my ip"</em>).</li>
+                            <li>Matikan Wi-Fi telefon bimbit (hidupkan Mobile Data).</li>
+                            <li>Buka browser telefon dan taip:
+                                <div class="code-block p-2 text-amber-300 font-mono rounded mt-1">http://PUBLIC-IP:8080</div>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="glass-card p-4 rounded-xl border border-gray-800 text-xs text-gray-400 space-y-2">
+                        <div class="font-bold text-white">Kenapa Perlu Mobile Data?</div>
+                        <p>
+                            Sebab kita mahu menguji laluan trafik <strong>Internet sebenar</strong> dari luar bangunan rumah masuk melalui Router ke PC anda.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 22 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-emerald-400 tracking-wider">Kejayaan Utama!</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Jika Berjaya... Tahniah! 🎉</h2>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl border border-emerald-500/40 bg-emerald-950/20 text-center space-y-6">
+                <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto glow-emerald">
+                    <i class="fa-solid fa-champagne-glasses"></i>
+                </div>
+
+                <p class="text-gray-200 text-sm max-w-xl mx-auto leading-relaxed">
+                    Jika halaman laman web Python anda berjaya dipaparkan di telefon bimbit yang menggunakan Mobile Data, anda telah <strong>rasmi berjaya meng-host web server sendiri dari rumah!</strong>
+                </p>
+
+                <!-- Full Chain Diagram -->
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 text-xs font-mono text-emerald-400 overflow-x-auto">
+                    Internet Luar <i class="fa-solid fa-arrow-right text-gray-600"></i> Public IP <i class="fa-solid fa-arrow-right text-gray-600"></i> Router <i class="fa-solid fa-arrow-right text-gray-600"></i> Port Forwarding <i class="fa-solid fa-arrow-right text-gray-600"></i> Private IP <i class="fa-solid fa-arrow-right text-gray-600"></i> Firewall <i class="fa-solid fa-arrow-right text-gray-600"></i> Python Server
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 23 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Ringkasan Ilmu</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Apa Yang Kita Dah Belajar</h2>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 my-auto">
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Python Web Server</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Konsep Localhost</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Fungsi Nombor Port</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Private IP & LAN</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Komunikasi Wi-Fi Rumah</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Perisai Windows Firewall</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Public IP Peranti</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Fungsi Utama Router</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl border border-emerald-500/30 sm:col-span-2 lg:col-span-1 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <span class="text-xs font-medium text-gray-200">Tetapan Port Forwarding</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 24 -->
+        <section class="slide flex-col justify-center max-w-5xl mx-auto slide-content py-6">
+            <div class="mb-6">
+                <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Masa Depan</span>
+                <h2 class="text-2xl sm:text-4xl font-bold text-white mt-1">Next Level (Perkara Akan Datang)</h2>
+                <p class="text-gray-400 text-sm mt-1">Selepas menguasai asas ini, topik-topik lanjutan ini menanti anda:</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-auto">
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">🌐 Domain & DNS</div>
+                    <p class="text-xs text-gray-400">Tukar Public IP angka kepada nama seperti <code class="text-purple-300">mysite.com</code></p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">🔒 HTTPS / SSL</div>
+                    <p class="text-xs text-gray-400">Tambah mangga keselamatan (Encrypted HTTPS) pada website.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">🔄 Reverse Proxy</div>
+                    <p class="text-xs text-gray-400">Menggunakan Nginx / Caddy untuk menguruskan pelbagai server.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">☁️ Cloudflare</div>
+                    <p class="text-xs text-gray-400">Melindungi Public IP rumah daripada serangan DDoS.</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">🚇 Cloudflare Tunnel</div>
+                    <p class="text-xs text-gray-400">Buka server ke internet TANPA perlu buat Port Forwarding!</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl border border-purple-500/30 bg-purple-950/10">
+                    <div class="text-purple-400 font-bold text-sm mb-1">🛡️ Security Hardening</div>
+                    <p class="text-xs text-gray-400">Memperketatkan keselamatan server daripada penceroboh.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 25 -->
+        <section class="slide flex-col justify-center items-center text-center max-w-5xl mx-auto my-auto slide-content py-6">
+            <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider mb-2">Penutup</span>
+            <h2 class="text-3xl sm:text-5xl font-extrabold text-white mb-6">Rumusan Akhir</h2>
+
+            <!-- Big Final Visual Flow -->
+            <div class="glass-card p-6 rounded-2xl border border-cyan-500/40 bg-gray-950/80 w-full max-w-3xl mb-8">
+                <div class="flex flex-wrap items-center justify-center gap-2 text-xs font-mono">
+                    <span class="px-2.5 py-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">LOCALHOST</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-slate-900 text-gray-300 border border-gray-800">PRIVATE IP</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-rose-950 text-rose-300 border border-rose-800">FIREWALL</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-800">PUBLIC IP</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-purple-950 text-purple-300 border border-purple-800">ROUTER</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">PORT FORWARDING</span>
+                    <i class="fa-solid fa-arrow-right text-gray-600"></i>
+                    <span class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">INTERNET ACCESS</span>
+                </div>
+            </div>
+
+            <p class="text-lg sm:text-xl text-gray-200 font-medium italic max-w-2xl leading-relaxed">
+                "Kalau faham aliran ini, bos dah faham asas bagaimana server di rumah boleh diakses dari internet!" 🚀
+            </p>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM CONTROLS BAR -->
+    <footer class="h-16 px-6 border-t border-gray-800/80 flex items-center justify-between z-20 bg-brand-dark/95 backdrop-blur-md shrink-0">
+        <button id="prevBtn" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-semibold transition flex items-center gap-2 border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-chevron-left text-xs"></i> Prev
+        </button>
+
+        <!-- Slide Dots Navigation (Visible on desktop) -->
+        <div id="slideDots" class="hidden md:flex items-center gap-1.5 overflow-x-auto max-w-md px-2 py-1">
+            <!-- Dynamic Dots via JS -->
+        </div>
+
+        <button id="nextBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-sm font-semibold transition flex items-center gap-2 shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+    </footer>
+
+    <!-- OVERVIEW GRID MODAL -->
+    <div id="overviewModal" class="fixed inset-0 z-50 modal-bg flex items-center justify-center p-4 sm:p-6 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-card w-full max-w-5xl h-[85vh] rounded-2xl border border-gray-700 flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/80">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-border-all text-cyan-400"></i> Pilih Slide
+                </h3>
+                <button id="closeOverviewBtn" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="overviewGrid" class="flex-1 p-6 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <!-- Dynamically Populated Cards -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = document.querySelectorAll('.slide');
+            const totalSlides = slides.length;
+            let currentSlide = 0;
+
+            const currentSlideNumEl = document.getElementById('currentSlideNum');
+            const totalSlidesNumEl = document.getElementById('totalSlidesNum');
+            const progressBar = document.getElementById('progressBar');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const slideDotsContainer = document.getElementById('slideDots');
+            const overviewBtn = document.getElementById('overviewBtn');
+            const overviewModal = document.getElementById('overviewModal');
+            const closeOverviewBtn = document.getElementById('closeOverviewBtn');
+            const overviewGrid = document.getElementById('overviewGrid');
+
+            totalSlidesNumEl.textContent = totalSlides;
+
+            // Generate slide dots
+            slides.forEach((_, idx) => {
+                const dot = document.createElement('button');
+                dot.className = `w-2 h-2 rounded-full transition-all duration-200 ${idx === 0 ? 'bg-cyan-400 w-5' : 'bg-gray-700 hover:bg-gray-500'}`;
+                dot.addEventListener('click', () => goToSlide(idx));
+                slideDotsContainer.appendChild(dot);
+            });
+
+            // Generate modal grid items
+            slides.forEach((slide, idx) => {
+                const heading = slide.querySelector('h1, h2')?.innerText || `Slide ${idx + 1}`;
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border border-gray-800 bg-gray-900/60 hover:border-cyan-500/50 cursor-pointer transition flex flex-col justify-between h-28 ${idx === 0 ? 'border-cyan-500/50 bg-cyan-950/20' : ''}`;
+                card.innerHTML = `
+                    <div class="text-[10px] font-mono text-cyan-400 font-bold">SLIDE ${idx + 1}</div>
+                    <div class="text-xs font-semibold text-gray-200 line-clamp-2">${heading}</div>
+                    <div class="text-[10px] text-gray-500">Klik untuk buka →</div>
+                `;
+                card.addEventListener('click', () => {
+                    goToSlide(idx);
+                    closeModal();
+                });
+                overviewGrid.appendChild(card);
+            });
+
+            function updateUI() {
+                slides.forEach((slide, idx) => {
+                    if (idx === currentSlide) {
+                        slide.classList.add('active');
+                    } else {
+                        slide.classList.remove('active');
+                    }
+                });
+
+                currentSlideNumEl.textContent = currentSlide + 1;
+                progressBar.style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
+
+                // Update Prev / Next buttons state
+                prevBtn.disabled = currentSlide === 0;
+                nextBtn.disabled = currentSlide === totalSlides - 1;
+
+                // Update Dots
+                const dots = slideDotsContainer.querySelectorAll('button');
+                dots.forEach((dot, idx) => {
+                    if (idx === currentSlide) {
+                        dot.className = 'w-5 h-2 rounded-full bg-cyan-400 transition-all duration-200';
+                    } else {
+                        dot.className = 'w-2 h-2 rounded-full bg-gray-700 hover:bg-gray-500 transition-all duration-200';
+                    }
+                });
+
+                // Scroll top of active slide content
+                const activeSlideObj = slides[currentSlide];
+                if (activeSlideObj) {
+                    activeSlideObj.scrollTop = 0;
+                }
+            }
+
+            function goToSlide(index) {
+                if (index >= 0 && index < totalSlides) {
+                    currentSlide = index;
+                    updateUI();
+                }
+            }
+
+            function nextSlide() {
+                if (currentSlide < totalSlides - 1) {
+                    currentSlide++;
+                    updateUI();
+                }
+            }
+
+            function prevSlide() {
+                if (currentSlide > 0) {
+                    currentSlide--;
+                    updateUI();
+                }
+            }
+
+            // Event Listeners
+            prevBtn.addEventListener('click', prevSlide);
+            nextBtn.addEventListener('click', nextSlide);
+
+            // Keyboard Navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'Space' || e.key === 'PageDown') {
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    prevSlide();
+                } else if (e.key === 'Home') {
+                    goToSlide(0);
+                } else if (e.key === 'End') {
+                    goToSlide(totalSlides - 1);
+                } else if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+
+            // Touch Swipe Support
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            document.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, false);
+
+            document.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+
+            function handleSwipe() {
+                const threshold = 50;
+                if (touchEndX < touchStartX - threshold) {
+                    nextSlide();
+                }
+                if (touchEndX > touchStartX + threshold) {
+                    prevSlide();
+                }
+            }
+
+            // Modal Controls
+            function openModal() {
+                overviewModal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+            function closeModal() {
+                overviewModal.classList.add('opacity-0', 'pointer-events-none');
+            }
+
+            overviewBtn.addEventListener('click', openModal);
+            closeOverviewBtn.addEventListener('click', closeModal);
+            overviewModal.addEventListener('click', (e) => {
+                if (e.target === overviewModal) closeModal();
+            });
+
+            // Copy helper
+            window.copyCode = function(buttonEl, text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = buttonEl.innerHTML;
+                    buttonEl.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Disalin!';
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalText;
+                    }, 2000);
+                }).catch(() => {
+                    // Fallback using input element
+                    const tempInput = document.createElement('textarea');
+                    tempInput.value = text;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    
+                    const originalText = buttonEl.innerHTML;
+                    buttonEl.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Disalin!';
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalText;
+                    }, 2000);
+                });
+            };
+
+            // Initialize UI
+            updateUI();
+        });
+    </script>
+</body>
+</html>

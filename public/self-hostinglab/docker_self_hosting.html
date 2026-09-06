@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker untuk Self-Hosting: Dari Container Pertama Hingga Multiple Applications</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        docker: {
+                            DEFAULT: '#2496ED',
+                            dark: '#1D70B8',
+                            light: '#60A5FA',
+                            glow: 'rgba(36, 150, 237, 0.25)'
+                        },
+                        container: '#06B6D4',
+                        network: '#10B981',
+                        storage: '#8B5CF6',
+                        cloudflare: '#F97316',
+                        sec: '#EF4444',
+                        amber: '#F59E0B',
+                        darkbg: '#0F172A',
+                        cardbg: '#1E293B',
+                        bordercolor: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0B0F19;
+            color: #F8FAFC;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .slide {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.35s ease-in-out, transform 0.35s ease-in-out;
+            transform: scale(0.98);
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Glow Effects */
+        .glow-docker { box-shadow: 0 0 25px rgba(36, 150, 237, 0.25); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(6, 182, 212, 0.25); }
+        .glow-green { box-shadow: 0 0 25px rgba(16, 185, 129, 0.25); }
+        .glow-purple { box-shadow: 0 0 25px rgba(139, 92, 246, 0.25); }
+        .glow-orange { box-shadow: 0 0 25px rgba(249, 115, 22, 0.25); }
+        .glow-red { box-shadow: 0 0 25px rgba(239, 68, 68, 0.25); }
+
+        /* Code Block Styling */
+        pre {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Selection styling */
+        ::selection {
+            background-color: #2496ED;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between overflow-hidden relative text-slate-100">
+
+    <!-- Top Bar Navigation -->
+    <header class="h-14 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-4 md:px-6 flex items-center justify-between z-30 flex-shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-docker/20 p-1.5 rounded-lg border border-docker/40 flex items-center justify-center">
+                <svg class="w-6 h-6 text-docker" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13.983 11.078h2.119v-2.09h-2.119v2.09zm-2.825 0h2.12v-2.09h-2.12v2.09zm-2.827 0h2.119v-2.09H8.331v2.09zm-2.827 0h2.12v-2.09h-2.12v2.09zm-2.827 0h2.12v-2.09h-2.12v2.09zm8.481-2.88h2.119V6.107h-2.119v2.091zm-2.827 0h2.12V6.107h-2.12v2.091zm-2.827 0h2.119V6.107H8.331v2.091zm8.481-2.88h2.119V3.226h-2.119v2.092zm2.827 5.76h2.119v-2.09h-2.119v2.09zm1.611 1.764c-.394-.27-.992-.376-1.597-.376h-1.077c-.443 0-.877.067-1.294.195-.506-1.551-1.954-2.67-3.664-2.67H4.373c-.267 0-.528.035-.78.098C2.923 9.423 2 10.686 2 12.18c0 2.65 2.15 4.8 4.8 4.8h11.4c2.65 0 4.8-2.15 4.8-4.8 0-.573-.102-1.121-.29-1.63z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xs md:text-sm font-bold text-slate-200 tracking-wide truncate max-w-[200px] sm:max-w-md">Docker untuk Self-Hosting</h1>
+                <p class="text-[10px] text-slate-400 hidden sm:block">Dari Container Pertama Hingga Multiple Applications</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 md:space-x-4">
+            <!-- Slide Counter -->
+            <button onclick="toggleOverviewModal()" title="Buka Senarai Slide" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-docker border border-slate-700 hover:border-docker/50 rounded-md text-xs font-mono font-bold transition flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                <span id="slide-counter">1 / 45</span>
+            </button>
+
+            <!-- Fullscreen Button -->
+            <button onclick="toggleFullscreen()" title="Skrin Penuh (F)" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md border border-slate-700 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Slide Viewport -->
+    <main class="flex-1 relative w-full h-[calc(100vh-7rem)] overflow-y-auto overflow-x-hidden p-4 md:p-8 flex items-center justify-center bg-slate-950">
+        
+        <!-- SLIDE 1: TAJUK -->
+        <div class="slide active w-full max-w-5xl h-full flex-col justify-center items-center text-center space-y-8">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-docker/10 border border-docker/30 text-docker text-xs font-mono">
+                <span>🐳 KURSUS ASAS DOCKER & SELF-HOSTING</span>
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
+                Docker untuk <span class="text-transparent bg-clip-text bg-gradient-to-r from-docker via-cyan-400 to-blue-500">Self-Hosting</span>
+            </h1>
+            <p class="text-lg sm:text-2xl text-slate-400 font-light max-w-2xl">
+                Dari Container Pertama Hingga Multiple Applications
+            </p>
+            
+            <!-- Visual Diagram Slide 1 -->
+            <div class="w-full max-w-xl bg-slate-900/90 border border-slate-800 rounded-2xl p-6 glow-docker mt-6">
+                <div class="flex flex-col items-center space-y-4 font-mono text-sm">
+                    <div class="px-6 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 flex items-center space-x-2 shadow-md">
+                        <span>🖥️ Server Host</span>
+                    </div>
+                    <div class="text-docker animate-bounce">↓</div>
+                    <div class="px-8 py-3 bg-docker/20 border border-docker/50 rounded-xl text-docker font-bold flex items-center space-x-2 shadow-lg">
+                        <span>🐳 Docker Engine</span>
+                    </div>
+                    <div class="text-docker">↓</div>
+                    <div class="grid grid-cols-3 gap-3 w-full">
+                        <div class="p-3 bg-container/10 border border-container/40 rounded-lg text-container text-center font-semibold text-xs sm:text-sm shadow">
+                            🌐 Web App
+                        </div>
+                        <div class="p-3 bg-green-500/10 border border-green-500/40 rounded-lg text-green-400 text-center font-semibold text-xs sm:text-sm shadow">
+                            ⚡ API Server
+                        </div>
+                        <div class="p-3 bg-purple-500/10 border border-purple-500/40 rounded-lg text-purple-400 text-center font-semibold text-xs sm:text-sm shadow">
+                            ⚙️ Admin Panel
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 2: KENAPA KITA PERLUKAN DOCKER? -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">02.</span> <span>Kenapa Kita Perlukan Docker?</span>
+            </h2>
+            <p class="text-slate-300 text-lg">Bayangkan satu server persendirian yang menjalankan pelbagai perkhidmatan:</p>
+            
+            <div class="grid md:grid-cols-2 gap-6 mt-4">
+                <!-- Tanpa Docker -->
+                <div class="bg-slate-900 border border-red-500/30 rounded-xl p-5 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 class="font-bold text-red-400 flex items-center space-x-2">
+                            <span>❌ Tanpa Container (Tradisional)</span>
+                        </h3>
+                    </div>
+                    <pre class="bg-slate-950 p-4 rounded-lg text-xs text-red-300 font-mono leading-relaxed border border-slate-800">
+Server
+├── Website (Python 3.8)
+├── API (Python 3.11) ⚠️ Conflict!
+├── Database (PostgreSQL 14)
+└── Admin Panel (Node.js 16)
+                    </pre>
+                    <ul class="text-xs text-slate-400 space-y-2 list-disc list-inside">
+                        <li><strong class="text-slate-200">Dependency Bercampur:</strong> Pustaka (*libraries*) bertindih.</li>
+                        <li><strong class="text-slate-200">Version Conflict:</strong> Susah jalankan versi bahasa berbeza.</li>
+                        <li><strong class="text-slate-200">Pemasangan Rumit:</strong> Perlu configure OS berulang kali.</li>
+                        <li><strong class="text-slate-200">Sukar Dipindahkan:</strong> Susah migrasi ke server baru.</li>
+                    </ul>
+                </div>
+
+                <!-- Dengan Docker -->
+                <div class="bg-slate-900 border border-docker/40 rounded-xl p-5 space-y-4 glow-docker">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 class="font-bold text-docker flex items-center space-x-2">
+                            <span>✅ Dengan Docker (Isolated)</span>
+                        </h3>
+                    </div>
+                    <pre class="bg-slate-950 p-4 rounded-lg text-xs text-docker font-mono leading-relaxed border border-slate-800">
+Server (Docker Host)
+├── 📦 Container Web (Python 3.8)
+├── 📦 Container API (Python 3.11)
+├── 📦 Container DB (PostgreSQL 14)
+└── 📦 Container Admin (Node 16)
+                    </pre>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Docker membolehkan setiap aplikasi berjalan dalam persekitaran yang <strong class="text-container">terasing sepenuhnya (isolated)</strong> tanpa mengganggu aplikasi lain.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 3: APA ITU DOCKER? -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">03.</span> <span>Apa Itu Docker?</span>
+            </h2>
+            
+            <div class="bg-slate-900/80 border-l-4 border-docker p-6 rounded-r-xl">
+                <blockquote class="text-xl text-slate-200 font-medium italic">
+                    "Docker ialah platform terbuka untuk membina, menghantar, dan menjalankan application dalam persekitaran terasing yang dipanggil container."
+                </blockquote>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                    <h3 class="font-bold text-lg text-docker">Analogi Kontena Perkapalan</h3>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        Sama seperti kontena kapal yang boleh memuatkan pelbagai barangan tanpa bercampur dan mudah diangkut oleh mana-mana kapal, Docker membungkus aplikasi bersama semua kekeperluannya.
+                    </p>
+                    <div class="bg-slate-950 p-4 rounded-lg font-mono text-xs text-container space-y-1">
+                        <div>Aplikasi (Code)</div>
+                        <div class="text-slate-500">+ Dependencies (Libraries)</div>
+                        <div class="text-slate-500">+ Configuration (Settings)</div>
+                        <div class="text-docker font-bold border-t border-slate-800 pt-1 mt-1">↓ 📦 CONTAINER (Siap Dijalankan)</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-3">
+                    <h3 class="font-bold text-lg text-slate-200">Keuntungan Utamanya:</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-start space-x-3">
+                            <span class="bg-docker/20 text-docker p-1 rounded font-bold text-xs">01</span>
+                            <p class="text-slate-300"><strong class="text-white">Konsisten:</strong> Jika ia berjalan pada laptop anda, ia PASTI berjalan pada server.</p>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span class="bg-docker/20 text-docker p-1 rounded font-bold text-xs">02</span>
+                            <p class="text-slate-300"><strong class="text-white">Pantas:</strong> Container boleh di-start dan di-stop dalam beberapa saat sahaja.</p>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <span class="bg-docker/20 text-docker p-1 rounded font-bold text-xs">03</span>
+                            <p class="text-slate-300"><strong class="text-white">Clean Server:</strong> Tiada sisa fail konfigurasi bertumpuk dalam Host OS.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 4: CONTAINER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">04.</span> <span>Anatomi Container</span>
+            </h2>
+
+            <div class="grid md:grid-cols-12 gap-6 items-center">
+                <div class="md:col-span-6 bg-slate-900 border border-slate-800 p-6 rounded-xl">
+                    <!-- Diagram Container Host -->
+                    <div class="border-2 border-dashed border-slate-700 rounded-xl p-4 bg-slate-950 text-center space-y-3">
+                        <span class="text-xs font-mono text-slate-400 uppercase tracking-widest font-bold">Docker Host OS</span>
+                        <div class="grid grid-cols-3 gap-2 pt-2">
+                            <div class="p-3 bg-container/20 border border-container/50 rounded-lg text-center">
+                                <div class="text-xs font-bold text-container">Container A</div>
+                                <div class="text-[10px] text-slate-400 mt-1">App + Libs</div>
+                            </div>
+                            <div class="p-3 bg-network/20 border border-network/50 rounded-lg text-center">
+                                <div class="text-xs font-bold text-network">Container B</div>
+                                <div class="text-[10px] text-slate-400 mt-1">App + Libs</div>
+                            </div>
+                            <div class="p-3 bg-storage/20 border border-storage/50 rounded-lg text-center">
+                                <div class="text-xs font-bold text-storage">Container C</div>
+                                <div class="text-[10px] text-slate-400 mt-1">App + Libs</div>
+                            </div>
+                        </div>
+                        <div class="bg-docker/20 text-docker text-xs font-mono py-2 rounded-lg border border-docker/40">
+                            Shared Host Linux Kernel 🧠
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-6 space-y-4 text-sm text-slate-300">
+                    <h3 class="text-xl font-bold text-white">Ciri-Ciri Penting Container:</h3>
+                    <ul class="space-y-3 list-disc list-inside">
+                        <li> Setia container membawa <strong class="text-white">application</strong>, <strong class="text-white">dependencies</strong>, dan <strong class="text-white">configurations</strong> sendiri.</li>
+                        <li><strong class="text-container">Berkongsi Host Kernel:</strong> Berbeza dengan Virtual Machine, container tidak membawa Kernel OS tersendiri.</li>
+                        <li><strong class="text-network">Proses Ringan:</strong> Dianggap sebagai satu proses terasing (*isolated process*) biasa pada server host.</li>
+                        <li><strong class="text-storage">Ephemere (Sementara):</strong> Perubahan fail secara binaan dalam container adalah bersifat sementara melainkan disimpan menggunakan Volume.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 5: DOCKER VS VIRTUAL MACHINE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">05.</span> <span>Docker vs Virtual Machine (VM)</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- VM Stack -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                    <h3 class="text-center font-bold text-purple-400 text-base">Virtual Machine (Sukar & Berat)</h3>
+                    <div class="space-y-1.5 font-mono text-xs text-center">
+                        <div class="p-2 bg-purple-950/80 border border-purple-800 text-purple-200 rounded">App A | App B | App C</div>
+                        <div class="p-2 bg-purple-900/40 border border-purple-700/50 text-purple-300 rounded">Guest OS (Ubuntu/Windows ~GBs)</div>
+                        <div class="p-2 bg-slate-800 text-slate-300 rounded">Hypervisor (Proxmox/ESXi/VirtualBox)</div>
+                        <div class="p-2 bg-slate-850 text-slate-400 rounded">Host OS</div>
+                        <div class="p-2 bg-slate-950 text-slate-500 rounded border border-slate-800">Hardware</div>
+                    </div>
+                    <p class="text-xs text-slate-400 pt-2">
+                        VM mensimulasikan perkakasan komputer secara penuh. Memerlukan memori (RAM) dan storan yang besar bagi setiap Guest OS.
+                    </p>
+                </div>
+
+                <!-- Docker Stack -->
+                <div class="bg-slate-900 border border-docker/40 rounded-xl p-5 space-y-3 glow-docker">
+                    <h3 class="text-center font-bold text-docker text-base">Docker Container (Pantas & Ringan)</h3>
+                    <div class="space-y-1.5 font-mono text-xs text-center">
+                        <div class="p-2 bg-docker/20 border border-docker/50 text-docker font-bold rounded">App A | App B | App C</div>
+                        <div class="p-2 bg-cyan-950/80 border border-cyan-700 text-cyan-300 font-bold rounded">Docker Engine 🐳</div>
+                        <div class="p-2 bg-slate-850 text-slate-300 rounded">Host OS (Shared Kernel)</div>
+                        <div class="p-2 bg-slate-950 text-slate-500 rounded border border-slate-800">Hardware</div>
+                    </div>
+                    <p class="text-xs text-slate-300 pt-2">
+                        Container hanya mengandungi kod & kebergantungan sahaja. Tiada overhead Guest OS, saiz lebih kecil (MBs) & boot dalam saat!
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-200 flex items-center space-x-2">
+                <span>💡</span>
+                <span><strong>Nota Penting:</strong> Walaupun container lebih ringan, jangan klaim container sentiasa lebih selamat atau menggantikan VM dalam semua keadaan. Kedua-duanya ada kegunaan tersendiri.</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 6: IMAGE VS CONTAINER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">06.</span> <span>Image vs Container (Konsep Utama!)</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6 items-stretch">
+                <!-- IMAGE -->
+                <div class="bg-slate-900 border border-blue-500/40 rounded-xl p-6 flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 font-mono text-xs rounded-md mb-2">TEMPLATE / BLUEPRINT</div>
+                        <h3 class="text-2xl font-bold text-white">📦 Docker Image</h3>
+                        <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+                            Fail imutabel (*read-only*) yang mengandungi kod, runtime, pustaka, dan tetapan untuk aplikasi.
+                        </p>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center font-mono text-sm text-blue-300">
+                        Analogi: 📖 <strong class="text-white">Resipi Masakan</strong>
+                    </div>
+                </div>
+
+                <!-- CONTAINER -->
+                <div class="bg-slate-900 border border-container/40 rounded-xl p-6 flex flex-col justify-between space-y-4 glow-cyan">
+                    <div>
+                        <div class="inline-block px-3 py-1 bg-container/20 text-container font-mono text-xs rounded-md mb-2">RUNNING INSTANCE</div>
+                        <h3 class="text-2xl font-bold text-white">▶️ Docker Container</h3>
+                        <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+                            Proses yang sedang berjalan (*writeable layer*) yang dijana secara langsung daripada sebuah Image.
+                        </p>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center font-mono text-sm text-container">
+                        Analogi: 🍲 <strong class="text-white">Hidangan yang Dihasilkan</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow Visual -->
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex items-center justify-center space-x-4 font-mono text-xs sm:text-sm">
+                <span class="text-blue-400 font-bold">Docker Image</span>
+                <span class="text-slate-500">─── <code>docker run</code> ───►</span>
+                <span class="text-container font-bold">Running Container</span>
+            </div>
+        </div>
+
+        <!-- SLIDE 7: DOCKER IMAGE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">07.</span> <span>Contoh Docker Image Popular</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Image sedia ada boleh dimuat turun terus dari registry rasmi iaitu <strong class="text-docker">Docker Hub (hub.docker.com)</strong>.</p>
+
+            <div class="grid sm:grid-cols-3 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3 hover:border-docker/50 transition">
+                    <div class="text-3xl">🌐</div>
+                    <h3 class="font-bold text-white font-mono">nginx</h3>
+                    <p class="text-xs text-slate-400">Web server pantas untuk menyajikan static HTML/JS atau reverse proxy.</p>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3 hover:border-docker/50 transition">
+                    <div class="text-3xl">🐍</div>
+                    <h3 class="font-bold text-white font-mono">python</h3>
+                    <p class="text-xs text-slate-400">Persekitaran runtime Python rasmi (Flask, Django, FastAPI).</p>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3 hover:border-docker/50 transition">
+                    <div class="text-3xl">🐘</div>
+                    <h3 class="font-bold text-white font-mono">postgres</h3>
+                    <p class="text-xs text-slate-400">Database server relational berskala besar yang sedia digunakan.</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 text-sm text-slate-300 space-y-2">
+                <div class="font-semibold text-white">Struktur Pengisian Image:</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-mono">
+                    <div class="bg-slate-950 p-2 rounded border border-slate-800 text-slate-400">📁 Filesystem (OS files)</div>
+                    <div class="bg-slate-950 p-2 rounded border border-slate-800 text-slate-400">⚙️ Metadata & Environment</div>
+                    <div class="bg-slate-950 p-2 rounded border border-slate-800 text-slate-400">📦 App Source Code</div>
+                    <div class="bg-slate-950 p-2 rounded border border-slate-800 text-slate-400">🚀 Entrypoint Command</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 8: CONTAINER LIFECYCLE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">08.</span> <span>Kitaran Hayat Container (Lifecycle)</span>
+            </h2>
+
+            <div class="bg-slate-900 p-6 rounded-xl border border-slate-800">
+                <div class="flex flex-wrap items-center justify-between gap-4 font-mono text-xs sm:text-sm text-center">
+                    <div class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 min-w-[100px]">
+                        <strong>Created</strong>
+                    </div>
+                    <div class="text-docker font-bold">➔</div>
+                    <div class="p-3 bg-green-500/20 border border-green-500 text-green-400 rounded-lg min-w-[100px] shadow-lg shadow-green-500/10">
+                        <strong>Running</strong>
+                    </div>
+                    <div class="text-docker font-bold">➔</div>
+                    <div class="p-3 bg-amber-500/20 border border-amber-500 text-amber-300 rounded-lg min-w-[100px]">
+                        <strong>Stopped</strong>
+                    </div>
+                    <div class="text-docker font-bold">➔</div>
+                    <div class="p-3 bg-red-500/20 border border-red-500 text-red-400 rounded-lg min-w-[100px]">
+                        <strong>Removed</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-sm text-slate-300">
+                <p>Setiap container melalui fasa-fasa ini secara dinamik:</p>
+                <div class="grid md:grid-cols-2 gap-4 text-xs">
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                        <span class="text-docker font-bold">docker run / start:</span>
+                        <p class="text-slate-400">Memulakan proses utama container.</p>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                        <span class="text-amber-400 font-bold">docker stop:</span>
+                        <p class="text-slate-400">Memberhentikan proses secara selamat (SIGTERM).</p>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                        <span class="text-green-400 font-bold">docker restart:</span>
+                        <p class="text-slate-400">Memulakan semula container (Stop + Start).</p>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                        <span class="text-red-400 font-bold">docker rm:</span>
+                        <p class="text-slate-400">Padam container dari memory & storage host.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 text-xs text-purple-300">
+                ⚠️ <strong>Peringatan Penting:</strong> Apabila container dipadam (Removed), semua data baru yang ditulis di dalamnya akan hilang! Ini sebabnya kita perlukan <strong class="text-white">Docker Volume</strong>.
+            </div>
+        </div>
+
+        <!-- SLIDE 9: COMMAND ASAS -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">09.</span> <span>Command Asas Docker CLI</span>
+            </h2>
+
+            <div class="space-y-3">
+                <!-- Command 1 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div class="font-mono text-sm text-docker flex items-center space-x-2">
+                        <span>$ docker --version</span>
+                    </div>
+                    <div class="text-xs text-slate-400">Menyemak versi Docker Engine yang terpasang pada host.</div>
+                </div>
+                <!-- Command 2 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div class="font-mono text-sm text-docker flex items-center space-x-2">
+                        <span>$ docker pull nginx</span>
+                    </div>
+                    <div class="text-xs text-slate-400">Muat turun Image 'nginx' daripada Docker Hub ke local storage.</div>
+                </div>
+                <!-- Command 3 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div class="font-mono text-sm text-docker flex items-center space-x-2">
+                        <span>$ docker images</span>
+                    </div>
+                    <div class="text-xs text-slate-400">Menyenaraikan semua Docker Image yang telah tersimpan.</div>
+                </div>
+                <!-- Command 4 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div class="font-mono text-sm text-docker flex items-center space-x-2">
+                        <span>$ docker ps</span>
+                    </div>
+                    <div class="text-xs text-slate-400">Menunjukkan container yang sedang **AKTIF / RUNNING** sahaja.</div>
+                </div>
+                <!-- Command 5 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <div class="font-mono text-sm text-docker flex items-center space-x-2">
+                        <span>$ docker ps -a</span>
+                    </div>
+                    <div class="text-xs text-slate-400">Menunjukkan **SEMUA** container (termasuk yang Stopped/Exited).</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 10: CONTAINER PERTAMA -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">10.</span> <span>Menjalankan Container Pertama</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Mari jalankan web server Nginx pertama kita menggunakan command ini:</p>
+
+            <div class="relative bg-slate-900 border border-docker/50 rounded-xl p-5 glow-docker">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-mono text-slate-400">Terminal Shell</span>
+                    <button onclick="copyCode(this, 'docker run -d --name my-nginx nginx')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-docker text-xs rounded font-mono flex items-center space-x-1 border border-slate-700 transition">
+                        <span>Salin Command</span>
+                    </button>
+                </div>
+                <pre class="text-docker font-mono text-sm md:text-base font-bold overflow-x-auto">docker run -d --name my-nginx nginx</pre>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                <h3 class="font-bold text-slate-200 text-sm border-b border-slate-800 pb-2">Pembedahan Flag Command:</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                        <span class="text-docker font-bold">docker run</span>
+                        <p class="text-slate-400 font-sans mt-1">Cipta container baru dan terus menjalankannya.</p>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                        <span class="text-cyan-400 font-bold">-d (detached mode)</span>
+                        <p class="text-slate-400 font-sans mt-1">Jalankan di latar belakang (*background*), terminal tidak terkunci.</p>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                        <span class="text-green-400 font-bold">--name my-nginx</span>
+                        <p class="text-slate-400 font-sans mt-1">Berikan nama unik 'my-nginx' kepada container ini.</p>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                        <span class="text-purple-400 font-bold">nginx</span>
+                        <p class="text-slate-400 font-sans mt-1">Nama Image yang digunakan (dimuat turun secara automatik jika tiada).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 11: CHECK CONTAINER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">11.</span> <span>Semak Status Container</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Gunakan command <code class="text-docker bg-slate-900 px-2 py-0.5 rounded font-mono">docker ps</code> untuk melihat output status:</p>
+
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto">
+                <pre class="text-xs text-emerald-400 font-mono leading-relaxed">
+CONTAINER ID   IMAGE     COMMAND                  CREATED         STATUS         PORTS     NAMES
+a1b2c3d4e5f6   nginx     "/docker-entrypoint.…"   2 minutes ago   Up 2 minutes   80/tcp    my-nginx
+                </pre>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-4 text-xs">
+                <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                    <span class="text-white font-bold font-mono">STATUS: Up 2 minutes</span>
+                    <p class="text-slate-400">Menunjukkan container sedang aktif tanpa sebarang sebarang ralat (*crash*).</p>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                    <span class="text-white font-bold font-mono">PORTS: 80/tcp</span>
+                    <p class="text-slate-400">Nginx dalam container menggunakan port internal 80. (Belum terdedah kepada host!)</p>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-1">
+                    <span class="text-white font-bold font-mono">docker ps -a</span>
+                    <p class="text-slate-400">Gunakan `-a` jika anda mahu lihat container yang gagal dibuka (*exited*).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 12: PORT MAPPING -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">12.</span> <span>Docker Port Mapping (-p)</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Untuk membolehkan browser mengakses aplikasi dalam container, kita mesti membuat **Port Mapping**.</p>
+
+            <div class="bg-slate-900 border border-docker/40 rounded-xl p-4 font-mono text-sm text-docker">
+                $ docker run -d <span class="text-amber-400 font-bold">-p 8080:80</span> --name web nginx
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                <div class="flex items-center justify-center space-x-2 text-sm font-mono text-center">
+                    <span class="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg">Host Port: 8080</span>
+                    <span class="text-slate-500">:</span>
+                    <span class="px-3 py-1 bg-container/20 text-container border border-container/40 rounded-lg">Container Port: 80</span>
+                </div>
+
+                <!-- Visual Diagram Flow -->
+                <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-xs space-y-2 text-center">
+                    <div class="flex justify-around items-center text-slate-300">
+                        <span>🌐 Web Browser</span>
+                        <span>➔</span>
+                        <span><code>http://localhost:8080</code></span>
+                    </div>
+                    <div class="text-docker">↓</div>
+                    <div class="flex justify-around items-center text-amber-400">
+                        <span>Server Host Port :8080</span>
+                        <span>➔</span>
+                        <span>Docker Engine Bridge</span>
+                    </div>
+                    <div class="text-docker">↓</div>
+                    <div class="flex justify-around items-center text-container font-bold">
+                        <span>Container Nginx Port :80</span>
+                        <span>➔</span>
+                        <span>Menerima HTTP Request! ✅</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 13: PORT MAPPING VS PORT FORWARDING -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">13.</span> <span>Port Mapping ≠ Router Port Forwarding</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Router Port Forwarding -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                    <h3 class="font-bold text-orange-400 text-sm flex items-center space-x-2">
+                        <span>📡 Router Port Forwarding</span>
+                    </h3>
+                    <p class="text-xs text-slate-300">Menghubungkan trafik awam luar (*Public Internet*) menerusi Router ke server tempatan anda.</p>
+                    <pre class="bg-slate-950 p-3 rounded text-[11px] text-orange-300 font-mono leading-relaxed border border-slate-800">
+Internet
+  ↓ (Public IP)
+Router House
+  ↓ (Port Forwarding 80->8080)
+Server Laptop (Private IP)
+                    </pre>
+                </div>
+
+                <!-- Docker Port Mapping -->
+                <div class="bg-slate-900 border border-docker/40 rounded-xl p-5 space-y-3 glow-docker">
+                    <h3 class="font-bold text-docker text-sm flex items-center space-x-2">
+                        <span>🐳 Docker Port Mapping</span>
+                    </h3>
+                    <p class="text-xs text-slate-300">Menghubungkan port pada Server Host tempatan ke port dalaman Container terasing.</p>
+                    <pre class="bg-slate-950 p-3 rounded text-[11px] text-docker font-mono leading-relaxed border border-slate-800">
+Server Host Port :8080
+  ↓ (Docker Port Mapping)
+Docker Internal Network
+  ↓
+Container Nginx Port :80
+                    </pre>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs text-slate-300">
+                💡 <strong>Kesimpulan:</strong> Docker Port Mapping beroperasi di dalam mesin host sahaja. Ia tidak membuka port ke internet secara automatik tanpa persediaan Network Router atau Tunnel.
+            </div>
+        </div>
+
+        <!-- SLIDE 14: TEST WEB SERVER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">14.</span> <span>Menguji Web Server Nginx</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Buka pelayar web (*browser*) anda dan navigasi ke:</p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center font-mono text-xl text-green-400">
+                http://localhost:8080
+            </div>
+
+            <!-- Simulated Browser UI -->
+            <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+                <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center space-x-2">
+                    <div class="flex space-x-1.5">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <div class="bg-slate-950 px-3 py-1 rounded text-xs font-mono text-slate-300 flex-1 text-center border border-slate-800">
+                        http://localhost:8080
+                    </div>
+                </div>
+                <div class="p-8 bg-slate-950 text-center space-y-4">
+                    <h3 class="text-2xl font-bold text-emerald-400">Welcome to nginx!</h3>
+                    <p class="text-xs text-slate-400 max-w-md mx-auto">
+                        If you see this page, the nginx web server is successfully installed and working inside your Docker container.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 15: CONTAINER ISOLATION -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">15.</span> <span>Pengasingan Container (Container Isolation)</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Setiap perkhidmatan berjalan secara bebas tanpa menggangu fail sistem host:</p>
+
+            <div class="border-2 border-dashed border-slate-800 rounded-2xl p-6 bg-slate-900/50 space-y-4">
+                <div class="text-xs font-mono text-slate-400 uppercase tracking-wider text-center">Docker Host Machine</div>
+
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-container/40 space-y-2">
+                        <div class="text-xs font-bold text-container font-mono">🌐 Web Container</div>
+                        <div class="text-[11px] text-slate-400">Nginx Server</div>
+                        <div class="text-[10px] font-mono text-slate-500 bg-slate-900 p-1 rounded">OS: Alpine Linux</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-green-500/40 space-y-2">
+                        <div class="text-xs font-bold text-green-400 font-mono">⚡ API Container</div>
+                        <div class="text-[11px] text-slate-400">Python FastAPI</div>
+                        <div class="text-[10px] font-mono text-slate-500 bg-slate-900 p-1 rounded">OS: Debian Slim</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-purple-500/40 space-y-2">
+                        <div class="text-xs font-bold text-purple-400 font-mono">🗄️ Database Container</div>
+                        <div class="text-[11px] text-slate-400">PostgreSQL DB</div>
+                        <div class="text-[10px] font-mono text-slate-500 bg-slate-900 p-1 rounded">OS: Ubuntu Minimal</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400 text-center">
+                Jika Web Container mengalami masalah atau dijangkiti ralat, API & Database Container tetap berjalan dengan aman!
+            </p>
+        </div>
+
+        <!-- SLIDE 16: VOLUME -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">16.</span> <span>Storan Kekal: Docker Volume</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="bg-slate-900 border border-red-500/30 p-5 rounded-xl space-y-3">
+                    <h3 class="font-bold text-red-400 text-sm">❌ Masalah Data Sementara</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Secara lalai, sebarang fail baru yang ditulis di dalam container disimpan dalam lapisan sementara (*ephemeral layer*).
+                    </p>
+                    <div class="bg-slate-950 p-3 rounded font-mono text-xs text-red-300 border border-slate-800">
+                        Container Removed ➔ ALL DATA DELETED! 💥
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-purple-500/40 p-5 rounded-xl space-y-3 glow-purple">
+                    <h3 class="font-bold text-purple-400 text-sm">✅ Penyelesaian: Docker Volume</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Volume mengasingkan direktori simpanan fail terus ke dalam sistem fail Host Server.
+                    </p>
+                    <div class="bg-slate-950 p-3 rounded font-mono text-xs text-purple-300 border border-slate-800">
+                        Container Removed ➔ Data Volume Remains Safe! 🛡️
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 17: VOLUME CONCEPT -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">17.</span> <span>Konsep & Visualisasi Volume</span>
+            </h2>
+
+            <!-- Architecture diagram Volume -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl flex flex-col items-center space-y-4">
+                <div class="w-full max-w-md bg-slate-950 border border-container/40 p-4 rounded-xl text-center">
+                    <span class="text-xs font-mono text-container font-bold">📦 Container Database (PostgreSQL)</span>
+                    <div class="text-[10px] text-slate-400 mt-1">Path: <code>/var/lib/postgresql/data</code></div>
+                </div>
+
+                <div class="text-purple-400 text-xl font-bold animate-pulse">↓ Volume Mount (-v)</div>
+
+                <div class="w-full max-w-md bg-purple-950/40 border border-purple-500/50 p-4 rounded-xl text-center glow-purple">
+                    <span class="text-xs font-mono text-purple-300 font-bold">💾 Docker Volume (Host Storage)</span>
+                    <div class="text-[10px] text-slate-400 mt-1">Path: <code>/var/lib/docker/volumes/db_data</code></div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-300 text-center">
+                Walaupun anda memadam atau mengemas kini (*upgrade*) container database, data perniagaan anda dalam Volume kekal utuh!
+            </p>
+        </div>
+
+        <!-- SLIDE 18: DOCKER NETWORK -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">18.</span> <span>Rangkaian Docker (Docker Network)</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Container dalam host yang sama boleh berkomunikasi antara satu sama lain melalui **User-Defined Bridge Network**.</p>
+
+            <div class="bg-slate-900 border border-network/40 p-6 rounded-xl space-y-4 glow-green">
+                <div class="text-xs font-mono text-network font-bold text-center">🌐 Docker Custom Network (my-network)</div>
+
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center space-y-1">
+                        <div class="text-xs font-bold text-white font-mono">Web Container</div>
+                        <div class="text-[10px] text-slate-400">IP Internal Docker</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center space-y-1">
+                        <div class="text-xs font-bold text-white font-mono">API Container</div>
+                        <div class="text-[10px] text-slate-400">IP Internal Docker</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center space-y-1">
+                        <div class="text-xs font-bold text-white font-mono">Database Container</div>
+                        <div class="text-[10px] text-slate-400">IP Internal Docker</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400">
+                Docker menyertakan pelayan **Internal DNS**. Anda tidak perlu menghafal alamat IP container yang sentiasa berubah!
+            </p>
+        </div>
+
+        <!-- SLIDE 19: CONTAINER-TO-CONTAINER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">19.</span> <span>Komunikasi Antara Container</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <h3 class="font-bold text-sm text-network">Gunakan Service / Container Name sebagai Hostname!</h3>
+                
+                <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="bg-slate-950 p-4 rounded-lg border border-red-500/30 space-y-1">
+                        <span class="text-red-400 font-bold">❌ SALAH (Jangan Gunakan localhost):</span>
+                        <div class="text-slate-400">DATABASE_HOST=localhost</div>
+                        <p class="text-[10px] text-slate-500 font-sans mt-2">`localhost` di dalam container merujuk kepada container itu sendiri, bukan host atau container lain.</p>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-lg border border-green-500/40 space-y-1">
+                        <span class="text-green-400 font-bold">✅ BETUL (Gunakan Service Name):</span>
+                        <div class="text-slate-200">DATABASE_HOST=<strong class="text-network">database</strong></div>
+                        <div class="text-slate-200">API_URL=http://<strong class="text-network">api:5000</strong></div>
+                        <p class="text-[10px] text-slate-400 font-sans mt-2">Docker DNS akan me-resolve nama container ke IP internal secara automatik.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 20: KENAPA LOCALHOST BERBEZA? -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">20.</span> <span>Misteri 'localhost' Dalam Container</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-6">
+                <!-- Visual comparison diagram -->
+                <div class="grid grid-cols-2 gap-4 text-center font-mono text-xs">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-700 space-y-2">
+                        <div class="text-docker font-bold">Container A (Web)</div>
+                        <div class="p-2 bg-slate-900 text-slate-300 rounded">localhost = Container A 🏠</div>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-700 space-y-2">
+                        <div class="text-purple-400 font-bold">Container B (API)</div>
+                        <div class="p-2 bg-slate-900 text-slate-300 rounded">localhost = Container B 🏠</div>
+                    </div>
+                </div>
+
+                <div class="text-center font-bold text-red-400 text-sm">
+                    Container A `localhost` ≠ Container B `localhost` ≠ Host Server `localhost`
+                </div>
+
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Setiap container mempunyai rangkaian loopback (`127.0.0.1` / `localhost`) tersendiri yang terasing. Oleh itu, panggilah perkhidmatan lain dengan <strong class="text-network">Nama Container / Service</strong> dalam network yang sama.
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 21: DOCKER COMPOSE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">21.</span> <span>Kenapa Kita Perlukan Docker Compose?</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-slate-900 border border-red-500/30 p-5 rounded-xl space-y-3">
+                    <h3 class="font-bold text-red-400 text-sm">❌ Tanpa Docker Compose</h3>
+                    <p class="text-xs text-slate-300">Anda perlu menaip banyak command CLI panjang satu per satu:</p>
+                    <pre class="bg-slate-950 p-3 rounded text-[10px] text-red-300 font-mono leading-relaxed overflow-x-auto border border-slate-800">
+docker network create my-net
+docker run -d --net my-net --name db postgres
+docker run -d --net my-net --name api -p 5000:5000 my-api
+docker run -d --net my-net --name web -p 8080:80 my-web
+                    </pre>
+                </div>
+
+                <div class="bg-slate-900 border border-docker/40 p-5 rounded-xl space-y-3 glow-docker">
+                    <h3 class="font-bold text-docker text-sm">✅ Dengan Docker Compose</h3>
+                    <p class="text-xs text-slate-300">Tentukan semua aplikasi dalam 1 fail deklaratif (`compose.yaml`):</p>
+                    <pre class="bg-slate-950 p-3 rounded text-[11px] text-docker font-mono leading-relaxed border border-slate-800">
+$ docker compose up -d
+                    </pre>
+                    <p class="text-xs text-slate-400">Satu command sahaja untuk melancarkan keseluruhan infrastructure multi-container!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 22: DOCKER COMPOSE FILE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">22.</span> <span>Struktur Fail compose.yaml</span>
+            </h2>
+
+            <div class="relative bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-mono text-slate-400">compose.yaml</span>
+                    <button onclick="copyCode(this, `services:\n  web:\n    image: nginx\n    ports:\n      - \"8080:80\"`)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-docker text-xs rounded font-mono border border-slate-700 transition">
+                        Salin YAML
+                    </button>
+                </div>
+                <pre class="text-xs sm:text-sm font-mono text-slate-200 leading-relaxed bg-slate-950 p-4 rounded-lg border border-slate-800">
+<span class="text-docker font-bold">services:</span>
+  <span class="text-container font-bold">web:</span>
+    <span class="text-amber-400">image:</span> nginx
+    <span class="text-network font-bold">ports:</span>
+      - <span class="text-green-300">"8080:80"</span>
+                </pre>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-xs">
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                    <strong class="text-docker">services:</strong>
+                    <p class="text-slate-400 mt-1">Senarai bekas perkhidmatan yang ingin dijalankan.</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                    <strong class="text-amber-400">image:</strong>
+                    <p class="text-slate-400 mt-1">Docker Image yang akan di-pull secara automatik.</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                    <strong class="text-network">ports:</strong>
+                    <p class="text-slate-400 mt-1">Pemetaan port host ke port container (`host:container`).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 23: MULTIPLE SERVICES -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">23.</span> <span>Multiple Services Dalam Compose</span>
+            </h2>
+
+            <div class="grid md:grid-cols-12 gap-6 items-center">
+                <div class="md:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs leading-relaxed text-slate-300 overflow-x-auto">
+                    <pre>
+<span class="text-docker font-bold">services:</span>
+  <span class="text-container font-bold">web:</span>
+    <span class="text-amber-400">image:</span> nginx
+    <span class="text-network">ports:</span>
+      - <span class="text-green-300 font-bold">"8080:80"</span>
+
+  <span class="text-green-400 font-bold">api:</span>
+    <span class="text-amber-400">image:</span> python:3.11
+    <span class="text-network">ports:</span>
+      - <span class="text-green-300 font-bold">"5000:5000"</span>
+
+  <span class="text-purple-400 font-bold">db:</span>
+    <span class="text-amber-400">image:</span> postgres:15
+                    </pre>
+                </div>
+
+                <div class="md:col-span-5 space-y-3">
+                    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+                        <div class="text-xs font-bold text-docker">🚀 Kelebihan Penting:</div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Docker Compose secara automatik akan mencipta **1 Rangkaian Khas (Network)** untuk ketiga-tiga perkhidmatan ini saling berhubung tanpa perlu konfigurasi IP manual.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 24: DOCKER COMPOSE FLOW -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">24.</span> <span>Aliran Kerja (Flow) Docker Compose</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <div class="flex items-center justify-between font-mono text-xs sm:text-sm text-center">
+                    <div class="p-3 bg-slate-800 text-slate-300 rounded-lg">📄 compose.yaml</div>
+                    <div class="text-docker">➔</div>
+                    <div class="p-3 bg-docker/20 text-docker border border-docker/40 rounded-lg font-bold">docker compose up -d</div>
+                    <div class="text-docker">➔</div>
+                    <div class="p-3 bg-green-500/20 text-green-400 border border-green-500/40 rounded-lg font-bold">All Services Active!</div>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 text-xs font-mono">
+                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-green-400 font-bold">$ docker compose up -d</span>
+                    <p class="text-slate-400 font-sans">Mencipta network, volume, dan melancarkan semua container mengikut hirarki.</p>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <span class="text-red-400 font-bold">$ docker compose down</span>
+                    <p class="text-slate-400 font-sans">Memberhentikan dan memadam container serta network secara bersih (clean up).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 25: MINI PROJECT 1 -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">25.</span> <span>Mini Project 1: Web Server Nginx</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-white">Objektif Practical:</h3>
+                    <span class="px-2.5 py-0.5 rounded text-[10px] font-mono bg-green-500/20 text-green-400 border border-green-500/40">Hands-on Beginner</span>
+                </div>
+
+                <ol class="text-xs text-slate-300 space-y-3 list-decimal list-inside">
+                    <li>Buka terminal anda dan jalankan command berikut:</li>
+                </ol>
+
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-xs text-docker flex items-center justify-between">
+                    <code>docker run -d -p 8080:80 --name my-web nginx</code>
+                    <button onclick="copyCode(this, 'docker run -d -p 8080:80 --name my-web nginx')" class="text-[10px] px-2 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Salin</button>
+                </div>
+
+                <ol start="2" class="text-xs text-slate-300 space-y-3 list-decimal list-inside">
+                    <li>Buka browser dan layari: <code class="text-green-400">http://localhost:8080</code></li>
+                    <li>Semak status log container:</li>
+                </ol>
+
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-xs text-docker flex items-center justify-between">
+                    <code>docker logs my-web</code>
+                    <button onclick="copyCode(this, 'docker logs my-web')" class="text-[10px] px-2 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Salin</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 26: MINI PROJECT 2 -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">26.</span> <span>Mini Project 2: Multiple Applications</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Menjalankan 3 aplikasi berlainan serentak pada port host berbeza:</p>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <div class="grid md:grid-cols-3 gap-4 text-center font-mono text-xs">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-container/40 space-y-2">
+                        <div class="text-container font-bold">🌐 Web App</div>
+                        <div class="text-slate-300">Port Host: <strong class="text-white">:8080</strong></div>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-green-500/40 space-y-2">
+                        <div class="text-green-400 font-bold">⚡ API App</div>
+                        <div class="text-slate-300">Port Host: <strong class="text-white">:5000</strong></div>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-purple-500/40 space-y-2">
+                        <div class="text-purple-400 font-bold">⚙️ Admin App</div>
+                        <div class="text-slate-300">Port Host: <strong class="text-white">:3000</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400">
+                Ketiga-tiga aplikasi berjalan harmoni dalam server yang sama tanpa pertindihan kebergantungan sistem (*zero OS pollution*)!
+            </p>
+        </div>
+
+        <!-- SLIDE 27: DOCKER + CLOUDFLARE TUNNEL -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">27.</span> <span>Docker + Cloudflare Tunnel</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Menghubungkan pembelajaran lepas (Cloudflare Tunnel) dengan Docker:</p>
+
+            <!-- Flow Cloudflare diagram -->
+            <div class="bg-slate-900 border border-cloudflare/40 p-6 rounded-xl space-y-4 glow-orange">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs font-mono text-center">
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-200">
+                        🌐 Public Internet<br><span class="text-cloudflare">app.domainbos.com</span>
+                    </div>
+                    <div class="text-cloudflare font-bold">➔</div>
+                    <div class="p-3 bg-cloudflare/20 text-cloudflare border border-cloudflare/50 rounded font-bold">
+                        Cloudflare Edge
+                    </div>
+                    <div class="text-cloudflare font-bold">➔ (Encrypted Tunnel)</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-200">
+                        📦 cloudflared container / host
+                    </div>
+                    <div class="text-docker font-bold">➔</div>
+                    <div class="p-3 bg-docker/20 text-docker border border-docker/50 rounded font-bold">
+                        📦 Nginx Container (:80)
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400">
+                Anda <strong class="text-white">tidak perlu router port forwarding</strong> atau mendedahkan Public IP rumah anda untuk menyiarkan aplikasi Docker ke internet secara selamat!
+            </p>
+        </div>
+
+        <!-- SLIDE 28: DOCKER + NGROK -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">28.</span> <span>Alternatif Tunnel: Docker + ngrok</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Untuk ujian pantas / demonstrasi sementara:</p>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+                <div class="font-mono text-xs text-docker bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    $ ngrok http 8080
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-lg font-mono text-xs text-slate-300 space-y-2">
+                    <div class="text-green-400">Forwarding: https://abc1234.ngrok-free.app ➔ http://localhost:8080</div>
+                    <div class="text-docker">Localhost :8080 ➔ Docker Nginx Container :80</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 29: FULL ARCHITECTURE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">29.</span> <span>Seni Bina Penuh (Full Architecture)</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <pre class="bg-slate-950 p-4 rounded-xl text-[11px] sm:text-xs text-docker font-mono leading-relaxed overflow-x-auto border border-slate-800 text-center">
+                   INTERNET 🌐
+                       ↓
+               CLOUDFLARE TUNNEL 🚀
+                       ↓
+              DOCKER HOST SERVER 🖥️
+                       ↓
+     ┌─────────────────┼─────────────────┐
+     ↓                 ↓                 ↓
+ WEB Container     API Container     ADMIN Container
+   (:8080)           (:5000)           (:3000)
+                       ↓
+               DATABASE Container
+                       ↓
+                STORAGE VOLUME 💾
+                </pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 30: MULTIPLE DOMAINS -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">30.</span> <span>Pengurusan Multiple Subdomain</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <div class="grid md:grid-cols-3 gap-4 font-mono text-xs">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-cloudflare/40 space-y-2">
+                        <div class="text-cloudflare font-bold">app.domainbos.com</div>
+                        <div class="text-slate-500">Cloudflare Tunnel Route</div>
+                        <div class="text-container font-bold border-t border-slate-800 pt-1">➔ Web Container (:8080)</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-cloudflare/40 space-y-2">
+                        <div class="text-cloudflare font-bold">api.domainbos.com</div>
+                        <div class="text-slate-500">Cloudflare Tunnel Route</div>
+                        <div class="text-green-400 font-bold border-t border-slate-800 pt-1">➔ API Container (:5000)</div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-cloudflare/40 space-y-2">
+                        <div class="text-cloudflare font-bold">admin.domainbos.com</div>
+                        <div class="text-slate-500">Cloudflare Tunnel Route</div>
+                        <div class="text-purple-400 font-bold border-t border-slate-800 pt-1">➔ Admin Container (:3000)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 31: SECURITY -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">31.</span> <span>Asas Keselamatan (Docker Security)</span>
+            </h2>
+
+            <div class="bg-red-500/10 border border-red-500/30 p-4 rounded-xl text-xs text-red-300">
+                ⚠️ <strong>AMARAN:</strong> Pengasingan Container bukanlah jaminan keselamatan mutlak (*absolute security guarantee*).
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold">✓ HTTPS / SSL</div>
+                    <p class="text-slate-400">Enkripsi semua trafik luar.</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold">✓ Firewall (UFW)</div>
+                    <p class="text-slate-400">Tutup port yang tidak perlu.</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold">✓ Kemaskini Image</div>
+                    <p class="text-slate-400">Pull imej tampalan (*security patch*).</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <div class="text-emerald-400 font-bold">✓ Non-root User</div>
+                    <p class="text-slate-400">Jalankan app tanpa kebenaran root.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 32: DATABASE SECURITY -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">32.</span> <span>Keselamatan Pangkalan Data (Database)</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-slate-900 border border-red-500/30 p-5 rounded-xl space-y-3">
+                    <h3 class="font-bold text-red-400 text-sm">❌ BAHAYA (Expose DB Port)</h3>
+                    <pre class="bg-slate-950 p-3 rounded text-xs text-red-300 font-mono border border-slate-800">
+db:
+  image: postgres
+  ports:
+    - "5432:5432" # ⚠️ Terdedah ke awam!
+                    </pre>
+                    <p class="text-xs text-slate-400">Penggodam di luar boleh cuba me-bruteforce kata laluan database anda.</p>
+                </div>
+
+                <div class="bg-slate-900 border border-green-500/40 p-5 rounded-xl space-y-3 glow-green">
+                    <h3 class="font-bold text-green-400 text-sm">✅ SELAMAT (Internal Network Only)</h3>
+                    <pre class="bg-slate-950 p-3 rounded text-xs text-green-300 font-mono border border-slate-800">
+db:
+  image: postgres
+  # Tiada bahagian 'ports:'!
+                    </pre>
+                    <p class="text-xs text-slate-300">Database hanya boleh dicapai oleh API Container di dalam Docker Network internal sahaja.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 33: ENVIRONMENT VARIABLES -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">33.</span> <span>Pengurusan Secret (Environment Variables)</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm"><strong class="text-red-400">JANGAN SEKALI-KALI</strong> meletakkan kata laluan atau API Key secara hardcode dalam fail kod!</p>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 font-mono text-xs">
+                <div class="text-slate-400">// Gunakan fail .env atau placeholder:</div>
+                <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 text-amber-300 space-y-2">
+                    <div>DATABASE_URL=&lt;DATABASE_URL&gt;</div>
+                    <div>SECRET_KEY=&lt;API_KEY&gt;</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 34: LOGGING -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">34.</span> <span>Semakan Log (Troubleshooting)</span>
+            </h2>
+
+            <p class="text-slate-300 text-sm">Apabila aplikasi terhenti atau mengalami ralat, log ialah kawan terbaik anda:</p>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+                <div class="bg-slate-950 p-3 rounded-lg font-mono text-xs text-docker border border-slate-800">
+                    $ docker logs -f &lt;CONTAINER_NAME&gt;
+                </div>
+                <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                    <li>Guna flag <code class="text-docker">-f</code> untuk melihat log secara masa nyata (*real-time live stream*).</li>
+                    <li>Membantu mengesan masalah ralat sambungan DB, Port conflict, atau sintaks kod.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SLIDE 35: RESOURCE MANAGEMENT -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">35.</span> <span>Pengurusan Sumber (Resource Limits)</span>
+            </h2>
+
+            <blockquote class="bg-slate-900 border-l-4 border-amber-400 p-4 rounded-r-xl text-slate-200 text-sm italic">
+                "Container bukan kotak ajaib (*magic box*). Ia masih berkongsi CPU, RAM, dan Disk Host."
+            </blockquote>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3">
+                <div class="font-mono text-xs text-docker bg-slate-950 p-3 rounded border border-slate-800">
+                    $ docker stats
+                </div>
+                <p class="text-xs text-slate-400">Pantau penggunaan sumber CPU & Memory secara langsung untuk memastikan server tidak kehabisan RAM (*Out Of Memory Crash*).</p>
+            </div>
+        </div>
+
+        <!-- SLIDE 36: DOCKER PADA RASPBERRY PI -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">36.</span> <span>Docker Pada Raspberry Pi (Home Lab)</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6 items-center">
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3">
+                    <div class="text-4xl">🍓</div>
+                    <h3 class="font-bold text-white">Home Lab Berkuasa Rendah</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Raspberry Pi 4 / 5 bertukar menjadi pelayan server rumah 24/7 yang hebat menggunakan Docker!
+                    </p>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl font-mono text-xs text-slate-300 space-y-2">
+                    <div class="text-docker font-bold">🍓 Raspberry Pi (Docker Host)</div>
+                    <div class="pl-4">├── 📦 Pi-hole (Ad Blocker)</div>
+                    <div class="pl-4">├── 📦 Nextcloud (Personal Cloud)</div>
+                    <div class="pl-4">├── 📦 Home Assistant (Smart Home)</div>
+                    <div class="pl-4">└── 📦 Cloudflare Tunnel</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 37: DEVELOPMENT VS PRODUCTION -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">37.</span> <span>Development vs Production Deployment</span>
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3">
+                    <h3 class="font-bold text-cyan-400 text-sm">💻 Development (Local Laptop)</h3>
+                    <ul class="text-xs text-slate-400 space-y-2 list-disc list-inside">
+                        <li>Fokus pada kepantasan pembangunan.</li>
+                        <li>Expose port ke `localhost`.</li>
+                        <li>Gunakan Bind Mounts untuk live-reload kod.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-900 border border-docker/40 p-5 rounded-xl space-y-3 glow-docker">
+                    <h3 class="font-bold text-docker text-sm">🚀 Production (VPS / Server / Pi)</h3>
+                    <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                        <li>Fokus keselamatan, kestabilan & backup.</li>
+                        <li>Gunakan Reverse Proxy / Cloudflare Tunnel.</li>
+                        <li>Automated Restart Policy (`restart: always`).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 38: BACKUP -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">38.</span> <span>Strategi Backup Storan</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-purple-500/30 p-6 rounded-xl space-y-4">
+                <blockquote class="text-center font-bold text-purple-300 text-sm">
+                    "Container boleh dibina semula dalam beberapa saat, tetapi DATA perniagaan anda tidak boleh diganti jika hilang!"
+                </blockquote>
+
+                <div class="grid grid-cols-3 gap-3 text-center text-xs">
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-slate-300">
+                        💾 Volume Data
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-slate-300">
+                        🗄️ Database Dump (.sql)
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-slate-300">
+                        📄 compose.yaml & .env
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 39: COMMON MISTAKES -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">39.</span> <span>Kesilapan Lazim Pemula (Common Mistakes)</span>
+            </h2>
+
+            <div class="grid sm:grid-cols-2 gap-3 text-xs">
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Menganggap Container sama persis seperti Virtual Machine.</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Menggunakan `localhost` untuk berhubung ke container lain.</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Lupa menggunakan Volume untuk menyimpan data kekal.</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Mendedahkan (expose) port database terus ke Internet.</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Menulis kata laluan rahsia secara terus dalam kod.</span>
+                </div>
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-red-500/30 text-slate-300 flex items-start space-x-2">
+                    <span class="text-red-400 font-bold">❌</span>
+                    <span>Tidak membuat salinan sandaran (backup) berkala.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 40: COMMAND CHEAT SHEET -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">40.</span> <span>Docker Command Cheat Sheet</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 max-h-[400px] overflow-y-auto space-y-2 font-mono text-xs">
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker run -d -p 8080:80 --name &lt;NAME&gt; &lt;IMAGE&gt;</span>
+                    <span class="text-slate-500 text-[10px]">Cipta & Jalankan</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker ps / docker ps -a</span>
+                    <span class="text-slate-500 text-[10px]">Senaraikan Container</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker stop &lt;CONTAINER&gt; / docker start &lt;CONTAINER&gt;</span>
+                    <span class="text-slate-500 text-[10px]">Hentikan / Mulakan</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker logs &lt;CONTAINER&gt;</span>
+                    <span class="text-slate-500 text-[10px]">Lihat Paparan Log</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker rm &lt;CONTAINER&gt; / docker rmi &lt;IMAGE&gt;</span>
+                    <span class="text-slate-500 text-[10px]">Padam Container / Image</span>
+                </div>
+                <div class="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800">
+                    <span class="text-docker">docker compose up -d / docker compose down</span>
+                    <span class="text-slate-500 text-[10px]">Compose Launch / Stop</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 41: MENTAL MODEL -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">41.</span> <span>Model Minda (Mental Model)</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl text-center space-y-4 font-mono text-xs sm:text-sm">
+                <div class="flex flex-wrap justify-center items-center gap-2 text-slate-300">
+                    <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded">IMAGE</span> ➔
+                    <span class="px-3 py-1 bg-container/20 text-container rounded">CONTAINER</span> ➔
+                    <span class="px-3 py-1 bg-amber-500/20 text-amber-300 rounded">PORT</span> ➔
+                    <span class="px-3 py-1 bg-network/20 text-network rounded">NETWORK</span> ➔
+                    <span class="px-3 py-1 bg-purple-500/20 text-purple-300 rounded">VOLUME</span> ➔
+                    <span class="px-3 py-1 bg-docker/20 text-docker rounded font-bold">COMPOSE</span>
+                </div>
+
+                <div class="text-docker font-bold text-lg pt-2">
+                    APPLICATION ➔ TUNNEL ➔ CLOUDFLARE ➔ INTERNET 🌐
+                </div>
+
+                <p class="text-xs text-slate-400 font-sans italic">
+                    "Ini ialah asas seni bina self-hosting moden menggunakan kontena."
+                </p>
+            </div>
+        </div>
+
+        <!-- SLIDE 42: ROADMAP SELEPAS DOCKER -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">42.</span> <span>Langkah Seterusnya (Roadmap)</span>
+            </h2>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs font-mono">
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-docker">1. Docker Basics ✅</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">2. Linux Server OS</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">3. Raspberry Pi Lab</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">4. Reverse Proxy</div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs font-mono">
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">5. Hardened Security</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">6. Monitoring & Logs</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-slate-300">7. Automated Backup</div>
+                    <div class="p-3 bg-slate-950 rounded border border-slate-800 text-green-400 font-bold">8. Production 🚀</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 43: QUIZ INTERAKTIF -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">43.</span> <span>Kuiz Uji Kefahaman</span>
+            </h2>
+
+            <div class="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                <!-- Soalan 1 -->
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-200">1. Adakah Image dan Container perkara yang sama?</h3>
+                    <div class="flex space-x-3 text-xs">
+                        <button onclick="checkQuiz(1, true, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">Ya, sama</button>
+                        <button onclick="checkQuiz(1, false, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">Tidak, Image = Template, Container = Instance</button>
+                    </div>
+                    <div id="quiz-ans-1" class="hidden text-xs p-2 rounded"></div>
+                </div>
+
+                <!-- Soalan 2 -->
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-200">2. Jika Container guna port internal 80 dan Host port 8080, apakah sintaks `-p`?</h3>
+                    <div class="flex space-x-3 text-xs">
+                        <button onclick="checkQuiz(2, false, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">-p 80:8080</button>
+                        <button onclick="checkQuiz(2, true, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">-p 8080:80</button>
+                    </div>
+                    <div id="quiz-ans-2" class="hidden text-xs p-2 rounded"></div>
+                </div>
+
+                <!-- Soalan 3 -->
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+                    <h3 class="text-xs sm:text-sm font-bold text-slate-200">3. Adakah Docker Port Mapping sama dengan Router Port Forwarding?</h3>
+                    <div class="flex space-x-3 text-xs">
+                        <button onclick="checkQuiz(3, false, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">Ya, kedua-duanya sama</button>
+                        <button onclick="checkQuiz(3, true, this)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">Tidak, Port Mapping adalah untuk dalaman Host sahaja</button>
+                    </div>
+                    <div id="quiz-ans-3" class="hidden text-xs p-2 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 44: FINAL ARCHITECTURE -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center space-y-6">
+            <h2 class="text-3xl font-bold text-white flex items-center space-x-3">
+                <span class="text-docker">44.</span> <span>Seni Bina Komprehensif (Complete Stack)</span>
+            </h2>
+
+            <div class="border-2 border-red-500/30 rounded-2xl p-6 bg-slate-900/80 space-y-4 glow-docker relative">
+                <div class="absolute -top-3 left-6 px-3 py-0.5 bg-red-500/20 text-red-400 border border-red-500/40 rounded text-[10px] font-mono">
+                    🛡️ Security, Monitoring & Backup Perimeter
+                </div>
+
+                <pre class="bg-slate-950 p-4 rounded-xl text-[10px] sm:text-xs text-docker font-mono leading-relaxed overflow-x-auto text-center border border-slate-800">
+                      INTERNET 🌐
+                          ↓
+                  CLOUDFLARE TUNNEL 🚀
+                          ↓
+                 DOCKER HOST SERVER 🖥️
+                          ↓
+        ┌─────────────────┼─────────────────┐
+        ↓                 ↓                 ↓
+    WEB Container     API Container     ADMIN Container
+      (:8080)           (:5000)           (:3000)
+                          ↓
+                  DATABASE Container
+                          ↓
+                   STORAGE VOLUME 💾
+                </pre>
+            </div>
+        </div>
+
+        <!-- SLIDE 45: PENUTUP -->
+        <div class="slide w-full max-w-5xl h-full flex-col justify-center items-center text-center space-y-8">
+            <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+                "Docker Bukan Sekadar Menjalankan Container."
+            </h2>
+
+            <p class="text-slate-300 text-base sm:text-lg max-w-2xl leading-relaxed">
+                Docker membantu kita membina persekitaran yang lebih konsisten, mengasingkan aplikasi dan mengurus banyak perkhidmatan pada satu host dengan kemas.
+            </p>
+
+            <div class="flex flex-wrap justify-center items-center gap-2 font-mono text-xs text-docker">
+                <span>LOCAL SERVER</span> ➔ <span>DOCKER</span> ➔ <span>MULTIPLE APPS</span> ➔ <span>CLOUDFLARE TUNNEL</span> ➔ <span>SECURITY</span> ➔ <span class="text-green-400 font-bold">PRODUCTION</span>
+            </div>
+
+            <div class="bg-slate-900 border border-docker/40 p-6 rounded-2xl max-w-xl glow-docker">
+                <blockquote class="text-slate-200 text-sm sm:text-base font-medium italic">
+                    "Faham container. Faham network. Faham data.<br>Baru kita boleh bina server yang betul."
+                </blockquote>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Bar Navigation Controls -->
+    <footer class="h-14 border-t border-slate-800 bg-slate-950/90 backdrop-blur-md px-4 md:px-8 flex items-center justify-between z-30 flex-shrink-0">
+        <!-- Previous Button -->
+        <button id="btn-prev" onclick="prevSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 rounded-lg font-bold text-xs md:text-sm flex items-center space-x-2 border border-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span>Sebelumnya</span>
+        </button>
+
+        <!-- Slide Progress Bar -->
+        <div class="flex-1 max-w-xs mx-4 hidden sm:block">
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+                <div id="progress-bar" class="bg-gradient-to-r from-docker via-cyan-400 to-emerald-400 h-full w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Next Button -->
+        <button id="btn-next" onclick="nextSlide()" class="px-4 py-2 bg-docker hover:bg-docker-dark disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg font-bold text-xs md:text-sm flex items-center space-x-2 border border-docker/50 shadow-lg shadow-docker/20 transition">
+            <span>Seterusnya</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+    </footer>
+
+    <!-- Slide Overview Modal / Grid Drawer -->
+    <div id="overview-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex-col p-6 overflow-hidden">
+        <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                <span>🐳 Senarai Ringkasan Slide (1 - 45)</span>
+            </h2>
+            <button onclick="toggleOverviewModal()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <div id="overview-grid" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-4">
+            <!-- Dynamic Buttons generated by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        const totalSlides = 45;
+        let currentSlide = 1;
+
+        const slideTitles = [
+            "01. Tajuk Utama", "02. Kenapa Perlukan Docker?", "03. Apa Itu Docker?", "04. Anatomi Container",
+            "05. Docker vs VM", "06. Image vs Container", "07. Contoh Docker Image", "08. Kitaran Hayat Container",
+            "09. Command Asas CLI", "10. Container Pertama", "11. Semak Status Container", "12. Docker Port Mapping",
+            "13. Port Mapping vs Forwarding", "14. Uji Web Server", "15. Pengasingan Container", "16. Docker Volume",
+            "17. Konsep Storan Volume", "18. Rangkaian Docker", "19. Komunikasi Container", "20. Misteri Localhost",
+            "21. Docker Compose", "22. Fail compose.yaml", "23. Multiple Services", "24. Flow Docker Compose",
+            "25. Mini Project 1", "26. Mini Project 2", "27. Cloudflare Tunnel", "28. Docker + ngrok",
+            "29. Full Architecture", "30. Multiple Subdomain", "31. Asas Keselamatan", "32. Keselamatan Database",
+            "33. Environment Variables", "34. Semakan Log", "35. Pengurusan Sumber", "36. Docker + Raspberry Pi",
+            "37. Dev vs Production", "38. Strategi Backup", "39. Kesilapan Lazim", "40. Command Cheat Sheet",
+            "41. Model Minda", "42. Langkah Seterusnya", "43. Kuiz Interaktif", "44. Seni Bina Komprehensif", "45. Penutup"
+        ];
+
+        function showSlide(index) {
+            if (index < 1) index = 1;
+            if (index > totalSlides) index = totalSlides;
+
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach((slide, idx) => {
+                if (idx === index - 1) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            currentSlide = index;
+
+            // Update Counter
+            document.getElementById('slide-counter').innerText = `${currentSlide} / ${totalSlides}`;
+
+            // Update Progress Bar
+            const progressPercent = ((currentSlide - 1) / (totalSlides - 1)) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // Update Buttons disabled state
+            document.getElementById('btn-prev').disabled = (currentSlide === 1);
+            document.getElementById('btn-next').disabled = (currentSlide === totalSlides);
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                showSlide(currentSlide + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                showSlide(currentSlide - 1);
+            }
+        }
+
+        function toggleOverviewModal() {
+            const modal = document.getElementById('overview-modal');
+            if (modal.classList.contains('hidden')) {
+                renderOverviewGrid();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function renderOverviewGrid() {
+            const grid = document.getElementById('overview-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= totalSlides; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-3 rounded-xl border text-left text-xs transition flex flex-col justify-between h-20 font-mono ${
+                    i === currentSlide 
+                    ? 'bg-docker/20 border-docker text-docker font-bold shadow-lg' 
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-850'
+                }`;
+                btn.onclick = () => {
+                    showSlide(i);
+                    toggleOverviewModal();
+                };
+                btn.innerHTML = `
+                    <span class="text-[10px] text-slate-500 font-bold">SLIDE ${i}</span>
+                    <span class="truncate font-sans font-semibold">${slideTitles[i-1]}</span>
+                `;
+                grid.appendChild(btn);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'Home') {
+                showSlide(1);
+            } else if (e.key === 'End') {
+                showSlide(totalSlides);
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            } else if (e.key === 'Escape') {
+                const modal = document.getElementById('overview-modal');
+                if (!modal.classList.contains('hidden')) {
+                    toggleOverviewModal();
+                }
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function copyCode(btnElement, codeText) {
+            navigator.clipboard.writeText(codeText).then(() => {
+                const originalText = btnElement.innerText;
+                btnElement.innerText = '✅ Disalin!';
+                btnElement.classList.add('text-green-400', 'border-green-500');
+                setTimeout(() => {
+                    btnElement.innerText = originalText;
+                    btnElement.classList.remove('text-green-400', 'border-green-500');
+                }, 2000);
+            });
+        }
+
+        function checkQuiz(qNum, isCorrect, btnObj) {
+            const ansBox = document.getElementById(`quiz-ans-${qNum}`);
+            ansBox.classList.remove('hidden', 'bg-red-500/20', 'text-red-300', 'bg-green-500/20', 'text-green-300');
+            
+            if (isCorrect) {
+                ansBox.classList.add('bg-green-500/20', 'text-green-300', 'border', 'border-green-500/40');
+                ansBox.innerHTML = '<strong>✅ TEPAT!</strong> Jawapan anda betul.';
+            } else {
+                ansBox.classList.add('bg-red-500/20', 'text-red-300', 'border', 'border-red-500/40');
+                ansBox.innerHTML = '<strong>❌ KURANG TEPAT!</strong> Sila cuba lagi atau semak slaid penerangan.';
+            }
+        }
+
+        // Initialize presentation
+        showSlide(1);
+    </script>
+</body>
+</html>
