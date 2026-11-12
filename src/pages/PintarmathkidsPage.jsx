@@ -846,19 +846,27 @@ export default function PintarmathkidsPage() {
     setPaymentError('');
 
     try {
-      // Retrieve stored affiliate referral code (30-day Last-Click attribution)
+      // Retrieve affiliate referral code (Priority: URL query > LocalStorage > Cookie)
       let refCode = null;
       try {
-        const stored = localStorage.getItem('pmk_affiliate_attribution');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.ref && Date.now() <= parsed.expiresAt) {
-            refCode = parsed.ref;
+        const urlParams = new URLSearchParams(window.location.search);
+        const directRef = (urlParams.get('ref') || urlParams.get('aff') || urlParams.get('referral') || '').trim().toUpperCase();
+        if (directRef) {
+          refCode = directRef;
+        }
+
+        if (!refCode) {
+          const stored = localStorage.getItem('pmk_affiliate_attribution');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.ref && Date.now() <= parsed.expiresAt) {
+              refCode = parsed.ref;
+            }
           }
         }
         if (!refCode) {
           const match = document.cookie.match(/(?:^|;\s*)pmk_aff_ref=([^;]+)/);
-          if (match && match[1]) refCode = decodeURIComponent(match[1]);
+          if (match && match[1]) refCode = decodeURIComponent(match[1]).trim().toUpperCase();
         }
       } catch (e) {}
 
